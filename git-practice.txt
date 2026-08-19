@@ -1,2 +1,2 @@
 Jarvis Git Practice
-Person A changed this line.
+Person A and Person B both contributed.
