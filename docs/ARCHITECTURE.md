@@ -1,4 +1,4 @@
-\# Jarvis Architecture
+\# Xeren Architecture
 
 
 
@@ -6,7 +6,7 @@
 
 
 
-Jarvis is a real-time personal AI system that can understand natural language,
+Xeren is a real-time personal AI system that can understand natural language,
 
 reason about goals, use authorized tools, maintain memory, and execute tasks
 

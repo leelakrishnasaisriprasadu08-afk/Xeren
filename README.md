@@ -1,11 +1,11 @@
-# Jarvis
+# Xeren
 
-Jarvis is a long-term personal AI system designed to become a real-time,
+Xeren is a long-term personal AI system designed to become a real-time,
 secure and extensible AI platform.
 
 ## Vision
 
-Jarvis will eventually combine:
+Xeren will eventually combine:
 
 - Natural conversation
 - Reasoning and planning
