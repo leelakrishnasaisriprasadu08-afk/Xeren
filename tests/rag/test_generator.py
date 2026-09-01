@@ -1,5 +1,4 @@
 """Unit and integration tests for GroundedGenerator and GroundedAnswer."""
-
 import pytest
 
 from xeren.models.config import ModelConfig

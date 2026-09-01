@@ -56,3 +56,86 @@ def test_composite_reranker(scored_results: list[SearchResult]) -> None:
     reranked = composite.rerank("query", scored_results)
     assert len(reranked) == 2
     assert [r.chunk.chunk_id for r in reranked] == ["c3", "c1"]
+
+
+# ---------------------------------------------------------------------------
+# LocalReranker tests
+# ---------------------------------------------------------------------------
+
+def test_local_reranker_reordering_by_joint_relevance() -> None:
+    from xeren.rag.rerankers.local import LocalReranker
+
+    # c_scattered had high first-stage retrieval score (0.85) but weak phrase cohesion
+    c_scattered = DocumentChunk(
+        chunk_id="chunk-scattered",
+        document_id="doc-1",
+        content="Distributed computing networks sometimes use a consensus protocol.",
+        chunk_index=0,
+        metadata={"title": "General Computing"},
+    )
+    # c_exact had lower first-stage retrieval score (0.45) but exact phrase & header match
+    c_exact = DocumentChunk(
+        chunk_id="chunk-exact",
+        document_id="doc-2",
+        content="Raft is a distributed consensus algorithm providing fault tolerance.",
+        chunk_index=0,
+        metadata={"title": "Raft Consensus", "header_path": "Architecture > Consensus"},
+    )
+
+    r_scattered = SearchResult(chunk=c_scattered, score=0.85, retrieval_type="dense")
+    r_exact = SearchResult(chunk=c_exact, score=0.45, retrieval_type="dense")
+
+    reranker = LocalReranker()
+    query = "Raft distributed consensus algorithm"
+    reranked = reranker.rerank(query, [r_scattered, r_exact])
+
+    assert len(reranked) == 2
+    # Exact phrase and header match chunk must be promoted to rank 1
+    assert reranked[0].chunk.chunk_id == "chunk-exact"
+    assert reranked[1].chunk.chunk_id == "chunk-scattered"
+
+    # All output scores must be calibrated in [0.0, 1.0]
+    assert all(0.0 <= r.score <= 1.0 for r in reranked)
+    assert reranked[0].retrieval_type == "reranked"
+
+
+def test_local_reranker_top_n_and_empty() -> None:
+    from xeren.rag.rerankers.local import LocalReranker
+
+    c1 = DocumentChunk(chunk_id="c1", document_id="d1", content="Python programming language", chunk_index=0)
+    c2 = DocumentChunk(chunk_id="c2", document_id="d1", content="Rust memory safety", chunk_index=1)
+    c3 = DocumentChunk(chunk_id="c3", document_id="d1", content="Java virtual machine", chunk_index=2)
+
+    results = [
+        SearchResult(chunk=c1, score=0.9),
+        SearchResult(chunk=c2, score=0.8),
+        SearchResult(chunk=c3, score=0.7),
+    ]
+
+    reranker = LocalReranker()
+
+    # top_n truncation
+    reranked = reranker.rerank("Python programming", results, top_n=2)
+    assert len(reranked) == 2
+    assert reranked[0].chunk.chunk_id == "c1"
+
+    # empty results
+    assert reranker.rerank("Python", []) == []
+
+    # empty query preserves candidates up to top_n
+    assert len(reranker.rerank("", results, top_n=2)) == 2
+
+
+@pytest.mark.asyncio
+async def test_local_reranker_async() -> None:
+    from xeren.rag.rerankers.local import LocalReranker
+
+    c1 = DocumentChunk(chunk_id="c1", document_id="d1", content="Machine learning models", chunk_index=0)
+    r1 = SearchResult(chunk=c1, score=0.7)
+
+    reranker = LocalReranker()
+    reranked = await reranker.arerank("Machine learning", [r1])
+
+    assert len(reranked) == 1
+    assert reranked[0].chunk.chunk_id == "c1"
+    assert 0.0 <= reranked[0].score <= 1.0

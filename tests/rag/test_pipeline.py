@@ -56,3 +56,137 @@ def test_pipeline_process_directory(tmp_path: Path) -> None:
     contents = {c.content for c in chunks}
     assert any("Hello text file 1" in c for c in contents)
     assert any("# Hello markdown file 2" in c for c in contents)
+
+
+def test_pipeline_index_text_and_search() -> None:
+    from xeren.rag.embeddings.providers.mock import MockEmbeddingModel
+    from xeren.rag.retrieval.dense import DenseRetriever
+    from xeren.rag.stores.memory_store import InMemoryVectorStore
+
+    embedder = MockEmbeddingModel(dimension=64)
+    store = InMemoryVectorStore()
+    pipeline = IngestionPipeline(embedding_model=embedder, vector_store=store)
+
+    inserted_ids = pipeline.index_text(
+        "Xeren is an AI system that unifies models, memory, and grounded retrieval.",
+        source="spec.txt",
+        title="Xeren Overview",
+    )
+
+    assert len(inserted_ids) >= 1
+    assert store.count() == len(inserted_ids)
+
+    # Validate that indexed documents are immediately retrievable
+    retriever = DenseRetriever(embedding_model=embedder, vector_store=store)
+    results = retriever.retrieve("Xeren models and retrieval", top_k=2)
+    assert len(results) >= 1
+    assert "Xeren is an AI system" in results[0].chunk.content
+    assert results[0].chunk.metadata["source"] == "spec.txt"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_aindex_file_and_search(tmp_path: Path) -> None:
+    from xeren.rag.embeddings.providers.mock import MockEmbeddingModel
+    from xeren.rag.retrieval.dense import DenseRetriever
+    from xeren.rag.stores.memory_store import InMemoryVectorStore
+
+    embedder = MockEmbeddingModel(dimension=64)
+    store = InMemoryVectorStore()
+    pipeline = IngestionPipeline(embedding_model=embedder, vector_store=store)
+
+    doc_path = tmp_path / "architecture.md"
+    doc_path.write_text(
+        "---\ntitle: Architecture\n---\n# Security\n\nSecurity authorizes all tool execution.\n",
+        encoding="utf-8",
+    )
+
+    inserted_ids = await pipeline.aindex_file(doc_path)
+    assert len(inserted_ids) >= 1
+    assert store.count() == len(inserted_ids)
+
+    retriever = DenseRetriever(embedding_model=embedder, vector_store=store)
+    results = await retriever.aretrieve("security tool execution", top_k=2)
+    assert len(results) >= 1
+    assert "Security authorizes all tool execution" in results[0].chunk.content
+
+
+def test_pipeline_index_missing_configuration() -> None:
+    from xeren.rag.errors import PipelineExecutionError
+
+    pipeline = IngestionPipeline()  # No embedder or store configured
+    with pytest.raises(PipelineExecutionError, match="No embedding model configured"):
+        pipeline.index_text("Sample text")
+
+
+# ---------------------------------------------------------------------------
+# Index synchronization: vector store and BM25 must stay in sync
+# ---------------------------------------------------------------------------
+
+def test_pipeline_vector_and_bm25_stay_in_sync() -> None:
+    """After index_text(), the BM25 index must contain the same chunks as the vector store."""
+    from xeren.rag.embeddings.providers.mock import MockEmbeddingModel
+    from xeren.rag.retrieval.keyword import KeywordRetriever
+    from xeren.rag.stores.memory_store import InMemoryVectorStore
+
+    embedder = MockEmbeddingModel(dimension=64)
+    store = InMemoryVectorStore()
+    kw_retriever = KeywordRetriever()  # empty index — no provider
+
+    pipeline = IngestionPipeline(
+        embedding_model=embedder,
+        vector_store=store,
+        keyword_retriever=kw_retriever,
+    )
+
+    # BM25 index must be empty before any indexing.
+    assert kw_retriever._index.num_chunks == 0
+
+    pipeline.index_text(
+        "Xeren is an AI system that unifies models memory and grounded retrieval.",
+        source="spec.txt",
+        title="Xeren Overview",
+    )
+
+    # Both indexes must now have the same number of chunks.
+    assert store.count() == kw_retriever._index.num_chunks
+    assert kw_retriever._index.num_chunks >= 1
+
+    # BM25 index must return the indexed chunk for a matching keyword query.
+    results = kw_retriever.retrieve("Xeren retrieval memory", top_k=3)
+    assert len(results) >= 1
+    assert results[0].chunk.metadata["source"] == "spec.txt"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_async_vector_and_bm25_stay_in_sync(tmp_path: Path) -> None:
+    """After aindex_file(), the BM25 index must reflect the same chunks as the vector store."""
+    from xeren.rag.embeddings.providers.mock import MockEmbeddingModel
+    from xeren.rag.retrieval.keyword import KeywordRetriever
+    from xeren.rag.stores.memory_store import InMemoryVectorStore
+
+    embedder = MockEmbeddingModel(dimension=64)
+    store = InMemoryVectorStore()
+    kw_retriever = KeywordRetriever()
+
+    pipeline = IngestionPipeline(
+        embedding_model=embedder,
+        vector_store=store,
+        keyword_retriever=kw_retriever,
+    )
+
+    doc_path = tmp_path / "security.md"
+    doc_path.write_text(
+        "---\ntitle: Security\n---\n# Security\n\nSecurity authorizes all tool execution.\n",
+        encoding="utf-8",
+    )
+
+    inserted_ids = await pipeline.aindex_file(doc_path)
+
+    # Both indexes must have the same chunk count.
+    assert store.count() == len(inserted_ids)
+    assert kw_retriever._index.num_chunks == len(inserted_ids)
+
+    # BM25 must find the right chunk by keyword.
+    results = kw_retriever.retrieve("security tool execution", top_k=2)
+    assert len(results) >= 1
+    assert "Security authorizes all tool execution" in results[0].chunk.content

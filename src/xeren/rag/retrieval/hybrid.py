@@ -32,6 +32,9 @@ class HybridRetriever(BaseRetriever):
         sparse_results: List[SearchResult],
         top_k: int,
     ) -> List[SearchResult]:
+        if not dense_results and not sparse_results:
+            return []
+
         rrf_scores: Dict[str, float] = {}
         chunk_map: Dict[str, DocumentChunk] = {}
 
@@ -45,11 +48,15 @@ class HybridRetriever(BaseRetriever):
             chunk_map[cid] = res.chunk
             rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (1.0 / (self.rrf_k + rank))
 
+        # Normalize scores to [0.0, 1.0] using theoretical maximum of active retrievers
+        num_active = (1 if dense_results else 0) + (1 if sparse_results else 0)
+        max_possible_score = num_active * (1.0 / (self.rrf_k + 1)) if num_active > 0 else 1.0
+
         sorted_cids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
         return [
             SearchResult(
                 chunk=chunk_map[cid],
-                score=rrf_scores[cid],
+                score=rrf_scores[cid] / max_possible_score,
                 retrieval_type="hybrid",
             )
             for cid in sorted_cids[:top_k]
@@ -60,25 +67,48 @@ class HybridRetriever(BaseRetriever):
         dense_results: List[SearchResult],
         sparse_results: List[SearchResult],
         top_k: int,
+        query: Optional[str] = None,
     ) -> List[SearchResult]:
+        if not dense_results and not sparse_results:
+            return []
+
         combined_scores: Dict[str, float] = {}
         chunk_map: Dict[str, DocumentChunk] = {}
 
-        # Normalize dense scores
-        max_dense = max((r.score for r in dense_results), default=1.0) or 1.0
-        for r in dense_results:
-            cid = r.chunk.chunk_id
-            chunk_map[cid] = r.chunk
-            norm_score = max(0.0, r.score) / max_dense
-            combined_scores[cid] = combined_scores.get(cid, 0.0) + self.alpha * norm_score
+        # Compute active weights so a single retriever is not artificially penalized
+        has_dense = bool(dense_results)
+        has_sparse = bool(sparse_results)
 
-        # Normalize sparse scores
-        max_sparse = max((r.score for r in sparse_results), default=1.0) or 1.0
-        for r in sparse_results:
-            cid = r.chunk.chunk_id
-            chunk_map[cid] = r.chunk
-            norm_score = max(0.0, r.score) / max_sparse
-            combined_scores[cid] = combined_scores.get(cid, 0.0) + (1.0 - self.alpha) * norm_score
+        if has_dense and has_sparse:
+            dense_weight = self.alpha
+            sparse_weight = 1.0 - self.alpha
+        elif has_dense:
+            dense_weight = 1.0
+            sparse_weight = 0.0
+        else:
+            dense_weight = 0.0
+            sparse_weight = 1.0
+
+        if has_dense:
+            max_dense = max((r.score for r in dense_results), default=1.0)
+            max_dense = max_dense if max_dense > 0.0 else 1.0
+            for r in dense_results:
+                cid = r.chunk.chunk_id
+                chunk_map[cid] = r.chunk
+                norm_score = max(0.0, r.score) / max_dense
+                combined_scores[cid] = combined_scores.get(cid, 0.0) + dense_weight * norm_score
+
+        if has_sparse:
+            if query and hasattr(self.sparse_retriever, "get_max_query_score"):
+                max_sparse = self.sparse_retriever.get_max_query_score(query)
+            else:
+                max_sparse = max((r.score for r in sparse_results), default=1.0)
+            max_sparse = max_sparse if max_sparse > 0.0 else 1.0
+            for r in sparse_results:
+                cid = r.chunk.chunk_id
+                chunk_map[cid] = r.chunk
+                norm_score = min(1.0, max(0.0, r.score) / max_sparse)
+                combined_scores[cid] = combined_scores.get(cid, 0.0) + sparse_weight * norm_score
 
         sorted_cids = sorted(combined_scores.keys(), key=lambda x: combined_scores[x], reverse=True)
         return [
@@ -101,7 +131,7 @@ class HybridRetriever(BaseRetriever):
 
         if self.fusion_mode == "rrf":
             return self._reciprocal_rank_fusion(dense_results, sparse_results, top_k)
-        return self._linear_score_fusion(dense_results, sparse_results, top_k)
+        return self._linear_score_fusion(dense_results, sparse_results, top_k, query=query)
 
     async def aretrieve(
         self,
@@ -115,4 +145,4 @@ class HybridRetriever(BaseRetriever):
 
         if self.fusion_mode == "rrf":
             return self._reciprocal_rank_fusion(dense_results, sparse_results, top_k)
-        return self._linear_score_fusion(dense_results, sparse_results, top_k)
+        return self._linear_score_fusion(dense_results, sparse_results, top_k, query=query)
