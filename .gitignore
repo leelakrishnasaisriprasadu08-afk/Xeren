@@ -1,4 +1,4 @@
-﻿__pycache__/
+__pycache__/
 *.py[cod]
 *.pyo
 .venv/
@@ -6,3 +6,5 @@ venv/
 .env
 .env.*
 !.env.example
+.pytest_cache/
+
