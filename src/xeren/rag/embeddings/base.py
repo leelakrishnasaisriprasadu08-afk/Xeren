@@ -47,7 +47,19 @@ class BaseEmbeddingModel(CoreBaseEmbeddingModel):
 
     async def aembed_chunks(self, chunks: List[DocumentChunk]) -> List[EmbeddedChunk]:
         """Asynchronously generate dense vector embeddings for a list of DocumentChunks."""
-        return await asyncio.to_thread(self.embed_chunks, chunks)
+        if not chunks:
+            return []
+        texts = [chunk.content for chunk in chunks]
+        vectors = await self.aembed_documents(texts)
+        return [
+            EmbeddedChunk(
+                chunk=chunk,
+                embedding=vector,
+                embedding_model=self.config.model_id,
+                dimension=len(vector),
+            )
+            for chunk, vector in zip(chunks, vectors)
+        ]
 
 
 __all__ = ["BaseEmbeddingModel", "EmbeddedChunk"]
