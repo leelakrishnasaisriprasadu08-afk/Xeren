@@ -1,7 +1,7 @@
 """Hybrid retriever combining dense semantic and sparse keyword retrieval."""
 
 import asyncio
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from xeren.rag.document import DocumentChunk
 from xeren.rag.retrieval.base import BaseRetriever
@@ -99,8 +99,10 @@ class HybridRetriever(BaseRetriever):
                 combined_scores[cid] = combined_scores.get(cid, 0.0) + dense_weight * norm_score
 
         if has_sparse:
-            if query and hasattr(self.sparse_retriever, "get_max_query_score"):
-                max_sparse = self.sparse_retriever.get_max_query_score(query)
+            get_max: Any = getattr(self.sparse_retriever, "get_max_query_score", None)
+            if query and callable(get_max):
+                score_val: Any = get_max(query)
+                max_sparse = float(score_val)
             else:
                 max_sparse = max((r.score for r in sparse_results), default=1.0)
             max_sparse = max_sparse if max_sparse > 0.0 else 1.0

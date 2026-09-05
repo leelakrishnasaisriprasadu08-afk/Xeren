@@ -1,11 +1,13 @@
 """Text normalization implementations for document cleaning."""
 
 import re
+from typing import List, Literal, Optional, cast
 import unicodedata
-from typing import List, Optional
 
 from xeren.rag.document import Document
 from xeren.rag.normalizers.base import BaseNormalizer
+
+_NormalizationForm = Literal["NFC", "NFD", "NFKC", "NFKD"]
 
 
 class TextNormalizer(BaseNormalizer):
@@ -30,7 +32,8 @@ class TextNormalizer(BaseNormalizer):
     def _clean_text(self, text: str) -> str:
         # 1. Unicode normalization
         if self.normalize_unicode:
-            text = unicodedata.normalize(self.unicode_form, text)
+            form = cast(_NormalizationForm, self.unicode_form)
+            text = unicodedata.normalize(form, text)
 
         # 2. Line ending normalization
         text = text.replace("\r\n", "\n").replace("\r", "\n")
