@@ -31,3 +31,14 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"
 include = ["src", "tests"]
+extraPaths = ["src"]
+
+[tool.pyrefly]
+python-interpreter-path = ".venv/Scripts/python.exe"
+search-path = [
+    "src",
+    ".venv/Lib/site-packages",
+]
+site-package-path = [
+    ".venv/Lib/site-packages",
+]
