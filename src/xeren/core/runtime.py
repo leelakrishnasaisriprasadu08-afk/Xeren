@@ -109,6 +109,14 @@ from xeren.plugins.website.schemas import (
     WebsiteResult,
     WebsiteType,
 )
+from xeren.agent.browser.contract import BaseBrowserAdapter
+from xeren.agent.browser.mock import MockBrowserAdapter
+from xeren.agent.controller import AgentController
+from xeren.agent.permissions import PermissionManager
+from xeren.agent.plugins.experience import ExperienceInput, ExperiencePlugin
+from xeren.agent.plugins.verification import VerificationInput, VerificationPlugin
+from xeren.agent.types import AgentState, AgentStatus
+from xeren.core.planner import CorePlannerAdapter, TaskPlan
 from xeren.rag.document import Document
 from xeren.rag.retrieval.filter import MetadataFilter
 
@@ -160,6 +168,12 @@ class XerenCore:
             if not self.plugin_manager.has("data"):
                 data_plugin = DataPlugin()
                 self.register_plugin(data_plugin)
+ evalution&tesing
+            if not self.plugin_manager.has("verification"):
+                self.register_plugin(VerificationPlugin())
+            if not self.plugin_manager.has("experience"):
+                self.register_plugin(ExperiencePlugin())
+
             if not self.plugin_manager.has("file"):
                 file_plugin = FilePlugin()
                 self.register_plugin(file_plugin)
@@ -176,6 +190,7 @@ class XerenCore:
                 api_plugin = ApiPlugin(plugin_manager=self.plugin_manager)
                 api_plugin.set_core(self)
                 self.register_plugin(api_plugin)
+ main
 
     def set_llm(self, llm: BaseLLM) -> None:
         """Replace the active Core LLM (e.g. when injecting the trained Xeren model)."""
@@ -711,6 +726,198 @@ class XerenCore:
         return exec_res.output
 
     # -------------------------------------------------------------------------
+ evalution&tesing
+    # Autonomous Agent Target Flow Orchestration
+    # User Goal -> Xeren Core -> CorePlannerAdapter -> TaskPlan ->
+    # AgentController -> PluginManager -> Required Plugin(s) ->
+    # Verification -> Experience -> Result
+    # -------------------------------------------------------------------------
+    def _ensure_agent_plugins(self) -> None:
+        """Auto-register VerificationPlugin and ExperiencePlugin if not already registered."""
+        if not self.plugin_manager.has("verification"):
+            self.register_plugin(VerificationPlugin())
+        if not self.plugin_manager.has("experience"):
+            self.register_plugin(ExperiencePlugin())
+
+    async def arun_agent(
+        self,
+        goal: str,
+        context: Optional[Dict[str, Any]] = None,
+        browser_adapter: Optional[BaseBrowserAdapter] = None,
+        permission_manager: Optional[PermissionManager] = None,
+        planner_adapter: Optional[CorePlannerAdapter] = None,
+        verify_outcome: bool = True,
+        record_experience: bool = True,
+        max_steps: int = 15,
+    ) -> Dict[str, Any]:
+        """Asynchronously execute the complete autonomous agent workflow."""
+        self._ensure_agent_plugins()
+        ctx = dict(context or {})
+
+        # 1. Initialize CorePlannerAdapter
+        planner = planner_adapter or CorePlannerAdapter(
+            llm=self.llm,
+            plugin_manager=self.plugin_manager,
+        )
+
+        # 2. Produce and validate TaskPlan
+        task_plan = await planner.acreate_task_plan(goal, ctx)
+
+        # 3. Initialize Browser & Controller
+        browser = browser_adapter or MockBrowserAdapter()
+        controller = AgentController(
+            browser_adapter=browser,
+            planner=planner,
+            plugin_manager=self.plugin_manager,
+            permission_manager=permission_manager,
+            max_steps=max_steps,
+        )
+
+        # 4. Execute through AgentController
+        state = await controller.arun(
+            task=goal,
+            context={"task_plan": task_plan, **ctx},
+            max_steps=max_steps,
+        )
+
+        # 5. Verification step
+        verification_output: Any = None
+        if verify_outcome and self.plugin_manager.has("verification"):
+            v_input = VerificationInput(
+                task=goal,
+                success=(state.status == AgentStatus.COMPLETED),
+                expected_conditions=ctx.get("expected_conditions", []),
+                actual_data=state.memory,
+            )
+            v_res = await self.plugin_manager.aexecute("verification", v_input)
+            if v_res.success and v_res.output:
+                verification_output = v_res.output
+
+        # 6. Experience recording step
+        experience_output: Any = None
+        if record_experience and self.plugin_manager.has("experience"):
+            v_passed = (
+                verification_output.verified
+                if verification_output and hasattr(verification_output, "verified")
+                else (state.status == AgentStatus.COMPLETED)
+            )
+            exp_input = ExperienceInput(
+                state=state.model_dump(),
+                prediction_confidence=0.95,
+                final_quality_score=1.0 if state.status == AgentStatus.COMPLETED else 0.0,
+                split=ctx.get("split", "train"),
+                verification_passed=v_passed,
+            )
+            exp_res = await self.plugin_manager.aexecute("experience", exp_input)
+            if exp_res.success and exp_res.output:
+                experience_output = exp_res.output
+
+        # 7. Final response synthesis
+        final_response: str = ""
+        if state.status == AgentStatus.COMPLETED:
+            if state.memory.get("final_response"):
+                final_response = str(state.memory["final_response"])
+            elif state.history:
+                _, last_res = state.history[-1]
+                if last_res.data:
+                    final_response = f"Successfully completed: {last_res.data}"
+                elif last_res.observation and last_res.observation.text_content:
+                    final_response = f"Observation: {last_res.observation.text_content[:200]}"
+                else:
+                    final_response = f"Successfully executed task: {goal}"
+            else:
+                final_response = f"Successfully executed task: {goal}"
+        else:
+            reason = state.metadata.get("completion_reason", "Task execution did not complete successfully.")
+            final_response = f"Task failed: {reason}"
+
+        # 8. Final structured result
+        return {
+            "success": state.status == AgentStatus.COMPLETED,
+            "goal": goal,
+            "plan": task_plan,
+            "state": state,
+            "verification": verification_output,
+            "experience": experience_output,
+            "final_response": final_response,
+            "error": state.metadata.get("completion_reason") if state.status != AgentStatus.COMPLETED else None,
+        }
+
+    def run_agent(
+        self,
+        goal: str,
+        context: Optional[Dict[str, Any]] = None,
+        browser_adapter: Optional[BaseBrowserAdapter] = None,
+        permission_manager: Optional[PermissionManager] = None,
+        planner_adapter: Optional[CorePlannerAdapter] = None,
+        verify_outcome: bool = True,
+        record_experience: bool = True,
+        max_steps: int = 15,
+    ) -> Dict[str, Any]:
+        """Synchronous wrapper for arun_agent."""
+        return asyncio.run(
+            self.arun_agent(
+                goal=goal,
+                context=context,
+                browser_adapter=browser_adapter,
+                permission_manager=permission_manager,
+                planner_adapter=planner_adapter,
+                verify_outcome=verify_outcome,
+                record_experience=record_experience,
+                max_steps=max_steps,
+            )
+        )
+
+    async def aprocess_request(
+        self,
+        request: str,
+        context: Optional[Dict[str, Any]] = None,
+        browser_adapter: Optional[BaseBrowserAdapter] = None,
+        permission_manager: Optional[PermissionManager] = None,
+        planner_adapter: Optional[CorePlannerAdapter] = None,
+        verify_outcome: bool = True,
+        record_experience: bool = True,
+        max_steps: int = 15,
+    ) -> Dict[str, Any]:
+        """Unified end-to-end processing pipeline:
+        User Request -> Xeren Core -> Reasoning/Planning -> Autonomous Agent ->
+        Plugin Manager -> Capabilities -> Verification -> Experience -> Final Response.
+        """
+        return await self.arun_agent(
+            goal=request,
+            context=context,
+            browser_adapter=browser_adapter,
+            permission_manager=permission_manager,
+            planner_adapter=planner_adapter,
+            verify_outcome=verify_outcome,
+            record_experience=record_experience,
+            max_steps=max_steps,
+        )
+
+    def process_request(
+        self,
+        request: str,
+        context: Optional[Dict[str, Any]] = None,
+        browser_adapter: Optional[BaseBrowserAdapter] = None,
+        permission_manager: Optional[PermissionManager] = None,
+        planner_adapter: Optional[CorePlannerAdapter] = None,
+        verify_outcome: bool = True,
+        record_experience: bool = True,
+        max_steps: int = 15,
+    ) -> Dict[str, Any]:
+        """Synchronous wrapper for aprocess_request."""
+        return asyncio.run(
+            self.aprocess_request(
+                request=request,
+                context=context,
+                browser_adapter=browser_adapter,
+                permission_manager=permission_manager,
+                planner_adapter=planner_adapter,
+                verify_outcome=verify_outcome,
+                record_experience=record_experience,
+                max_steps=max_steps,
+            )
+
     # High-level File Capability
     # -------------------------------------------------------------------------
     def file(
@@ -1647,6 +1854,7 @@ class XerenCore:
             operation=ApiOperation.API_KEY_REVOCATION,
             key_id=key_id,
             revoke_request=ApiKeyRevokeRequest(key_id=key_id, reason=reason),
+ main
         )
 
     # -------------------------------------------------------------------------
