@@ -43,6 +43,7 @@ wheels = [
 ]
 
 [[package]]
+ evalution&tesing
 name = "greenlet"
 version = "3.5.5"
 source = { registry = "https://pypi.org/simple" }
@@ -110,6 +111,8 @@ wheels = [
 ]
 
 [[package]]
+
+ main
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -174,6 +177,7 @@ wheels = [
 ]
 
 [[package]]
+evalution&tesing
 name = "playwright"
 version = "1.62.0"
 source = { registry = "https://pypi.org/simple" }
@@ -193,6 +197,8 @@ wheels = [
 ]
 
 [[package]]
+
+ main
 name = "pluggy"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -292,6 +298,7 @@ wheels = [
 ]
 
 [[package]]
+ evalution&tesing
 name = "pyee"
 version = "13.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -304,6 +311,7 @@ wheels = [
 ]
 
 [[package]]
+ main
 name = "pygments"
 version = "2.21.0"
 source = { registry = "https://pypi.org/simple" }
@@ -372,11 +380,15 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+ evalution&tesing
 browser = [
     { name = "playwright" },
 ]
 dev = [
     { name = "playwright" },
+
+dev = [
+ main
     { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
@@ -384,10 +396,16 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
+evalution&tesing
     { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.40.0" },
     { name = "playwright", marker = "extra == 'dev'", specifier = ">=1.40.0" },
+ main
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
 ]
+evalution&tesing
 provides-extras = ["dev", "browser"]
+
+provides-extras = ["dev"]
+main
