@@ -57,6 +57,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <GlassNavigation
         onEnterWorkspace={onEnterWorkspace}
         onOpenDocs={() => setActiveModal('docs')}
+        onOpenArchitecture={() => setActiveModal('architecture')}
         isMuted={isMuted}
         onToggleMute={() => setIsMuted((prev) => !prev)}
         brandTitle="XEREN"

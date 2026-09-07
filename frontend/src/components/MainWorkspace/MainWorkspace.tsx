@@ -8,7 +8,10 @@ import { Conversation } from '../Conversation/Conversation'
 import { AgentActivity } from '../AgentActivity/AgentActivity'
 import { MessageComposer } from '../MessageComposer/MessageComposer'
 import { SuggestionChips } from '../SuggestionChips/SuggestionChips'
+import { CommandCenter } from '../CommandCenter/CommandCenter'
 import './MainWorkspace.css'
+
+import type { CognitiveMode } from '../TopHeader/TopHeader'
 
 interface MainWorkspaceProps {
   presenceState: PresenceState
@@ -22,6 +25,10 @@ interface MainWorkspaceProps {
   isListening: boolean
   isSpeaking: boolean
   voiceError?: string | null
+  activeMode?: CognitiveMode
+  onToggleMode?: () => void
+  activeCommandCenterTab?: 'freelance' | 'security' | 'research' | 'channels'
+  onCommandCenterTabChange?: (tab: 'freelance' | 'security' | 'research' | 'channels') => void
   onSendMessage: (text: string) => void
   onStartListening: () => void
   onStopListening: () => void
@@ -40,6 +47,10 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   isListening,
   isSpeaking,
   voiceError,
+  activeMode = 'think',
+  onToggleMode,
+  activeCommandCenterTab,
+  onCommandCenterTabChange,
   onSendMessage,
   onStartListening,
   onStopListening,
@@ -85,6 +96,14 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           <CapabilityCards onSelectPrompt={onSendMessage} />
         </section>
 
+        {/* Integrated Multi-Platform & Security Command Center */}
+        <section className="workspace-command-center-wrap" aria-label="Command Center">
+          <CommandCenter
+            activeTab={activeCommandCenterTab}
+            onTabChange={onCommandCenterTabChange}
+          />
+        </section>
+
         {/* Live Conversation Stream (renders when messages exist) */}
         {hasMessages && (
           <section className="workspace-conversation-wrap" aria-label="Conversation Thread">
@@ -111,6 +130,8 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
           isListening={isListening}
           isSpeaking={isSpeaking}
           voiceError={voiceError}
+          activeMode={activeMode}
+          onToggleMode={onToggleMode}
           onSendMessage={onSendMessage}
           onStartListening={onStartListening}
           onStopListening={onStopListening}

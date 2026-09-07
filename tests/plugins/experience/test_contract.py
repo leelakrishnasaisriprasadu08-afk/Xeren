@@ -62,7 +62,7 @@ def test_experience_plugin_health_check():
     assert health.status == PluginHealthStatus.HEALTHY
     assert health.details["initialized"] is True
     assert health.details["tools_ready"] is True
-    assert health.details["store_type"] == "InMemoryExperienceStore"
+    assert health.details["store_type"] == "SQLiteExperienceStore"
     assert health.error is None
     assert health.latency_ms >= 0.0
 

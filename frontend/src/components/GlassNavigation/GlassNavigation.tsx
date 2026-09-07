@@ -4,6 +4,7 @@ import './GlassNavigation.css'
 export interface GlassNavigationProps {
   onEnterWorkspace?: () => void
   onOpenDocs?: () => void
+  onOpenArchitecture?: () => void
   isMuted?: boolean
   onToggleMute?: () => void
   brandTitle?: string
@@ -12,6 +13,7 @@ export interface GlassNavigationProps {
 export const GlassNavigation: React.FC<GlassNavigationProps> = ({
   onEnterWorkspace,
   onOpenDocs,
+  onOpenArchitecture,
   isMuted = true,
   onToggleMute,
   brandTitle = 'XEREN',
@@ -33,6 +35,18 @@ export const GlassNavigation: React.FC<GlassNavigationProps> = ({
     { label: 'Architecture', href: '#architecture' },
     { label: 'Benchmarks', href: '#benchmarks' },
   ]
+
+  const handleNavLinkClick = (e: React.MouseEvent, href: string) => {
+    e.preventDefault()
+    const target = document.querySelector(href)
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' })
+    } else if (onOpenArchitecture) {
+      onOpenArchitecture()
+    } else if (onOpenDocs) {
+      onOpenDocs()
+    }
+  }
 
   return (
     <header
@@ -68,13 +82,8 @@ export const GlassNavigation: React.FC<GlassNavigationProps> = ({
               key={item.label}
               href={item.href}
               className="glass-nav-item"
-              onClick={(e) => {
-                e.preventDefault()
-                const target = document.querySelector(item.href)
-                if (target) {
-                  target.scrollIntoView({ behavior: 'smooth' })
-                }
-              }}
+              onClick={(e) => handleNavLinkClick(e, item.href)}
+              data-testid={`nav-link-${item.label.toLowerCase().replace(' ', '-')}`}
             >
               <span>{item.label}</span>
               <div className="glass-nav-indicator" />
