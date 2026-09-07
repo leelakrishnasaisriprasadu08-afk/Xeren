@@ -1,0 +1,369 @@
+/* Glassmorphic Navigation Header Container */
+.glass-nav-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding: 20px 24px;
+  pointer-events: none; /* Only the inner pill and buttons receive events */
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-nav-container.is-scrolled {
+  padding-top: 12px;
+}
+
+/* Suspended Glassmorphic Nav Pill */
+.glass-nav-pill {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 1240px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px 10px 22px;
+  background: rgba(10, 16, 31, 0.55);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  box-shadow: 
+    0 12px 36px -4px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 20px rgba(0, 240, 255, 0.03);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-nav-container.is-scrolled .glass-nav-pill {
+  background: rgba(10, 16, 31, 0.78);
+  border-color: rgba(0, 240, 255, 0.18);
+  box-shadow: 
+    0 16px 40px -4px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 24px rgba(0, 240, 255, 0.06);
+}
+
+/* Brand Identity */
+.glass-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.brand-logo-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.2);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.glass-nav-brand:hover .brand-logo-mark {
+  transform: scale(1.08) rotate(15deg);
+  border-color: #00f0ff;
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.4);
+}
+
+.brand-nucleus {
+  animation: brand-breathe 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes brand-breathe {
+  0% { transform-origin: center; transform: scale(0.85); opacity: 0.8; }
+  100% { transform-origin: center; transform: scale(1.15); opacity: 1; }
+}
+
+.brand-text-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-name {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #ffffff 40%, #00f0ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-version-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(0, 240, 255, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  letter-spacing: 0.04em;
+}
+
+/* Nav Links */
+.glass-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.glass-nav-item {
+  position: relative;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: rgba(241, 245, 249, 0.72);
+  text-decoration: none;
+  padding: 8px 4px;
+  transition: color 0.2s ease;
+}
+
+.glass-nav-item:hover {
+  color: #ffffff;
+}
+
+.glass-nav-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00f0ff, transparent);
+  border-radius: 9999px;
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-nav-item:hover .glass-nav-indicator {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Right Section Actions */
+.glass-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.glass-sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(241, 245, 249, 0.7);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.glass-sound-toggle:hover {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+  transform: scale(1.05);
+}
+
+.glass-sound-toggle.active {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.3);
+}
+
+.glass-secondary-btn {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(241, 245, 249, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.glass-secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+/* Primary Glass CTA Button */
+.glass-primary-cta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.18) 0%, rgba(124, 58, 237, 0.22) 100%);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-primary-cta:hover {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.32) 0%, rgba(124, 58, 237, 0.35) 100%);
+  border-color: #00f0ff;
+  box-shadow: 0 6px 28px rgba(0, 240, 255, 0.45);
+  transform: translateY(-1px);
+}
+
+.cta-glow-pulse {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(0, 240, 255, 0.4) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.glass-primary-cta:hover .cta-glow-pulse {
+  opacity: 1;
+}
+
+.cta-arrow {
+  transition: transform 0.25s ease;
+}
+
+.glass-primary-cta:hover .cta-arrow {
+  transform: translateX(3px);
+}
+
+/* Hamburger Menu Button */
+.glass-hamburger-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  gap: 5px;
+  padding: 0;
+}
+
+.hamburger-bar {
+  width: 16px;
+  height: 1.8px;
+  background: #ffffff;
+  border-radius: 2px;
+  transition: all 0.25s ease;
+}
+
+.hamburger-bar.open-1 {
+  transform: translateY(3.4px) rotate(45deg);
+}
+
+.hamburger-bar.open-2 {
+  transform: translateY(-3.4px) rotate(-45deg);
+}
+
+/* Mobile Drawer */
+.glass-mobile-drawer {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 24px;
+  right: 24px;
+  margin-top: 10px;
+  background: rgba(10, 16, 31, 0.9);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-mobile-drawer.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.mobile-drawer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mobile-drawer-item {
+  font-size: 1rem;
+  color: #e2e8f0;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+.mobile-drawer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #00f0ff;
+}
+
+.mobile-drawer-cta {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #00f0ff 0%, #7c3aed 100%);
+  color: #ffffff;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+/* Media Queries */
+@media (max-width: 860px) {
+  .glass-nav-links {
+    display: none;
+  }
+  .glass-secondary-btn {
+    display: none;
+  }
+  .glass-hamburger-btn {
+    display: flex;
+  }
+  .glass-mobile-drawer {
+    display: block;
+  }
+}
+
+@media (max-width: 480px) {
+  .glass-nav-container {
+    padding: 12px 14px;
+  }
+  .glass-primary-cta .cta-text {
+    display: none;
+  }
+  .glass-primary-cta {
+    padding: 10px 14px;
+  }
+}

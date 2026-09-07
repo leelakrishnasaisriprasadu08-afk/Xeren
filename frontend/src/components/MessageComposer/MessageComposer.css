@@ -1,0 +1,175 @@
+.message-composer-wrapper {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 20;
+}
+
+.composer-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(14, 22, 42, 0.75);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px 8px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  transition: var(--transition-smooth);
+}
+
+.composer-box:focus-within {
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 240, 255, 0.15);
+  background: rgba(18, 28, 54, 0.85);
+}
+
+.composer-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.composer-action-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.composer-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: inherit;
+  outline: none;
+  padding: 8px 0;
+}
+
+.composer-input::placeholder {
+  color: var(--text-muted);
+}
+
+.composer-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Mic button inside composer */
+.composer-mic-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  background: rgba(0, 240, 255, 0.08);
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  outline: none;
+}
+
+.composer-mic-btn:hover {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+  transform: scale(1.04);
+}
+
+.composer-mic-btn.listening {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.55);
+  animation: pulse-mic 1.4s infinite alternate;
+}
+
+/* Send button */
+.composer-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-purple) 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 2px 10px rgba(0, 240, 255, 0.25);
+  outline: none;
+}
+
+.composer-send-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(0, 240, 255, 0.4);
+}
+
+.composer-send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Floating Barge-in button */
+.composer-interrupt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.composer-interrupt-btn:hover {
+  background: rgba(239, 68, 68, 0.28);
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.composer-interrupt-btn kbd {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Error banner */
+.composer-error-banner {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  font-size: var(--text-xs);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@keyframes pulse-mic {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.06); }
+}

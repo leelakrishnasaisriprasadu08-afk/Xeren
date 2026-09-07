@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import BaseModel
@@ -49,6 +51,7 @@ from xeren.plugins.coding.schemas import (
     ExecutionConfig,
     FileArtifact,
 )
+from xeren.plugins.conversation.plugin import ConversationPlugin
 from xeren.plugins.data.plugin import DataPlugin
 from xeren.plugins.data.schemas import (
     ChartSpec,
@@ -109,8 +112,20 @@ from xeren.plugins.website.schemas import (
     WebsiteResult,
     WebsiteType,
 )
+from pathlib import Path
 from xeren.rag.document import Document
 from xeren.rag.retrieval.filter import MetadataFilter
+from xeren.workspace.manager import WorkspaceManager
+from xeren.workspace.schemas import (
+    CandidateFile,
+    DiscoveryRequest,
+    DiscoveryResult,
+    PermissionMode,
+    RetrievedContent,
+    WorkspaceContext,
+    WorkspaceRequirement,
+    WorkspaceRoot,
+)
 
 logger = logging.getLogger("xeren.core")
 
@@ -129,9 +144,11 @@ class XerenCore:
         plugins: Optional[Sequence[BasePlugin]] = None,
         auto_register_defaults: bool = True,
         search_engine: Optional[BaseSearchEngine] = None,
+        workspace_manager: Optional[WorkspaceManager] = None,
     ) -> None:
         self.llm = llm or MockLLM()
         self.plugin_manager = plugin_manager or PluginManager()
+        self.workspace_manager = workspace_manager
         self.context = CoreContext(llm=self.llm)
 
         # Register any custom plugins passed in
@@ -176,6 +193,9 @@ class XerenCore:
                 api_plugin = ApiPlugin(plugin_manager=self.plugin_manager)
                 api_plugin.set_core(self)
                 self.register_plugin(api_plugin)
+            if not self.plugin_manager.has("conversation"):
+                conversation_plugin = ConversationPlugin(llm=self.llm)
+                self.register_plugin(conversation_plugin)
 
     def set_llm(self, llm: BaseLLM) -> None:
         """Replace the active Core LLM (e.g. when injecting the trained Xeren model)."""
@@ -194,12 +214,300 @@ class XerenCore:
         verification = self.plugin_manager.get("verification")
         if isinstance(verification, VerificationPlugin):
             verification.set_llm(llm)
+        conversation = self.plugin_manager.get("conversation")
+        if isinstance(conversation, ConversationPlugin):
+            conversation.set_llm(llm)
 
     def set_search_engine(self, engine: BaseSearchEngine) -> None:
         """Replace the active search engine across registered research plugins."""
         research = self.plugin_manager.get("research")
         if isinstance(research, ResearchPlugin):
             research.set_search_engine(engine)
+
+    def set_workspace_manager(self, manager: WorkspaceManager) -> None:
+        """Inject or configure the active WorkspaceManager."""
+        self.workspace_manager = manager
+
+    def add_workspace_root(
+        self,
+        path: Union[str, Path],
+        root_id: Optional[str] = None,
+        permission_mode: Optional[PermissionMode] = None,
+    ) -> WorkspaceRoot:
+        """Authorize a filesystem directory as an active workspace root."""
+        if self.workspace_manager is None:
+            self.workspace_manager = WorkspaceManager()
+        return self.workspace_manager.authorize_root(
+            path=path,
+            root_id=root_id,
+            permission_mode=permission_mode,
+        )
+
+    def determine_workspace_requirement(
+        self,
+        goal: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Optional[WorkspaceRequirement]:
+        """Analyze user goal and context to determine if workspace resources are needed."""
+        goal_lower = goal.lower()
+        tokens = set(re.findall(r"\b[a-zA-Z0-9_]+\b", goal_lower))
+
+        # Target keyword sets
+        data_terms = {"sales", "revenue", "data", "dataset", "csv", "xlsx", "sheet", "metrics", "trend", "analytics", "churn"}
+        doc_terms = {"research", "paper", "papers", "document", "documents", "spec", "specification", "requirements", "report", "notes"}
+        code_terms = {"code", "project", "bug", "fix", "auth", "login", "endpoint", "api", "codebase", "yesterday"}
+        website_terms = {"website", "web", "dashboard", "page"}
+
+        matched_data = [t for t in data_terms if t in tokens]
+        matched_docs = [t for t in doc_terms if t in tokens]
+        matched_code = [t for t in code_terms if t in tokens]
+        matched_web = [t for t in website_terms if t in tokens]
+
+        if matched_data and matched_web:
+            return WorkspaceRequirement(
+                requires_workspace=True,
+                purpose="data_and_website",
+                preferred_types=["csv", "xlsx", "json"],
+                query_terms=matched_data + matched_web,
+                intent_keywords=["analyze", "create_website"],
+            )
+
+        if matched_data:
+            return WorkspaceRequirement(
+                requires_workspace=True,
+                purpose="sales_data_analysis" if "sales" in tokens else "data_analysis",
+                preferred_types=["csv", "xlsx", "json"],
+                query_terms=matched_data,
+                intent_keywords=["analyze", "inspect"],
+            )
+
+        if matched_docs:
+            return WorkspaceRequirement(
+                requires_workspace=True,
+                purpose="research_docs",
+                preferred_types=["pdf", "md", "docx", "txt"],
+                query_terms=matched_docs,
+                intent_keywords=["research", "explain"],
+            )
+
+        if matched_code:
+            return WorkspaceRequirement(
+                requires_workspace=True,
+                purpose="codebase_inspection",
+                preferred_types=["py", "ts", "js", "json", "toml"],
+                query_terms=matched_code,
+                intent_keywords=["fix", "inspect", "debug"],
+            )
+
+        if any(w in tokens for w in ("workspace", "file", "files")):
+            return WorkspaceRequirement(
+                requires_workspace=True,
+                purpose="workspace_file_access",
+                preferred_types=[],
+                query_terms=[goal],
+                intent_keywords=["discover", "inspect"],
+            )
+
+        return None
+
+    def process_goal(
+        self,
+        goal: str,
+        context: Optional[Dict[str, Any]] = None,
+        workspace_root: Optional[Union[str, Path, WorkspaceRoot]] = None,
+    ) -> Dict[str, Any]:
+        """Execute autonomous end-to-end task workflow:
+        User Goal -> Understand Task -> Workspace Requirement -> Autonomous Discovery ->
+        Relevance Ranking -> Content Retrieval -> Multi-Plugin Workflow -> Verification -> Experience -> Response.
+        """
+        if workspace_root is not None:
+            if isinstance(workspace_root, WorkspaceRoot):
+                if self.workspace_manager is None:
+                    self.workspace_manager = WorkspaceManager()
+                self.workspace_manager.add_root(workspace_root)
+            else:
+                self.add_workspace_root(workspace_root)
+
+        requirement = self.determine_workspace_requirement(goal, context)
+
+        # 1. If task does not require workspace resources, route to standard plugins
+        if requirement is None or not requirement.requires_workspace:
+            logger.info("Task does not require workspace resources: '%s'", goal)
+            return {
+                "goal": goal,
+                "requires_workspace": False,
+                "workspace_context": None,
+                "selected_files": [],
+                "workflow": ["standard_dispatch"],
+                "response": f"Processed task: {goal}",
+                "success": True,
+            }
+
+        # 2. Workspace is required
+        if self.workspace_manager is None or not self.workspace_manager.list_roots():
+            return {
+                "goal": goal,
+                "requires_workspace": True,
+                "status": "no_workspace_configured",
+                "workspace_context": None,
+                "selected_files": [],
+                "workflow": ["workspace_discovery"],
+                "response": f"Workspace resources are required for '{goal}', but no workspace root is currently authorized.",
+                "success": False,
+                "requires_user_input": True,
+            }
+
+        # 3. Autonomous Discovery & Ranking
+        discovery_req = DiscoveryRequest(
+            goal=goal,
+            task_context=context,
+            preferred_types=requirement.preferred_types,
+            search_terms=requirement.query_terms,
+        )
+        discovery_res = self.workspace_manager.discover(discovery_req)
+
+        # 4. Ambiguity handling
+        if discovery_res.ambiguity_detected:
+            logger.info("Ambiguous workspace files detected for goal '%s'", goal)
+            return {
+                "goal": goal,
+                "requires_workspace": True,
+                "status": "ambiguous",
+                "ambiguity_detected": True,
+                "clarification_message": discovery_res.clarification_message,
+                "candidates": [c.model_dump() for c in discovery_res.candidates],
+                "selected_files": [],
+                "workflow": ["workspace_discovery", "clarification"],
+                "response": discovery_res.clarification_message,
+                "success": True,
+                "requires_user_input": True,
+            }
+
+        if not discovery_res.selected_candidates:
+            logger.info("No relevant workspace files found for goal '%s'", goal)
+            msg = discovery_res.clarification_message or f"No relevant files found in authorized workspace for: '{goal}'."
+            return {
+                "goal": goal,
+                "requires_workspace": True,
+                "status": "no_files_found",
+                "ambiguity_detected": False,
+                "clarification_message": msg,
+                "candidates": [],
+                "selected_files": [],
+                "workflow": ["workspace_discovery", "clarification"],
+                "response": msg,
+                "success": False,
+                "requires_user_input": True,
+            }
+
+        # 5. Content Retrieval
+        retrieved_items: List[RetrievedContent] = []
+        for candidate in discovery_res.selected_candidates:
+            retrieved_items.append(self.workspace_manager.retrieve(candidate))
+
+        workspace_ctx = self.workspace_manager.build_context(goal, requirement, task_context=context)
+
+        # 6. Automatic Multi-Plugin Routing
+        workflow: List[str] = ["workspace_discovery"]
+        plugin_outputs: Dict[str, Any] = {}
+        goal_lower = goal.lower()
+
+        # Multi-plugin Scenario: Data + Website
+        if any(k in goal_lower for k in ("website", "dashboard")) and any(k in goal_lower for k in ("data", "sales", "dataset", "trends")):
+            workflow.append("data")
+            first_ret = retrieved_items[0]
+            data_res = self.data(
+                operation=DataOperation.INSPECT,
+                data=first_ret.content,
+                format=DataFormat.CSV if first_ret.file_type == "csv" else DataFormat.JSON,
+            )
+            plugin_outputs["data"] = data_res
+
+            workflow.append("website")
+            web_res = self.website(
+                requirement=goal,
+                operation=WebsiteOperation.GENERATE,
+                specification={
+                    "title": f"Report: {goal}",
+                    "description": f"Visualizing results from {first_ret.path}",
+                },
+            )
+            plugin_outputs["website"] = web_res
+
+        # Data Scenario: Sales or tabular data analysis
+        elif any(k in goal_lower for k in ("data", "sales", "dataset", "csv", "excel", "sheet", "revenue")):
+            workflow.append("data")
+            first_ret = retrieved_items[0]
+            data_res = self.data(
+                operation=DataOperation.INSPECT,
+                data=first_ret.content,
+                format=DataFormat.CSV if first_ret.file_type == "csv" else DataFormat.JSON,
+            )
+            plugin_outputs["data"] = data_res
+
+        # Research / Document Scenario
+        elif any(k in goal_lower for k in ("research", "paper", "papers", "explain", "document", "documents", "spec")):
+            workflow.append("knowledge")
+            for c in discovery_res.selected_candidates:
+                k_plugin = self.plugin_manager.get("knowledge")
+                if k_plugin:
+                    self.workspace_manager.ingest_into_rag(c, k_plugin)
+            k_res = self.knowledge(query=goal, operation=KnowledgeOperation.QUERY)
+            plugin_outputs["knowledge"] = k_res
+
+        # Coding / Bug Fix Scenario
+        elif any(k in goal_lower for k in ("code", "bug", "fix", "login", "auth", "project")):
+            workflow.append("coding")
+            code_res = self.coding(
+                task=goal,
+                operation=CodingOperation.GENERATE,
+                context_files=[r.path for r in retrieved_items],
+            )
+            plugin_outputs["coding"] = code_res
+
+        else:
+            workflow.append("conversation")
+
+        # 7. Verification
+        workflow.append("verification")
+        ver_res = self.verify(
+            candidate=str(plugin_outputs),
+            task=goal,
+            operation=VerificationOperation.FINAL_RESPONSE_VERIFICATION,
+        )
+        plugin_outputs["verification"] = ver_res
+
+        # 8. Experience Learning Loop
+        workflow.append("experience")
+        self.record_experience(
+            task=goal,
+            context=f"Workflow with files: {[c.relative_path for c in discovery_res.selected_candidates]}",
+            plugin_name="workspace",
+            action="autonomous_discovery_and_execution",
+            outcome={"files": [c.relative_path for c in discovery_res.selected_candidates], "plugins": workflow},
+            success=True,
+        )
+
+        # 9. Response
+        workflow.append("response")
+        file_summary = ", ".join(c.relative_path for c in discovery_res.selected_candidates)
+        response_text = (
+            f"Discovered relevant workspace file(s): {file_summary}. "
+            f"Successfully executed workflow: {' -> '.join(workflow)}."
+        )
+
+        return {
+            "goal": goal,
+            "requires_workspace": True,
+            "status": "completed",
+            "workspace_context": workspace_ctx.model_dump(),
+            "selected_files": [c.relative_path for c in discovery_res.selected_candidates],
+            "workflow": workflow,
+            "plugin_outputs": {k: v.model_dump() if hasattr(v, "model_dump") else v for k, v in plugin_outputs.items()},
+            "verification": ver_res.model_dump(),
+            "response": response_text,
+            "success": True,
+        }
 
     # -------------------------------------------------------------------------
     # Extensible Plugin Management (Open for any future plugins)

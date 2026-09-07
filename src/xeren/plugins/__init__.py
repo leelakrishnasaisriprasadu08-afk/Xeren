@@ -17,10 +17,12 @@ from xeren.plugins.errors import (
     PluginTimeoutError,
     PluginValidationError,
 )
+from xeren.plugins.conversation import ConversationPlugin
 from xeren.plugins.manager import PluginManager
 
 __all__ = [
     "BasePlugin",
+    "ConversationPlugin",
     "PluginCapability",
     "PluginHealthStatus",
     "HealthCheckResult",
