@@ -9,6 +9,7 @@ from xeren.agent import (
     TaskStatus,
 )
 from xeren.core.runtime import XerenCore
+from xeren.models import ModelRegistry, create_llm
 from xeren.plugins.coding.plugin import CodingPlugin
 from xeren.plugins.contract import BasePlugin
 from xeren.plugins.data.plugin import DataPlugin
@@ -21,6 +22,8 @@ __version__ = "0.1.0"
 
 __all__ = [
     "__version__",
+    "create_llm",
+    "ModelRegistry",
     "XerenCore",
     "PluginManager",
     "BasePlugin",

@@ -41,13 +41,25 @@ class RAGQueryEngine:
         if not candidates:
             return self.context_builder.build([])
 
-        # 2. Rerank candidates if reranker is configured
+        # 2. Defense-in-depth: Post-retrieval verification against authorization filter
+        if filter:
+            authorized = [c for c in candidates if filter.matches(c.chunk.metadata)]
+            if len(authorized) < len(candidates):
+                logger.warning(
+                    "Defense-in-depth dropped %d unauthorized chunks from RAG context",
+                    len(candidates) - len(authorized),
+                )
+            candidates = authorized
+            if not candidates:
+                return self.context_builder.build([])
+
+        # 3. Rerank candidates if reranker is configured
         if self.reranker:
             reranked = self.reranker.rerank(query_text, candidates, top_n=top_n)
         else:
             reranked = candidates[:top_n] if top_n is not None else candidates
 
-        # 3. Select within budget and construct grounded context with citations
+        # 4. Select within budget and construct grounded context with citations
         grounded_context = self.context_builder.build(reranked)
 
         logger.info(
@@ -72,6 +84,18 @@ class RAGQueryEngine:
         candidates = await self.retriever.aretrieve(query_text, top_k=top_k, filter=filter)
         if not candidates:
             return self.context_builder.build([])
+
+        # Defense-in-depth: Post-retrieval verification against authorization filter
+        if filter:
+            authorized = [c for c in candidates if filter.matches(c.chunk.metadata)]
+            if len(authorized) < len(candidates):
+                logger.warning(
+                    "Defense-in-depth dropped %d unauthorized chunks from async RAG context",
+                    len(candidates) - len(authorized),
+                )
+            candidates = authorized
+            if not candidates:
+                return self.context_builder.build([])
 
         if self.reranker:
             reranked = await self.reranker.arerank(query_text, candidates, top_n=top_n)

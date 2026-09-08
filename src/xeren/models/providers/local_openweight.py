@@ -5,6 +5,7 @@ Compatible with Ollama, vLLM, llama.cpp server, LM Studio, LocalAI, and TGI.
 
 import json
 import logging
+import os
 import time
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 import httpx
@@ -34,7 +35,23 @@ logger = logging.getLogger("xeren.models.local_openweight")
 
 
 class LocalOpenWeightAdapter(BaseLLM):
-    """Adapter for local and open-weight LLMs exposing OpenAI-compatible endpoints."""
+    """Adapter for local, open-weight, and OpenAI-compatible cloud LLM endpoints.
+
+    Compatible with Ollama, vLLM, llama.cpp, LM Studio, OpenAI, Groq, DeepSeek, OpenRouter.
+    """
+
+    PROVIDER_DEFAULT_URLS: Dict[str, str] = {
+        "openai": "https://api.openai.com/v1",
+        "groq": "https://api.groq.com/openai/v1",
+        "deepseek": "https://api.deepseek.com/v1",
+        "openrouter": "https://openrouter.ai/api/v1",
+        "together": "https://api.together.xyz/v1",
+        "lmstudio": "http://localhost:1234/v1",
+        "ollama": "http://localhost:11434/v1",
+        "vllm": "http://localhost:8000/v1",
+        "local": "http://localhost:11434/v1",
+        "local_openweight": "http://localhost:11434/v1",
+    }
 
     def __init__(
         self,
@@ -47,13 +64,24 @@ class LocalOpenWeightAdapter(BaseLLM):
         self._custom_async_client = async_client
 
     def _get_api_base(self, config: ModelConfig) -> str:
-        base = config.api_base or "http://localhost:11434/v1"
-        return base.rstrip("/")
+        if config.api_base:
+            return config.api_base.rstrip("/")
+        provider_key = config.provider.lower().strip()
+        env_base = os.getenv("LLM_API_BASE") or (os.getenv("OLLAMA_HOST") if provider_key in ("ollama", "local") else None)
+        if env_base:
+            if not env_base.endswith("/v1") and provider_key in ("ollama", "local"):
+                env_base = f"{env_base.rstrip('/')}/v1"
+            return env_base.rstrip("/")
+        return self.PROVIDER_DEFAULT_URLS.get(provider_key, "http://localhost:11434/v1").rstrip("/")
 
     def _get_headers(self, config: ModelConfig) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
-        if config.api_key:
-            headers["Authorization"] = f"Bearer {config.api_key}"
+        api_key = config.api_key
+        if not api_key:
+            provider_env = f"{config.provider.upper()}_API_KEY"
+            api_key = os.getenv(provider_env) or os.getenv("LLM_API_KEY")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
     def _format_messages_payload(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
