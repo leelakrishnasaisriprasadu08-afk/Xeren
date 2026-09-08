@@ -1,4 +1,3 @@
- feature/core-architecture
 """Permission management and approval workflow for the Autonomous Work Agent."""
 
 from __future__ import annotations

@@ -1,4 +1,3 @@
- feature/core-architecture
 """ExperiencePlugin converting TaskState to canonical ExperienceRecord and persisting to ExperienceDataset."""
 
 from __future__ import annotations

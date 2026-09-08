@@ -1,4 +1,3 @@
- feature/core-architecture
 """VerificationPlugin adapting verification tools to BasePlugin, emitting canonical VerificationDetails."""
 
 from __future__ import annotations
