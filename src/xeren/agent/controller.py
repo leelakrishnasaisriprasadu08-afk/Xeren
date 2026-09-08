@@ -1,4 +1,3 @@
- feature/core-architecture
 """AgentController: The central autonomous work agent runtime coordinator."""
 
 from __future__ import annotations

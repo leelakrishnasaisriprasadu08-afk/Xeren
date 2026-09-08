@@ -1,4 +1,10 @@
-"""Training Engine for Xeren LLM training from scratch."""
+"""Training Engine for Xeren LLM — Two-Stage GPU Training.
+
+Stage 1: Standard LM loss training on foundation datasets.
+Stage 2: Multi-head loss (LM + Plugin + Threat) with gradient checkpointing,
+         continuous training integration from Supabase/local buffer, and
+         training telemetry logging to PostgreSQL.
+"""
 
 import json
 import logging
@@ -33,6 +39,17 @@ class XerenTrainer:
         eval_steps: int = 50,
         save_steps: int = 100,
         use_amp: bool = False,
+        gradient_checkpointing: bool = False,
+        # Multi-head loss weights (Stage 2)
+        lm_loss_weight: float = 1.0,
+        plugin_loss_weight: float = 0.3,
+        threat_loss_weight: float = 0.2,
+        # Continuous training (Stage 2)
+        enable_continuous_training: bool = False,
+        continuous_pull_every_steps: int = 100,
+        continuous_max_episodes: int = 100,
+        # Supabase telemetry
+        postgres_uri: Optional[str] = None,
     ):
         self.model = model
         self.train_dataloader = train_dataloader
@@ -48,30 +65,194 @@ class XerenTrainer:
         self.eval_steps = eval_steps
         self.save_steps = save_steps
         self.use_amp = use_amp and device != "cpu"
+        self.gradient_checkpointing = gradient_checkpointing
+
+        # Multi-head loss weights
+        self.lm_loss_weight = lm_loss_weight
+        self.plugin_loss_weight = plugin_loss_weight
+        self.threat_loss_weight = threat_loss_weight
+
+        # Continuous training
+        self.enable_continuous_training = enable_continuous_training
+        self.continuous_pull_every_steps = continuous_pull_every_steps
+        self.continuous_max_episodes = continuous_max_episodes
+        self._continuous_buffer = None
 
         self.model.to(self.device)
+
+        # Enable gradient checkpointing for Stage 2 VRAM savings
+        if gradient_checkpointing:
+            self._enable_gradient_checkpointing()
+            logger.info("Gradient checkpointing enabled (Stage 2 VRAM optimization).")
+
         self.scaler = torch.amp.GradScaler("cuda", enabled=self.use_amp)
         self.loss_history: List[Dict[str, Any]] = []
 
-    def train(self, num_epochs: int = 1, max_steps: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Run full training loop."""
+        # Supabase telemetry
+        self._db_engine = None
+        self._postgres_uri = postgres_uri or os.getenv("DATABASE_URL")
+
+    def _enable_gradient_checkpointing(self):
+        """Enable PyTorch gradient checkpointing on transformer blocks to reduce VRAM."""
+        try:
+            for layer in self.model.layers:
+                layer.use_reentrant = False
+            logger.info(f"Gradient checkpointing applied to {len(self.model.layers)} transformer layers.")
+        except Exception as e:
+            logger.warning(f"Could not apply gradient checkpointing: {e}")
+
+    def _get_continuous_buffer(self):
+        """Lazy-load the hybrid continuous buffer."""
+        if self._continuous_buffer is None:
+            try:
+                from training.src.data.continuous_buffer import HybridContinuousBuffer
+                self._continuous_buffer = HybridContinuousBuffer(
+                    postgres_uri=self._postgres_uri,
+                )
+                logger.info("Continuous training buffer connected (Hybrid JSONL + Supabase).")
+            except Exception as e:
+                logger.warning(f"Could not load continuous buffer: {e}")
+        return self._continuous_buffer
+
+    def _pull_and_train_continuous_episodes(self, tokenizer: Any, max_seq_len: int) -> int:
+        """Pull fresh episodes from Supabase and run mini fine-tuning steps."""
+        buf = self._get_continuous_buffer()
+        if not buf:
+            return 0
+
+        episodes = buf.pull_for_training(max_episodes=self.continuous_max_episodes)
+        if not episodes:
+            logger.info("No new episodes available for continuous training.")
+            return 0
+
+        logger.info(f"Running continuous training on {len(episodes)} fresh user episodes...")
+        trained_ids = []
+        self.model.train()
+
+        for ep in episodes:
+            try:
+                from training.src.data.dataset_builder import format_chatml, SYSTEM_PROMPTS
+                text = format_chatml(SYSTEM_PROMPTS["default"], [
+                    {"role": "user", "content": ep["user"]},
+                    {"role": "thought", "content": ep.get("thought", "")},
+                    {"role": "assistant", "content": ep["assistant"]},
+                ])
+                ids = tokenizer.encode(text)[:max_seq_len]
+                input_ids = torch.tensor([ids], dtype=torch.long, device=self.device)
+                labels = input_ids.clone()
+
+                with torch.amp.autocast("cuda", enabled=self.use_amp):
+                    out = self.model(input_ids, labels=labels)
+                    loss = out.get("total_loss") or out.get("loss")
+                    if loss is not None:
+                        loss = loss / self.gradient_accumulation_steps
+
+                if loss is not None:
+                    if self.use_amp:
+                        self.scaler.scale(loss).backward()
+                    else:
+                        loss.backward()
+                    trained_ids.append(ep["episode_id"])
+
+            except Exception as e:
+                logger.warning(f"Continuous training failed for episode {ep.get('episode_id', '?')[:8]}: {e}")
+
+        # Optimizer step for continuous batch
+        if trained_ids:
+            if self.use_amp:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
+                self.optimizer.step()
+            self.optimizer.zero_grad()
+
+            # Mark episodes as trained in Supabase
+            buf.mark_trained(trained_ids)
+            logger.info(f"Continuous training complete: {len(trained_ids)} episodes trained and marked.")
+
+        return len(trained_ids)
+
+    def _log_to_supabase(self, step: int, epoch: int, loss: float, lr: float, stage: int = 1):
+        """Log training telemetry to Supabase for monitoring."""
+        if not self._postgres_uri:
+            return
+        try:
+            if self._db_engine is None:
+                from sqlmodel import create_engine
+                self._db_engine = create_engine(self._postgres_uri, pool_pre_ping=True)
+            from sqlmodel import text
+            ensure_sql = """
+            CREATE TABLE IF NOT EXISTS training_telemetry (
+                id SERIAL PRIMARY KEY,
+                step INT, epoch INT, stage INT,
+                loss FLOAT, learning_rate FLOAT,
+                timestamp TIMESTAMP DEFAULT NOW()
+            );
+            """
+            insert_sql = """
+            INSERT INTO training_telemetry (step, epoch, stage, loss, learning_rate)
+            VALUES (:step, :epoch, :stage, :loss, :lr);
+            """
+            with self._db_engine.connect() as conn:
+                conn.execute(text(ensure_sql))
+                conn.execute(text(insert_sql), {
+                    "step": step, "epoch": epoch, "stage": stage,
+                    "loss": float(loss), "lr": float(lr),
+                })
+                conn.commit()
+        except Exception as e:
+            logger.debug(f"Supabase telemetry log failed (non-critical): {e}")
+
+    def train(
+        self,
+        num_epochs: int = 1,
+        max_steps: Optional[int] = None,
+        stage: int = 1,
+        tokenizer: Optional[Any] = None,
+    ) -> List[Dict[str, Any]]:
+        """Run full training loop with multi-head loss support."""
         self.model.train()
         total_steps = 0
         running_loss = 0.0
+        running_plugin_loss = 0.0
+        running_threat_loss = 0.0
         start_time = time.time()
 
         logger.info(
-            f"Starting Xeren training: {num_epochs} epochs, device={self.device}, "
-            f"trainable params={self.model.count_parameters():,}"
+            f"Starting Xeren Stage {stage} training: {num_epochs} epochs, device={self.device}, "
+            f"params={self.model.count_parameters():,}, "
+            f"AMP={self.use_amp}, GradChk={self.gradient_checkpointing}"
         )
+        if self.model.config.enable_plugin_head:
+            logger.info("Stage 2 heads active: PluginHead + ConfidenceHead + ThreatHead")
 
         for epoch in range(num_epochs):
             for batch_idx, batch in enumerate(self.train_dataloader):
                 input_ids = batch["input_ids"].to(self.device)
                 labels = batch["labels"].to(self.device)
 
+                # Optional domain head labels (from batch if present)
+                plugin_labels = batch.get("plugin_labels")
+                threat_labels = batch.get("threat_labels")
+                if plugin_labels is not None:
+                    plugin_labels = plugin_labels.to(self.device)
+                if threat_labels is not None:
+                    threat_labels = threat_labels.to(self.device)
+
                 with torch.amp.autocast("cuda", enabled=self.use_amp):
-                    logits, loss, _ = self.model(input_ids, labels=labels)
+                    out = self.model(
+                        input_ids,
+                        labels=labels,
+                        plugin_labels=plugin_labels,
+                        threat_labels=threat_labels,
+                    )
+                    # Use total_loss (multi-head) if available, else fall back to lm loss
+                    loss = out.get("total_loss") or out.get("loss")
+                    if loss is None:
+                        continue
                     loss = loss / self.gradient_accumulation_steps
 
                 if self.use_amp:
@@ -80,6 +261,10 @@ class XerenTrainer:
                     loss.backward()
 
                 running_loss += loss.item() * self.gradient_accumulation_steps
+                if out.get("plugin_loss") is not None:
+                    running_plugin_loss += out["plugin_loss"].item()
+                if out.get("threat_loss") is not None:
+                    running_threat_loss += out["threat_loss"].item()
 
                 # Optimizer step on accumulation boundary
                 if (batch_idx + 1) % self.gradient_accumulation_steps == 0:
@@ -94,7 +279,6 @@ class XerenTrainer:
 
                     if self.scheduler:
                         self.scheduler.step()
-
                     self.optimizer.zero_grad()
                     total_steps += 1
 
@@ -103,17 +287,25 @@ class XerenTrainer:
                         avg_loss = running_loss / self.logging_steps
                         current_lr = self.optimizer.param_groups[0]["lr"]
                         elapsed = time.time() - start_time
-                        logger.info(
+                        log_msg = (
                             f"Epoch {epoch+1}/{num_epochs} | Step {total_steps} | "
                             f"Loss: {avg_loss:.4f} | LR: {current_lr:.2e} | Elapsed: {elapsed:.1f}s"
                         )
-                        self.loss_history.append({
-                            "step": total_steps,
-                            "epoch": epoch + 1,
-                            "loss": avg_loss,
-                            "lr": current_lr,
-                        })
+                        if running_plugin_loss > 0:
+                            log_msg += f" | PluginLoss: {running_plugin_loss/self.logging_steps:.4f}"
+                        if running_threat_loss > 0:
+                            log_msg += f" | ThreatLoss: {running_threat_loss/self.logging_steps:.4f}"
+                        logger.info(log_msg)
+
+                        entry = {
+                            "step": total_steps, "epoch": epoch + 1,
+                            "loss": avg_loss, "lr": current_lr, "stage": stage,
+                        }
+                        self.loss_history.append(entry)
+                        self._log_to_supabase(total_steps, epoch + 1, avg_loss, current_lr, stage)
                         running_loss = 0.0
+                        running_plugin_loss = 0.0
+                        running_threat_loss = 0.0
 
                     # Evaluation
                     if self.val_dataloader and total_steps % self.eval_steps == 0:
@@ -121,54 +313,64 @@ class XerenTrainer:
                         logger.info(f"==> Validation Loss at Step {total_steps}: {val_loss:.4f}")
                         self.model.train()
 
+                    # Continuous training pull (Stage 2 only)
+                    if (
+                        self.enable_continuous_training and
+                        stage == 2 and
+                        tokenizer is not None and
+                        total_steps % self.continuous_pull_every_steps == 0
+                    ):
+                        n = self._pull_and_train_continuous_episodes(
+                            tokenizer, self.model.config.max_seq_len
+                        )
+                        if n > 0:
+                            logger.info(f"Continuous training injected {n} live user episodes.")
+
                     # Save Checkpoint
                     if total_steps % self.save_steps == 0:
-                        self.save_checkpoint(f"checkpoint_step_{total_steps}.pt")
+                        self.save_checkpoint(f"checkpoint_step_{total_steps}.pt", stage=stage)
 
                     if max_steps and total_steps >= max_steps:
-                        logger.info(f"Reached max_steps ({max_steps}). Stopping training.")
-                        self.save_checkpoint("checkpoint_final.pt")
+                        logger.info(f"Reached max_steps ({max_steps}). Stopping.")
+                        self.save_checkpoint("checkpoint_final.pt", stage=stage)
                         return self.loss_history
 
-        # Final save
-        self.save_checkpoint("checkpoint_final.pt")
-        logger.info(f"Training completed in {time.time() - start_time:.1f}s.")
+        self.save_checkpoint("checkpoint_final.pt", stage=stage)
+        logger.info(f"Stage {stage} training completed in {time.time() - start_time:.1f}s.")
         return self.loss_history
 
     def evaluate(self) -> float:
         """Compute evaluation loss over validation set."""
         if not self.val_dataloader:
             return 0.0
-
         self.model.eval()
         total_loss = 0.0
         batches = 0
-
         with torch.no_grad():
             for batch in self.val_dataloader:
                 input_ids = batch["input_ids"].to(self.device)
                 labels = batch["labels"].to(self.device)
-                _, loss, _ = self.model(input_ids, labels=labels)
+                out = self.model(input_ids, labels=labels)
+                loss = out.get("loss")
                 if loss is not None:
                     total_loss += loss.item()
                     batches += 1
-
         return total_loss / max(1, batches)
 
-    def save_checkpoint(self, filename: str):
-        """Save model weights and training state."""
+    def save_checkpoint(self, filename: str, stage: int = 1):
+        """Save model weights, config, and training state."""
         save_path = self.checkpoint_dir / filename
         state = {
             "model_state_dict": self.model.state_dict(),
             "config": self.model.config.__dict__,
+            "stage": stage,
             "loss_history": self.loss_history,
         }
         if self.optimizer:
             state["optimizer_state_dict"] = self.optimizer.state_dict()
         torch.save(state, save_path)
-        logger.info(f"Saved checkpoint to {save_path}")
+        logger.info(f"Saved Stage {stage} checkpoint to {save_path}")
 
-        # Also write loss history JSON
         history_path = self.checkpoint_dir / "loss_history.json"
         with open(history_path, "w", encoding="utf-8") as f:
             json.dump(self.loss_history, f, indent=2)

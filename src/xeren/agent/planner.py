@@ -1,4 +1,3 @@
- feature/core-architecture
 """Planner implementations and Core adapter for the Autonomous Work Agent."""
 
 from __future__ import annotations

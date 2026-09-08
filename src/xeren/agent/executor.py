@@ -1,4 +1,3 @@
- feature/core-architecture
 """AgentExecutor executing actions strictly through the existing PluginManager."""
 
 from __future__ import annotations

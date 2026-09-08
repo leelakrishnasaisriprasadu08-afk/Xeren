@@ -1,4 +1,3 @@
- feature/core-architecture
 """Failure recovery, bounded retries, and loop prevention for the Autonomous Work Agent."""
 
 from __future__ import annotations

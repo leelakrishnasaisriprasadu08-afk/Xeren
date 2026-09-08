@@ -1,4 +1,3 @@
- feature/core-architecture
 """Verification and Experience plugin adapters for Xeren Autonomous Work Agent."""
 
 from xeren.agent.plugins.experience import (

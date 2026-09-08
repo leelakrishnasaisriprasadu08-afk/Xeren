@@ -1,4 +1,3 @@
-feature/core-architecture
 """DefaultObserver for collecting perceptions and artifacts post-execution."""
 
 from __future__ import annotations

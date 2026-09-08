@@ -1,4 +1,3 @@
- feature/core-architecture
 """Completion evaluator verifying task requirements, artifacts, and verification gates."""
 
 from __future__ import annotations

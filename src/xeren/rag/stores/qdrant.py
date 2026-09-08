@@ -11,8 +11,8 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from qdrant_client import QdrantClient
-from qdrant_client.http import models as qmodels
+from  qdrant_ client  import QdrantClient
+from  qdrant _clien .http import models as qmodels
 
 from xeren.rag.document import DocumentChunk
 from xeren.rag.embeddings.base import EmbeddedChunk
