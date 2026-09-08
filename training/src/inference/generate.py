@@ -79,7 +79,7 @@ class XerenGenerator:
                 probs = F.softmax(filtered_logits, dim=-1)
                 next_token = torch.multinomial(probs, num_samples=1)
 
-            token_val = next_token.item()
+            token_val = int(next_token.item())
             if token_val == eos_id:
                 break
 
@@ -120,7 +120,7 @@ class XerenGenerator:
                 probs = F.softmax(filtered_logits, dim=-1)
                 next_token = torch.multinomial(probs, num_samples=1)
 
-            token_val = next_token.item()
+            token_val = int(next_token.item())
             if token_val == eos_id:
                 break
 

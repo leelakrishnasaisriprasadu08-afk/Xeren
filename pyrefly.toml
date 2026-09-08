@@ -1,3 +1,5 @@
+python-interpreter-path = ".venv/Scripts/python.exe"
+
 search-path = [
     ".",
     "src",
