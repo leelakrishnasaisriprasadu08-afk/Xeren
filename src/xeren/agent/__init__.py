@@ -1,3 +1,4 @@
+ feature/core-architecture
 """Xeren Autonomous Work Agent subsystem.
 
 Provides an autonomous task-execution runtime with pluggable planning,
@@ -47,6 +48,29 @@ from xeren.agent.validator import (
     PlanValidationResult,
     PlanValidator,
 )
+
+"""Xeren Autonomous Work Agent with Browser Automation."""
+
+from xeren.agent.browser import (
+    BaseBrowserAdapter,
+    BrowserActionError,
+    BrowserAdapterError,
+    BrowserElementNotFoundError,
+    BrowserNavigationError,
+    BrowserSecurityError,
+    BrowserSecurityManager,
+    BrowserSessionError,
+    BrowserTimeoutError,
+    MockBrowserAdapter,
+    PlaywrightBrowserAdapter,
+)
+from xeren.agent.controller import AgentController
+from xeren.agent.evaluator import EvaluationResult, Evaluator
+from xeren.agent.executor import Executor
+from xeren.agent.observer import Observer
+from xeren.agent.permissions import PermissionManager, PermissionMode
+from xeren.agent.planner import Planner
+ main
 from xeren.agent.plugins import (
     ExperienceInput,
     ExperienceOutput,
@@ -55,6 +79,7 @@ from xeren.agent.plugins import (
     VerificationOutput,
     VerificationPlugin,
 )
+ feature/core-architecture
 from xeren.agent.recovery import DefaultRecoveryManager
 from xeren.agent.state import (
     Observation,
@@ -110,6 +135,56 @@ __all__ = [
     "BrowserInput",
     "BrowserResult",
     # Verification & Experience Plugins
+
+from xeren.agent.recovery import RecoveryManager, RecoveryStrategy
+from xeren.agent.types import (
+    ActionCategory,
+    ActionResult,
+    AgentAction,
+    AgentState,
+    AgentStatus,
+    BrowserActionType,
+    BrowserError,
+    BrowserObservation,
+    InteractiveElement,
+)
+
+__all__ = [
+    # Core Controller & Subsystems
+    "AgentController",
+    "Planner",
+    "Executor",
+    "Observer",
+    "RecoveryManager",
+    "RecoveryStrategy",
+    "PermissionManager",
+    "PermissionMode",
+    "Evaluator",
+    "EvaluationResult",
+    # Browser Adapters & Contracts
+    "BaseBrowserAdapter",
+    "MockBrowserAdapter",
+    "PlaywrightBrowserAdapter",
+    "BrowserSecurityManager",
+    "BrowserAdapterError",
+    "BrowserNavigationError",
+    "BrowserTimeoutError",
+    "BrowserElementNotFoundError",
+    "BrowserSecurityError",
+    "BrowserSessionError",
+    "BrowserActionError",
+    # Data Types & Schemas
+    "AgentAction",
+    "ActionResult",
+    "AgentState",
+    "AgentStatus",
+    "ActionCategory",
+    "BrowserObservation",
+    "BrowserError",
+    "InteractiveElement",
+    "BrowserActionType",
+    # Agent Plugins
+ main
     "VerificationPlugin",
     "VerificationInput",
     "VerificationOutput",

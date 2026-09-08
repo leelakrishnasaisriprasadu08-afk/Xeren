@@ -1,3 +1,4 @@
+ feature/core-architecture
 """VerificationPlugin adapting verification tools to BasePlugin, emitting canonical VerificationDetails."""
 
 from __future__ import annotations
@@ -6,16 +7,26 @@ import logging
 import time
 from typing import Any, Dict, List, Optional, Type, Union
 
+
+"""Verification Plugin validating agent execution outcomes and criteria."""
+
+from typing import Any, Dict, List, Optional, Type, Union
+ main
 from pydantic import BaseModel, Field
 
 from xeren.data.schema import VerificationDetails
 from xeren.plugins.contract import (
     BasePlugin,
+ feature/core-architecture
+
+    PluginCapability,
+ main
     PluginExecutionContext,
     PluginExecutionResult,
     PluginManifest,
 )
 
+ feature/core-architecture
 logger = logging.getLogger("xeren.agent.plugins.verification")
 
 
@@ -66,16 +77,56 @@ class VerificationPlugin(BasePlugin):
     def __init__(self, verifier_name: str = "rule_verifier") -> None:
         self.verifier_name = verifier_name
 
+
+class VerificationInput(BaseModel):
+    """Input parameters for outcome verification."""
+
+    task: str = Field(..., description="Task or goal description")
+    success: bool = Field(default=True, description="Reported task success")
+    expected_conditions: List[str] = Field(default_factory=list, description="Conditions to verify")
+    actual_data: Dict[str, Any] = Field(default_factory=dict, description="Observed result payload")
+    verifier: str = Field(default="rule_verifier", description="Verifier identifier")
+
+
+class VerificationOutput(BaseModel):
+    """Structured outcome verification payload."""
+
+    verified: bool = Field(..., description="Whether verification passed")
+    verifier: str = Field(..., description="Verifier type")
+    score: float = Field(..., ge=0.0, le=1.0, description="Verification confidence score")
+    details: Dict[str, Any] = Field(default_factory=dict, description="Diagnostic notes")
+
+    def to_verification_details(self) -> VerificationDetails:
+        """Convert to Xeren data schema VerificationDetails."""
+        return VerificationDetails(
+            verified=self.verified,
+            verifier=self.verifier,
+            score=self.score,
+            details=self.details,
+        )
+
+
+class VerificationPlugin(BasePlugin):
+    """Plugin implementing outcome verification for autonomous agent runs."""
+ main
+
     @property
     def manifest(self) -> PluginManifest:
         return PluginManifest(
             name="verification",
             version="0.1.0",
+ feature/core-architecture
             description="Outcome and artifact verification plugin for Xeren Autonomous Agent",
             capabilities=["verification", "quality_gate"],
             input_schema_name="VerificationInput",
             output_schema_name="VerificationOutput",
             author="Xeren",
+
+            description="Evaluates and verifies agent task outcomes against defined criteria",
+            capabilities=[PluginCapability.CUSTOM.value, PluginCapability.CODE_VERIFICATION.value],
+            input_schema_name="VerificationInput",
+            output_schema_name="VerificationOutput",
+ main
         )
 
     @property
@@ -86,6 +137,7 @@ class VerificationPlugin(BasePlugin):
     def output_schema(self) -> Type[BaseModel]:
         return VerificationOutput
 
+ feature/core-architecture
     def verify_artifacts(
         self,
         task: str,
@@ -164,11 +216,14 @@ class VerificationPlugin(BasePlugin):
             details={"findings": findings, "checks_passed": checks_passed, "total_checks": total_checks},
         )
 
+
+ main
     def execute(
         self,
         input_data: Union[BaseModel, Dict[str, Any]],
         context: Optional[PluginExecutionContext] = None,
     ) -> PluginExecutionResult:
+ feature/core-architecture
         """Execute verification on provided artifacts and rules."""
         start_time = time.perf_counter()
         validated: VerificationInput = (
@@ -201,3 +256,40 @@ __all__ = [
     "VerificationOutput",
     "VerificationPlugin",
 ]
+
+        validated = self.validate_input(input_data)
+        assert isinstance(validated, VerificationInput)
+
+        checks_passed = validated.success
+        details: Dict[str, Any] = {"checks": len(validated.expected_conditions)}
+
+        for cond in validated.expected_conditions:
+            cond_lower = cond.lower()
+            if "not empty" in cond_lower:
+                passed = bool(validated.actual_data)
+                checks_passed = checks_passed and passed
+                details[cond] = passed
+            elif "contains" in cond_lower:
+                key = cond.split("contains", 1)[-1].strip()
+                passed = key in validated.actual_data
+                checks_passed = checks_passed and passed
+                details[cond] = passed
+
+        score = 1.0 if checks_passed else 0.0
+        output = VerificationOutput(
+            verified=checks_passed,
+            verifier=validated.verifier,
+            score=score,
+            details=details,
+        )
+
+        return PluginExecutionResult(
+            plugin_name=self.name,
+            success=True,
+            output=output,
+            latency_ms=1.0,
+        )
+
+
+__all__ = ["VerificationInput", "VerificationOutput", "VerificationPlugin"]
+ main

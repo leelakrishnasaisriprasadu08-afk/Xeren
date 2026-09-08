@@ -7,8 +7,5 @@ venv/
 .env.*
 !.env.example
 .pytest_cache/
-<<<<<<< HEAD
-
-=======
 *.egg-info/
->>>>>>> origin/Features/training-data
+report_export.csv
