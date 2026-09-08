@@ -92,14 +92,15 @@ class GroupedQueryAttention(nn.Module):
     def __init__(self, config: XerenConfig):
         super().__init__()
         self.n_heads = config.n_heads
-        self.n_kv_heads = config.n_kv_heads
-        self.n_rep = self.n_heads // self.n_kv_heads
+        n_kv_heads = config.n_kv_heads if config.n_kv_heads is not None else config.n_heads
+        self.n_kv_heads = n_kv_heads
+        self.n_rep = self.n_heads // n_kv_heads
         self.head_dim = config.dim // config.n_heads
         self.dim = config.dim
 
         self.wq = nn.Linear(config.dim, config.n_heads * self.head_dim, bias=False)
-        self.wk = nn.Linear(config.dim, self.n_kv_heads * self.head_dim, bias=False)
-        self.wv = nn.Linear(config.dim, self.n_kv_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(config.dim, n_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(config.dim, n_kv_heads * self.head_dim, bias=False)
         self.wo = nn.Linear(config.n_heads * self.head_dim, config.dim, bias=False)
         self.dropout = nn.Dropout(config.dropout)
 
@@ -149,9 +150,10 @@ class GroupedQueryAttention(nn.Module):
 class SwiGLU(nn.Module):
     def __init__(self, config: XerenConfig):
         super().__init__()
-        self.w1 = nn.Linear(config.dim, config.hidden_dim, bias=False)  # Gate
-        self.w2 = nn.Linear(config.hidden_dim, config.dim, bias=False)  # Down
-        self.w3 = nn.Linear(config.dim, config.hidden_dim, bias=False)  # Up
+        hidden_dim = config.hidden_dim if config.hidden_dim is not None else int(2 * (4 * config.dim) / 3)
+        self.w1 = nn.Linear(config.dim, hidden_dim, bias=False)  # Gate
+        self.w2 = nn.Linear(hidden_dim, config.dim, bias=False)  # Down
+        self.w3 = nn.Linear(config.dim, hidden_dim, bias=False)  # Up
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
@@ -239,12 +241,12 @@ class PluginClassificationHead(nn.Module):
         """Return plugin prediction with probabilities."""
         logits = self.forward(hidden)
         probs = torch.softmax(logits, dim=-1)
-        pred_idx = probs.argmax(dim=-1).item()
+        pred_idx = int(probs.argmax(dim=-1).item())
         return {
             "plugin": self.plugin_names[pred_idx],
-            "confidence": probs[0, pred_idx].item(),
+            "confidence": float(probs[0, pred_idx].item()),
             "all_probs": {
-                name: probs[0, i].item()
+                name: float(probs[0, i].item())
                 for i, name in enumerate(self.plugin_names)
             },
         }
@@ -324,14 +326,14 @@ class ThreatClassificationHead(nn.Module):
         bin_probs = torch.softmax(bin_logits, dim=-1)
         cls_probs = torch.softmax(cls_logits, dim=-1)
         is_threat = bin_probs[0, 1].item() > 0.5
-        threat_idx = cls_probs.argmax(dim=-1).item()
+        threat_idx = int(cls_probs.argmax(dim=-1).item())
         return {
             "is_threat": is_threat,
-            "threat_probability": bin_probs[0, 1].item(),
+            "threat_probability": float(bin_probs[0, 1].item()),
             "threat_type": self.threat_names[threat_idx] if is_threat else "clean",
-            "threat_type_confidence": cls_probs[0, threat_idx].item(),
+            "threat_type_confidence": float(cls_probs[0, threat_idx].item()),
             "all_threat_probs": {
-                name: cls_probs[0, i].item()
+                name: float(cls_probs[0, i].item())
                 for i, name in enumerate(self.threat_names)
             },
         }
@@ -347,6 +349,8 @@ class XerenTransformer(nn.Module):
     Stage 1: Pure language model — LM head only.
     Stage 2: Language model + Plugin + Confidence + Threat heads.
     """
+
+    freqs_cis: torch.Tensor
 
     def __init__(self, config: XerenConfig):
         super().__init__()

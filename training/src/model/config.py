@@ -137,13 +137,15 @@ class XerenConfig:
 
     def parameter_estimate(self) -> int:
         """Rough estimate of total model parameters."""
+        n_kv_heads = self.n_kv_heads if self.n_kv_heads is not None else self.n_heads
+        hidden_dim = self.hidden_dim if self.hidden_dim is not None else int(2 * (4 * self.dim) / 3)
         embed = self.vocab_size * self.dim
         attn = self.n_layers * (
             self.dim * self.n_heads * (self.dim // self.n_heads) +  # wq
-            self.dim * self.n_kv_heads * (self.dim // self.n_heads) * 2 +  # wk, wv
+            self.dim * n_kv_heads * (self.dim // self.n_heads) * 2 +  # wk, wv
             self.dim * self.dim  # wo
         )
-        ffn = self.n_layers * (self.dim * self.hidden_dim * 3)
+        ffn = self.n_layers * (self.dim * hidden_dim * 3)
         norm = self.n_layers * self.dim * 2 + self.dim
         lm_head = 0 if self.tie_word_embeddings else self.vocab_size * self.dim
         return embed + attn + ffn + norm + lm_head
