@@ -1,0 +1,23 @@
+{
+  "name": "XerenTokenizer",
+  "vocab_size": 915,
+  "special_tokens": [
+    "<|pad|>",
+    "<|unk|>",
+    "<|bos|>",
+    "<|eos|>",
+    "<|im_start|>",
+    "<|im_end|>",
+    "<|thought|>",
+    "<|plan|>",
+    "<|tool_call|>",
+    "<|tool_result|>",
+    "<|system|>",
+    "<|user|>",
+    "<|assistant|>"
+  ],
+  "pad_token_id": 0,
+  "unk_token_id": 1,
+  "bos_token_id": 2,
+  "eos_token_id": 3
+}

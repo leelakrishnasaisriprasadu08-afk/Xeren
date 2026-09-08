@@ -1,0 +1,31 @@
+# Configuration for College NVIDIA GPU Full Training from Scratch
+model:
+  preset: mini
+  dim: 768
+  n_layers: 12
+  n_heads: 12
+  n_kv_heads: 4
+  max_seq_len: 1024
+  norm_eps: 0.000001
+  tie_word_embeddings: false
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 4
+  learning_rate: 0.0003
+  min_lr_ratio: 0.1
+  weight_decay: 0.1
+  num_warmup_steps: 500
+  num_epochs: 5
+  max_steps: null
+  device: cuda
+  use_amp: true
+  logging_steps: 20
+  eval_steps: 100
+  save_steps: 500
+
+data:
+  max_seq_len: 1024
+  max_samples_per_hf: 10000
+  checkpoint_dir: training/checkpoints/mini_gpu
+  tokenizer_dir: training/checkpoints/tokenizer
