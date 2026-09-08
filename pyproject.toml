@@ -67,14 +67,10 @@ site-package-path = [
     ".venv/Lib/site-packages",
     "C:/Users/Vignan Lara/AppData/Roaming/Python/Python310/site-packages",
 ]
-project_excludes = [
-    ".venv",
-    "**/__pyrefly_virtual__/**",
-    "**/__pycache__/**",
-]
-exclude = [
+project-excludes = [
     ".venv/**",
     "**/__pyrefly_virtual__/**",
+    "**/inmemory/**",
     "**/__pycache__/**",
 ]
 

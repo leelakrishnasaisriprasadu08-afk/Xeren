@@ -325,7 +325,7 @@ class ThreatClassificationHead(nn.Module):
         bin_logits, cls_logits = self.forward(hidden)
         bin_probs = torch.softmax(bin_logits, dim=-1)
         cls_probs = torch.softmax(cls_logits, dim=-1)
-        is_threat = bool(bin_probs[0, 1].item() > 0.5)
+        is_threat = bin_probs[0, 1].item() > 0.5
         threat_idx = int(cls_probs.argmax(dim=-1).item())
         return {
             "is_threat": is_threat,
