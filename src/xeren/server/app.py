@@ -24,6 +24,7 @@ from xeren.mcp.presets import get_default_mcp_presets
 from xeren.accounts.manager import AccountManager
 from xeren.accounts.schemas import AccountLoginRequest, AddCustomAppRequest, AddLocalAppRequest, AppEventType
 from xeren.db.mongo import mongo_manager
+from xeren.db.postgres import postgres_manager
 from xeren.auth.manager import auth_manager
 from xeren.auth.schemas import (
     OTPRequest,
@@ -403,16 +404,22 @@ class MongoVerifyRequest(BaseModel):
     db_name: Optional[str] = None
 
 
+class PostgresVerifyRequest(BaseModel):
+    uri: Optional[str] = None
+
+
 @app.get("/api/system/version")
 def get_system_version():
     """Version handshake between frontend and backend workstations."""
     db_status = mongo_manager.get_status()
+    postgres_status = postgres_manager.get_status()
     return {
         "backend_version": "1.2.0",
         "frontend_version_required": "1.2.x",
         "protocol_version": "v2.strawberry",
         "status": "operational",
         "database": db_status,
+        "postgres": postgres_status,
         "active_user": auth_manager.get_current_user().handle,
     }
 
@@ -428,6 +435,18 @@ def verify_database_connection(req: MongoVerifyRequest):
     """Test and verify an arbitrary or configured MongoDB connection string (Atlas or Local)."""
     res = mongo_manager.verify_connection(uri=req.uri, db_name=req.db_name)
     return res
+
+
+@app.get("/api/db/postgres/status")
+def get_postgres_status():
+    """Retrieve PostgreSQL connection health, latency, and schema metrics."""
+    return postgres_manager.get_status()
+
+
+@app.post("/api/db/postgres/verify")
+def verify_postgres_connection(req: PostgresVerifyRequest):
+    """Test and verify an arbitrary or configured PostgreSQL connection URI."""
+    return postgres_manager.verify_connection(uri=req.uri)
 
 
 # ======================================================================

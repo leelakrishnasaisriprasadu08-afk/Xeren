@@ -75,6 +75,19 @@ class MetadataFilter(BaseModel):
         """Convenience factory for IN condition."""
         return cls(conditions=[FilterCondition(field=field, operator=FilterOperator.IN, value=values)])
 
+    def add_condition(self, field: str, operator: FilterOperator = FilterOperator.EQ, value: Any = None) -> "MetadataFilter":
+        """Add a condition to this filter fluently."""
+        self.conditions.append(FilterCondition(field=field, operator=operator, value=value))
+        return self
+
+    def equals(self, field: str, value: Any) -> "MetadataFilter":
+        """Add an equality condition fluently."""
+        return self.add_condition(field=field, operator=FilterOperator.EQ, value=value)
+
+    def in_values(self, field: str, values: List[Any]) -> "MetadataFilter":
+        """Add an IN condition fluently."""
+        return self.add_condition(field=field, operator=FilterOperator.IN, value=values)
+
     def matches(self, metadata: Dict[str, Any]) -> bool:
         """Evaluate if the given metadata satisfies all filter conditions."""
         if not self.conditions:

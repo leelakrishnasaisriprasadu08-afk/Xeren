@@ -34,6 +34,7 @@ class QdrantVectorStore(VectorStore):
         collection_name: str = "xeren_knowledge",
         persist_path: Optional[str] = "data/qdrant",
         url: Optional[str] = None,
+        api_key: Optional[str] = None,
         vector_size: int = 384,
         distance: qmodels.Distance = qmodels.Distance.COSINE,
     ) -> None:
@@ -41,15 +42,25 @@ class QdrantVectorStore(VectorStore):
         self.vector_size = vector_size
         self.distance = distance
 
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+
+        target_url = url or os.getenv("QDRANT_URL")
+        target_api_key = api_key or os.getenv("QDRANT_API_KEY")
+
         import sys
         if "pytest" in sys.modules or persist_path == ":memory:":
             self.client = QdrantClient(":memory:")
             self.collection_name = f"test_{uuid.uuid4().hex[:8]}"
-        elif url:
-            self.client = QdrantClient(url=url)
+        elif target_url:
+            self.client = QdrantClient(url=target_url, api_key=target_api_key)
         else:
-            os.makedirs(persist_path, exist_ok=True)
-            self.client = QdrantClient(path=persist_path)
+            effective_path = persist_path or os.getenv("QDRANT_PATH", "data/qdrant")
+            os.makedirs(effective_path, exist_ok=True)
+            self.client = QdrantClient(path=effective_path)
 
         self._ensure_collection()
 
@@ -103,8 +114,12 @@ class QdrantVectorStore(VectorStore):
                 "character_count": chunk.character_count,
                 "token_count": chunk.token_count or 0,
                 "embedding_model": embedded.embedding_model,
-                "metadata": chunk.metadata,
+                "metadata": chunk.metadata or {},
             }
+            # Elevate authorization & tenant fields to top-level payload for fast index filtering
+            for auth_field in ("tenant_id", "owner_id", "access_level", "department"):
+                if auth_field in chunk.metadata:
+                    payload[auth_field] = chunk.metadata[auth_field]
 
             points.append(
                 qmodels.PointStruct(
@@ -121,6 +136,50 @@ class QdrantVectorStore(VectorStore):
         logger.info("Upserted %d points into Qdrant '%s'", len(points), self.collection_name)
         return inserted_ids
 
+    def _build_qdrant_filter(self, filter: Optional[MetadataFilter]) -> Optional[qmodels.Filter]:
+        """Translate a Xeren MetadataFilter into a native Qdrant query filter."""
+        if not filter or not filter.conditions:
+            return None
+
+        from xeren.rag.retrieval.filter import FilterOperator
+
+        conditions: List[Any] = []
+        for cond in filter.conditions:
+            key = cond.field
+            if cond.operator == FilterOperator.EQ:
+                conditions.append(
+                    qmodels.FieldCondition(
+                        key=key,
+                        match=qmodels.MatchValue(value=cond.value),
+                    )
+                )
+            elif cond.operator == FilterOperator.IN:
+                val_list = list(cond.value) if isinstance(cond.value, (list, set, tuple)) else [cond.value]
+                conditions.append(
+                    qmodels.FieldCondition(
+                        key=key,
+                        match=qmodels.MatchAny(any=val_list),
+                    )
+                )
+            elif cond.operator == FilterOperator.NEQ:
+                conditions.append(
+                    qmodels.Filter(
+                        must_not=[
+                            qmodels.FieldCondition(
+                                key=key,
+                                match=qmodels.MatchValue(value=cond.value),
+                            )
+                        ]
+                    )
+                )
+
+        if not conditions:
+            return None
+
+        if filter.logic == "OR":
+            return qmodels.Filter(should=conditions)
+        return qmodels.Filter(must=conditions)
+
     def similarity_search(
         self,
         query_vector: List[float],
@@ -130,16 +189,26 @@ class QdrantVectorStore(VectorStore):
         if self.count() == 0:
             return []
 
-        # Search Qdrant
+        # Build native index-level authorization filter
+        query_filter = self._build_qdrant_filter(filter)
+
+        # Search Qdrant with pre-retrieval filter enforced
         hits = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
             limit=top_k,
+            query_filter=query_filter,
         ).points
 
         results = []
         for hit in hits:
             payload = hit.payload or {}
+            meta = dict(payload.get("metadata", {}))
+            # Restore elevated authorization fields into metadata
+            for auth_field in ("tenant_id", "owner_id", "access_level", "department"):
+                if auth_field in payload and auth_field not in meta:
+                    meta[auth_field] = payload[auth_field]
+
             chunk = DocumentChunk(
                 chunk_id=payload.get("chunk_id", str(hit.id)),
                 document_id=payload.get("document_id", "unknown"),
@@ -148,10 +217,10 @@ class QdrantVectorStore(VectorStore):
                 total_chunks=payload.get("total_chunks", 1),
                 character_count=payload.get("character_count", len(payload.get("content", ""))),
                 token_count=payload.get("token_count", 0),
-                metadata=payload.get("metadata", {}),
+                metadata=meta,
             )
             # Qdrant cosine returns score from -1 to 1 (or 0 to 1 for normalized)
-            score = float(hit.score)
+            score = hit.score
             results.append(SearchResult(chunk=chunk, score=score))
 
         return results
