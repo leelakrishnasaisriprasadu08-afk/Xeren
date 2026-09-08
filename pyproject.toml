@@ -10,6 +10,9 @@ requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0",
     "httpx>=0.27.0",
+    "chromadb>=0.4.0",
+    "qdrant-client>=1.9.0",
+    "sqlmodel>=0.0.16",
 ]
 
 [project.optional-dependencies]
@@ -35,7 +38,8 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"
 include = ["src", "tests"]
-extraPaths = ["src"]
+exclude = ["**/__pyrefly_virtual__/**", "**/__pycache__/**"]
+extraPaths = ["src", ".venv/Lib/site-packages"]
 
 [tool.pyrefly]
 python-interpreter-path = ".venv/Scripts/python.exe"
@@ -46,3 +50,9 @@ search-path = [
 site-package-path = [
     ".venv/Lib/site-packages",
 ]
+exclude = [
+    "**/__pyrefly_virtual__/**",
+    "**/__pycache__/**",
+]
+
+

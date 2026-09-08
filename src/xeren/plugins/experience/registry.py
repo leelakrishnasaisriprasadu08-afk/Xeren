@@ -3,7 +3,7 @@
 from typing import Optional
 
 from xeren.plugins.experience.stores.base import BaseExperienceStore
-from xeren.plugins.experience.stores.memory import InMemoryExperienceStore
+from xeren.plugins.experience.stores.sqlite import SQLiteExperienceStore
 from xeren.plugins.experience.tools.feedback import ExperienceFeedbackTool
 from xeren.plugins.experience.tools.patterns import ExperiencePatternTool
 from xeren.plugins.experience.tools.ranking import ExperienceRankingTool
@@ -25,7 +25,7 @@ class ExperienceToolRegistry:
         ranking_tool: Optional[ExperienceRankingTool] = None,
         pattern_tool: Optional[ExperiencePatternTool] = None,
     ) -> None:
-        self.store = store or InMemoryExperienceStore()
+        self.store = store or SQLiteExperienceStore()
         self.sanitizer = sanitizer or ExperienceSanitizerTool()
         self.recorder_tool = recorder_tool or ExperienceRecorderTool(
             store=self.store, sanitizer=self.sanitizer

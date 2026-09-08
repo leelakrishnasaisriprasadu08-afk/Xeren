@@ -1,3 +1,29 @@
+ feature/core-architecture
+"""Generic browser abstraction package for Xeren Autonomous Work Agent."""
+
+from xeren.agent.browser.adapter import (
+    BaseBrowserAdapter,
+    BrowserAction,
+    BrowserActionType,
+    BrowserObservation,
+)
+from xeren.agent.browser.mock import MockBrowserAdapter
+from xeren.agent.browser.plugin import (
+    BrowserInput,
+    BrowserPlugin,
+    BrowserResult,
+)
+
+__all__ = [
+    "BaseBrowserAdapter",
+    "BrowserActionType",
+    "BrowserAction",
+    "BrowserObservation",
+    "MockBrowserAdapter",
+    "BrowserInput",
+    "BrowserResult",
+    "BrowserPlugin",
+
 """Browser adapter package exposing base contracts, mock implementations, and Playwright adapter."""
 
 from xeren.agent.browser.contract import BaseBrowserAdapter
@@ -26,4 +52,5 @@ __all__ = [
     "BrowserSecurityError",
     "BrowserSessionError",
     "BrowserActionError",
+ main
 ]

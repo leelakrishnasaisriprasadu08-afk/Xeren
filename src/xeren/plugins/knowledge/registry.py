@@ -16,7 +16,7 @@ from xeren.rag.retrieval.dense import DenseRetriever
 from xeren.rag.retrieval.hybrid import HybridRetriever
 from xeren.rag.retrieval.keyword import KeywordRetriever
 from xeren.rag.stores.base import VectorStore
-from xeren.rag.stores.memory_store import InMemoryVectorStore
+from xeren.rag.stores.chroma import ChromaVectorStore
 
 
 class KnowledgeToolRegistry:
@@ -33,7 +33,7 @@ class KnowledgeToolRegistry:
         context_builder: Optional[ContextBuilder] = None,
         ingestion_pipeline: Optional[IngestionPipeline] = None,
     ) -> None:
-        self.vector_store = vector_store or InMemoryVectorStore()
+        self.vector_store = vector_store or ChromaVectorStore()
         self.embedding_model = embedding_model or MockEmbeddingModel(dimension=64)
         self.keyword_retriever = keyword_retriever or KeywordRetriever()
 

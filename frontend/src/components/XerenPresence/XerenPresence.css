@@ -1,0 +1,195 @@
+/* Xeren 1.0 Volumetric Neural Intelligence Presence */
+
+.xeren-presence-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  user-select: none;
+  overflow: visible;
+  z-index: 25;
+  isolation: isolate;
+}
+
+.xeren-presence-stage {
+  position: relative;
+  width: 440px;
+  height: 440px;
+  max-width: min(440px, 85vw);
+  max-height: min(440px, 85vw);
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  overflow: visible;
+  z-index: 26;
+}
+
+/* Volumetric Atmospheric Glow behind the intelligence */
+.presence-volumetric-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 420px;
+  height: 420px;
+  max-width: 85vw;
+  max-height: 85vw;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.32;
+  pointer-events: none;
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+/* 3D Neural Field Canvas */
+.presence-neural-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* Specter Orb Presence Wrapper */
+.presence-specter-wrap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  overflow: visible;
+}
+
+/* State-Specific Glow Themes */
+.state-idle .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.42) 0%, rgba(0, 240, 255, 0.2) 55%, transparent 75%);
+  animation: aura-breathe 6s ease-in-out infinite alternate;
+}
+
+.state-listening .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.6) 0%, rgba(56, 189, 248, 0.32) 50%, transparent 80%);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.state-thinking .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.62) 0%, rgba(99, 102, 241, 0.38) 55%, transparent 80%);
+  animation: aura-pulse 2.8s ease-in-out infinite alternate;
+}
+
+.state-acting .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.58) 0%, rgba(6, 182, 212, 0.32) 55%, transparent 80%);
+  animation: aura-pulse 2.2s ease-in-out infinite alternate;
+}
+
+.state-speaking .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.62) 0%, rgba(236, 72, 153, 0.35) 55%, transparent 80%);
+}
+
+.state-complete .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.7) 0%, rgba(0, 240, 255, 0.45) 50%, transparent 80%);
+}
+
+.state-error .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.52) 0%, rgba(185, 28, 28, 0.22) 65%, transparent 85%);
+}
+
+.state-paused .presence-volumetric-glow {
+  background: radial-gradient(circle, rgba(100, 116, 139, 0.25) 0%, transparent 70%);
+  opacity: 0.2;
+}
+
+/* Presence State Label */
+.presence-state-label {
+  margin-top: 8px;
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.3s ease;
+  z-index: 2;
+}
+
+.presence-state-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  transition: all 0.3s ease;
+}
+
+.state-idle .presence-state-dot { background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
+.state-listening .presence-state-dot { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+.state-thinking .presence-state-dot { background: #c084fc; box-shadow: 0 0 10px #c084fc; }
+.state-acting .presence-state-dot { background: #34d399; box-shadow: 0 0 10px #34d399; }
+.state-speaking .presence-state-dot { background: #818cf8; box-shadow: 0 0 10px #818cf8; }
+.state-paused .presence-state-dot { background: #94a3b8; box-shadow: 0 0 6px #94a3b8; }
+.state-error .presence-state-dot { background: #f87171; box-shadow: 0 0 10px #f87171; }
+.state-complete .presence-state-dot { background: #10b981; box-shadow: 0 0 12px #10b981; }
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .xeren-presence-container {
+    max-width: 440px;
+  }
+  .xeren-presence-stage {
+    width: 380px;
+    height: 380px;
+  }
+  .presence-volumetric-glow {
+    width: 360px;
+    height: 360px;
+    filter: blur(64px);
+  }
+}
+
+@media (max-width: 768px) {
+  .xeren-presence-container {
+    max-width: 340px;
+  }
+  .xeren-presence-stage {
+    width: 290px;
+    height: 290px;
+  }
+  .presence-volumetric-glow {
+    width: 270px;
+    height: 270px;
+    filter: blur(48px);
+  }
+}
+
+/* Reduced Motion Overrides */
+@media (prefers-reduced-motion: reduce) {
+  .presence-volumetric-glow {
+    animation: none !important;
+    transition: opacity 0.3s ease !important;
+  }
+}
+
+.reduced-motion .presence-volumetric-glow {
+  animation: none !important;
+  transition: opacity 0.3s ease !important;
+}
+
+@keyframes aura-breathe {
+  0% { transform: translate(-50%, -50%) scale(0.94); opacity: 0.4; }
+  100% { transform: translate(-50%, -50%) scale(1.06); opacity: 0.58; }
+}
+
+@keyframes aura-pulse {
+  0% { transform: translate(-50%, -50%) scale(0.96); opacity: 0.44; }
+  100% { transform: translate(-50%, -50%) scale(1.05); opacity: 0.68; }
+}

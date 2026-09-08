@@ -1,0 +1,53 @@
+.connection-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.connection-status-pill:hover {
+  background: rgba(17, 24, 39, 0.85);
+  border-color: var(--border-medium);
+}
+
+.status-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.status-connected .status-indicator-dot {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.status-connecting .status-indicator-dot,
+.status-reconnecting .status-indicator-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  animation: pulse-conn 1.2s infinite alternate;
+}
+
+.status-error .status-indicator-dot {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+}
+
+.status-offline .status-indicator-dot,
+.status-disconnected .status-indicator-dot {
+  background: #64748b;
+}
+
+@keyframes pulse-conn {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
