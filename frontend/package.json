@@ -20,7 +20,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwind-merge": "^3.6.0",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "xeren": "file:.."
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
