@@ -15,14 +15,14 @@ def main():
     builder = DatasetBuilder(output_dir="training/data/processed")
 
     # For local testing & tokenizer training, max_samples_per_hf=150 is quick and comprehensive
-    data = builder.build_dataset(
+    data = builder.build_stage1_dataset(
         local_train_path="data/train.jsonl",
         local_val_path="data/val.jsonl",
-        include_hf_datasets=True,
         max_samples_per_hf=150,
     )
 
-    sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stdout, "reconfigure"):
+        getattr(sys.stdout, "reconfigure")(encoding="utf-8")
     print("\n[OK] Dataset Build Finished:")
     print(f"  • Training samples: {len(data['train'])}")
     print(f"  • Validation samples: {len(data['val'])}")

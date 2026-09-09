@@ -174,9 +174,9 @@ class DatasetBuilder:
 
     def process_math_sample(self, item: Dict[str, Any]) -> str:
         """Format a MetaMathQA / OpenR1 Math step-by-step reasoning record."""
-        problem = item.get("query", item.get("problem", ""))
-        solution = item.get("response", item.get("solution", ""))
-        convs = [
+        problem = str(item.get("query") or item.get("problem") or "")
+        solution = str(item.get("response") or item.get("solution") or "")
+        convs: List[Dict[str, str]] = [
             {"role": "user", "content": problem},
             {"role": "thought", "content": "Solving step-by-step. Confidence: 0.92"},
             {"role": "assistant", "content": solution},
@@ -208,10 +208,10 @@ class DatasetBuilder:
 
     def process_openr1_math_sample(self, item: Dict[str, Any]) -> str:
         """Format OpenR1-Math for output prediction with probabilities training."""
-        problem = item.get("problem", "")
-        solution = item.get("solution", "")
+        problem = str(item.get("problem") or "")
+        solution = str(item.get("solution") or "")
         # Extract or simulate confidence annotation
-        convs = [
+        convs: List[Dict[str, str]] = [
             {"role": "user", "content": problem},
             {
                 "role": "thought",

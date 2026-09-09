@@ -1,11 +1,11 @@
 # =============================================================================
-# Xeren-Mini Stage 1 Training Launcher
-# Stage 1: ~70M parameters | Vocab: 16K | RTX A1000 (8GB)
+# Xeren-Mini Tier 3 Stage 1 Training Launcher
+# Stage 1: ~214M parameters | Vocab: 32K | RTX A1000 (8GB)
 # =============================================================================
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "    XEREN-MINI STAGE 1 — Building Language Foundation" -ForegroundColor Cyan
-Write-Host "    Model: ~70M params | Vocab: 16K | RTX A1000 8GB" -ForegroundColor Cyan
+Write-Host "    XEREN-MINI TIER 3: STAGE 1 — Language Foundation" -ForegroundColor Cyan
+Write-Host "    Model: ~214M params | Vocab: 32K | RTX A1000 8GB" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # Check GPU
@@ -15,9 +15,11 @@ nvidia-smi
 $env:HF_TOKEN = (Get-Content .env | Select-String "^HF_TOKEN=" | ForEach-Object { $_.Line.Split("=", 2)[1] })
 $env:DATABASE_URL = (Get-Content .env | Select-String "^DATABASE_URL=" | ForEach-Object { $_.Line.Split("=", 2)[1] })
 
+$pythonExe = if (Test-Path ".venv\Scripts\python.exe") { ".venv\Scripts\python.exe" } else { "python" }
+
 Write-Host ""
 Write-Host "[1/3] Building Stage 1 dataset from HuggingFace sources..." -ForegroundColor Yellow
-python training/gpu_launch/train_gpu.py --stage 1 --build-data
+& $pythonExe training/gpu_launch/train_gpu.py --stage 1 --build-data
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Stage 1 training failed!" -ForegroundColor Red

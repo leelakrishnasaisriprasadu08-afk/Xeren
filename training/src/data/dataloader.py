@@ -23,13 +23,14 @@ class XerenTextDataset(Dataset):
     def __len__(self) -> int:
         return len(self.texts)
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        text = self.texts[idx]
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
+        text = self.texts[index]
         token_ids = self.tokenizer.encode(text, add_special_tokens=True)
 
         # Append EOS if not present
-        if not token_ids or token_ids[-1] != self.tokenizer.eos_token_id:
-            token_ids.append(self.tokenizer.eos_token_id)
+        eos_id = self.tokenizer.eos_token_id
+        if eos_id is not None and (not token_ids or token_ids[-1] != eos_id):
+            token_ids.append(eos_id)
 
         # Truncate or pad
         if len(token_ids) > self.max_seq_len:
@@ -38,7 +39,8 @@ class XerenTextDataset(Dataset):
         seq_len = len(token_ids)
         pad_len = self.max_seq_len - seq_len
 
-        input_ids = token_ids + [self.tokenizer.pad_token_id] * pad_len
+        pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+        input_ids = token_ids + [pad_id] * pad_len
         # Ignore padding index in loss calculation using -100
         labels = token_ids + [-100] * pad_len
 
@@ -64,5 +66,5 @@ def create_dataloader(
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
-        drop_last=len(dataset) > batch_size,
+        drop_last=shuffle and (len(dataset) >= batch_size),
     )
