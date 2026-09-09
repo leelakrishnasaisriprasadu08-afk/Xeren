@@ -3,7 +3,7 @@
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
 from xeren.eval.types import EvalSample
@@ -16,6 +16,14 @@ class DatasetSplit(str, Enum):
     TRAIN = "train"
     VAL = "val"
     TEST = "test"
+
+
+class ReviewStatus(str, Enum):
+    """Review and curation status of an experience record."""
+    APPROVED = "approved"
+    PENDING = "pending"
+    REJECTED = "rejected"
+    FLAGGED_FOR_REVIEW = "flagged_for_review"
 
 
 class RetrievalItem(BaseModel):
@@ -72,16 +80,66 @@ class ExperienceRecord(BaseModel):
     final_quality_score: float = Field(..., ge=0.0, le=1.0, description="Final outcome/quality score in [0.0, 1.0]")
     split: DatasetSplit = Field(default=DatasetSplit.TRAIN, description="Data split")
     is_verified: bool = Field(default=False, description="Whether example is human/rule verified")
+    review_status: ReviewStatus = Field(default=ReviewStatus.APPROVED, description="Human/expert review status")
+    review_notes: Optional[str] = Field(default=None, description="Reviewer comments or correction instructions")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional environment/model metadata")
 
     def content_fingerprint(self) -> str:
-        """Generate a SHA-256 fingerprint from task and normalized action trajectory."""
+        """Generate a deterministic SHA-256 fingerprint from task, plan, and normalized action trajectory."""
         action_repr = [
-            f"{a.step_index}:{a.tool_name}:{json.dumps(a.tool_args, sort_keys=True)}:{a.result}"
+            f"{a.step_index}:{a.tool_name}:{json.dumps(a.tool_args, sort_keys=True, ensure_ascii=True)}:{a.result.strip()}"
             for a in self.actions
         ]
-        payload = f"{self.task.strip()}|{'|'.join(action_repr)}"
+        plan_repr = ":".join(p.strip() for p in self.plan)
+        payload = f"{self.task.strip()}|{plan_repr}|{'|'.join(action_repr)}"
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def is_training_eligible(
+        self,
+        min_quality_score: float = 0.7,
+        require_verified: bool = True,
+        allow_failures: bool = False,
+    ) -> Tuple[bool, Optional[str]]:
+        """Check if experience record is eligible for model training.
+
+        Enforces quality, verification, review status, and logical consistency.
+        Failed trajectories are excluded by default from positive imitation learning.
+        """
+        if require_verified and not self.is_verified:
+            return False, f"Sample {self.sample_id} is unverified (is_verified=False)."
+
+        if self.review_status != ReviewStatus.APPROVED:
+            return False, f"Sample {self.sample_id} review status is '{self.review_status.value}', expected 'approved'."
+
+        if self.final_quality_score < min_quality_score:
+            return (
+                False,
+                f"Sample {self.sample_id} quality score {self.final_quality_score} below threshold {min_quality_score}.",
+            )
+
+        if not allow_failures and not self.success:
+            return (
+                False,
+                f"Sample {self.sample_id} is a failed trajectory; excluded from positive imitation training.",
+            )
+
+        # Anti-contradiction checks
+        if self.success and self.failure_reason is not None:
+            return False, f"Sample {self.sample_id} claims success=True but provides failure_reason."
+
+        if not self.success and not self.failure_reason:
+            return False, f"Sample {self.sample_id} marked success=False but missing failure_reason."
+
+        if self.success and not self.verification.verified:
+            return False, f"Sample {self.sample_id} claims success=True but verification.verified is False."
+
+        if self.verification.verified and self.verification.score < 0.5:
+            return (
+                False,
+                f"Sample {self.sample_id} verification.verified is True but score {self.verification.score} < 0.5.",
+            )
+
+        return True, None
 
     def to_eval_sample(self) -> EvalSample:
         """Convert experience record to Xeren EvalSample for evaluation framework integration."""

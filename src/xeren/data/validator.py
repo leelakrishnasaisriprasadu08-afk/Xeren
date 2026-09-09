@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Set, Tuple
 from pydantic import ValidationError
 
-from xeren.data.schema import DatasetSplit, ExperienceRecord
+from xeren.data.schema import DatasetSplit, ExperienceRecord, ReviewStatus
 
 
 class ValidationResult:
@@ -63,7 +63,7 @@ class DatasetValidator:
         return record
 
     def validate_record(self, record: ExperienceRecord) -> Tuple[bool, List[str]]:
-        """Validate an individual experience record against quality requirements."""
+        """Validate an individual experience record against quality requirements and logical consistency."""
         errors: List[str] = []
 
         if not record.sample_id or not record.sample_id.strip():
@@ -75,6 +75,9 @@ class DatasetValidator:
         if self.require_verified and not record.is_verified:
             errors.append(f"Sample {record.sample_id} is unverified (is_verified=False).")
 
+        if record.review_status == ReviewStatus.REJECTED:
+            errors.append(f"Sample {record.sample_id} was marked as REJECTED during curation.")
+
         if record.final_quality_score < self.min_quality_score:
             errors.append(
                 f"Sample {record.sample_id} quality score {record.final_quality_score} is below minimum {self.min_quality_score}."
@@ -85,6 +88,41 @@ class DatasetValidator:
 
         if not record.actions and not record.plan:
             errors.append(f"Sample {record.sample_id} contains neither a plan nor executed actions.")
+
+        # Logical contradiction checks
+        if record.success and record.failure_reason is not None:
+            errors.append(
+                f"Sample {record.sample_id} contradiction: marked success=True but failure_reason is present."
+            )
+
+        if not record.success and (not record.failure_reason or not record.failure_reason.strip()):
+            errors.append(
+                f"Sample {record.sample_id} contradiction: marked success=False but failure_reason is missing."
+            )
+
+        if record.success and not record.verification.verified:
+            errors.append(
+                f"Sample {record.sample_id} contradiction: marked success=True but verification.verified is False."
+            )
+
+        if record.verification.verified and record.verification.score < 0.5:
+            errors.append(
+                f"Sample {record.sample_id} contradiction: verification.verified is True but score {record.verification.score} is below 0.5."
+            )
+
+        # Action sequence and execution consistency
+        if record.actions:
+            for expected_idx, action in enumerate(record.actions):
+                if action.step_index != expected_idx:
+                    errors.append(
+                        f"Sample {record.sample_id} has non-sequential action step_index: expected {expected_idx}, got {action.step_index}."
+                    )
+                    break
+
+            if record.success and all(not a.success for a in record.actions):
+                errors.append(
+                    f"Sample {record.sample_id} contradiction: marked success=True but all action steps failed."
+                )
 
         return len(errors) == 0, errors
 

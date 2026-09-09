@@ -9,6 +9,7 @@ from xeren.data.schema import (
     DatasetSplit,
     ExperienceRecord,
     RetrievalItem,
+    ReviewStatus,
     VerificationDetails,
 )
 
@@ -133,3 +134,115 @@ def test_to_eval_sample_integration() -> None:
     assert len(eval_sample.retrieved_chunks) == 2
     assert eval_sample.retrieved_chunks[0].chunk.chunk_id == "intro#1"
     assert eval_sample.metadata["split"] == "test"
+
+
+def test_is_training_eligible_logic() -> None:
+    rec = ExperienceRecord(
+        sample_id="elig-01",
+        task="Test task",
+        plan=["Step 1"],
+        actions=[
+            ActionStep(
+                step_index=0,
+                plan_step="Step 1",
+                tool_name="tool_a",
+                result="Done",
+                success=True,
+            )
+        ],
+        prediction_confidence=0.9,
+        verification=VerificationDetails(verified=True, verifier="tester", score=0.95),
+        success=True,
+        final_quality_score=0.9,
+        is_verified=True,
+        review_status=ReviewStatus.APPROVED,
+    )
+
+    # Clean positive record is eligible
+    ok, reason = rec.is_training_eligible()
+    assert ok is True
+    assert reason is None
+
+    # Unverified rejection
+    rec_unverified = rec.model_copy(update={"is_verified": False})
+    ok, reason = rec_unverified.is_training_eligible()
+    assert ok is False
+    assert "unverified" in reason
+
+    # Low quality rejection
+    rec_low_q = rec.model_copy(update={"final_quality_score": 0.4})
+    ok, reason = rec_low_q.is_training_eligible(min_quality_score=0.7)
+    assert ok is False
+    assert "below threshold" in reason
+
+    # Pending or rejected status
+    rec_pending = rec.model_copy(update={"review_status": ReviewStatus.PENDING})
+    ok, reason = rec_pending.is_training_eligible()
+    assert ok is False
+    assert "pending" in reason
+
+    # Failed trajectory rejection for positive imitation
+    rec_failed = rec.model_copy(update={"success": False, "failure_reason": "Tool timed out"})
+    ok, reason = rec_failed.is_training_eligible(allow_failures=False)
+    assert ok is False
+    assert "failed trajectory" in reason
+
+    # Failed trajectory accepted if allow_failures=True
+    ok, reason = rec_failed.is_training_eligible(allow_failures=True)
+    assert ok is True
+
+    # Contradiction: success=True with failure_reason
+    rec_contra1 = rec.model_copy(update={"success": True, "failure_reason": "Some error"})
+    ok, reason = rec_contra1.is_training_eligible()
+    assert ok is False
+    assert "claims success=True but provides failure_reason" in reason
+
+    # Contradiction: success=False without failure_reason
+    rec_contra2 = rec.model_copy(update={"success": False, "failure_reason": None})
+    ok, reason = rec_contra2.is_training_eligible(allow_failures=True)
+    assert ok is False
+    assert "marked success=False but missing failure_reason" in reason
+
+    # Contradiction: success=True with unverified outcome
+    rec_contra3 = rec.model_copy(
+        update={"verification": VerificationDetails(verified=False, verifier="t", score=0.0)}
+    )
+    ok, reason = rec_contra3.is_training_eligible()
+    assert ok is False
+    assert "claims success=True but verification.verified is False" in reason
+
+
+def test_content_fingerprint_plan_and_empty_actions() -> None:
+    rec1 = ExperienceRecord(
+        sample_id="fp-1",
+        task="Analyze logs",
+        plan=["Download logs", "Search errors"],
+        actions=[],
+        prediction_confidence=0.8,
+        verification=VerificationDetails(verified=True, verifier="t", score=0.9),
+        success=True,
+        final_quality_score=0.85,
+    )
+    rec2 = ExperienceRecord(
+        sample_id="fp-2",
+        task="Analyze logs",
+        plan=["Download logs", "Search errors"],
+        actions=[],
+        prediction_confidence=0.8,
+        verification=VerificationDetails(verified=True, verifier="t", score=0.9),
+        success=True,
+        final_quality_score=0.85,
+    )
+    rec3 = ExperienceRecord(
+        sample_id="fp-3",
+        task="Analyze logs",
+        plan=["Different plan step"],
+        actions=[],
+        prediction_confidence=0.8,
+        verification=VerificationDetails(verified=True, verifier="t", score=0.9),
+        success=True,
+        final_quality_score=0.85,
+    )
+
+    assert rec1.content_fingerprint() == rec2.content_fingerprint()
+    assert rec1.content_fingerprint() != rec3.content_fingerprint()

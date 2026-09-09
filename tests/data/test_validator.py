@@ -4,6 +4,7 @@ from xeren.data.schema import (
     ActionStep,
     DatasetSplit,
     ExperienceRecord,
+    ReviewStatus,
     VerificationDetails,
 )
 from xeren.data.validator import DatasetValidator
@@ -91,3 +92,62 @@ def test_validator_detects_cross_split_leakage() -> None:
     result = validator.validate_dataset([r1, r2], enforce_split_separation=True)
     assert result.is_valid is False
     assert any("Data leakage" in e for e in result.errors)
+
+
+def test_validator_detects_logical_contradictions() -> None:
+    validator = DatasetValidator()
+
+    # 1. success=True with failure_reason
+    rec_c1 = _make_valid_record("c1")
+    rec_c1.failure_reason = "Spurious error"
+    valid, errors = validator.validate_record(rec_c1)
+    assert valid is False
+    assert any("marked success=True but failure_reason is present" in e for e in errors)
+
+    # 2. success=False without failure_reason
+    rec_c2 = _make_valid_record("c2")
+    rec_c2.success = False
+    rec_c2.failure_reason = None
+    valid, errors = validator.validate_record(rec_c2)
+    assert valid is False
+    assert any("marked success=False but failure_reason is missing" in e for e in errors)
+
+    # 3. success=True but verification failed
+    rec_c3 = _make_valid_record("c3")
+    rec_c3.verification.verified = False
+    valid, errors = validator.validate_record(rec_c3)
+    assert valid is False
+    assert any("verification.verified is False" in e for e in errors)
+
+    # 4. verification verified=True but score < 0.5
+    rec_c4 = _make_valid_record("c4")
+    rec_c4.verification.score = 0.2
+    valid, errors = validator.validate_record(rec_c4)
+    assert valid is False
+    assert any("score 0.2 is below 0.5" in e for e in errors)
+
+    # 5. Non-sequential action steps
+    rec_c5 = _make_valid_record("c5")
+    rec_c5.actions = [
+        ActionStep(step_index=1, plan_step="Step", tool_name="t", result="r"),  # expected 0
+    ]
+    valid, errors = validator.validate_record(rec_c5)
+    assert valid is False
+    assert any("non-sequential action step_index" in e for e in errors)
+
+    # 6. All actions failed while marked success=True
+    rec_c6 = _make_valid_record("c6")
+    rec_c6.actions = [
+        ActionStep(step_index=0, plan_step="S0", tool_name="t", result="Fail", success=False),
+        ActionStep(step_index=1, plan_step="S1", tool_name="t", result="Fail 2", success=False),
+    ]
+    valid, errors = validator.validate_record(rec_c6)
+    assert valid is False
+    assert any("all action steps failed" in e for e in errors)
+
+    # 7. Rejected review status
+    rec_c7 = _make_valid_record("c7")
+    rec_c7.review_status = ReviewStatus.REJECTED
+    valid, errors = validator.validate_record(rec_c7)
+    assert valid is False
+    assert any("marked as REJECTED" in e for e in errors)

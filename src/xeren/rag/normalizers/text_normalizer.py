@@ -3,6 +3,10 @@
 import re
 from typing import List, Literal, Optional, cast
 import unicodedata
+ Features/training-data
+from typing import List, Literal, Optional
+
+ main
 
 from xeren.rag.document import Document
 from xeren.rag.normalizers.base import BaseNormalizer
@@ -16,14 +20,14 @@ class TextNormalizer(BaseNormalizer):
     def __init__(
         self,
         normalize_unicode: bool = True,
-        unicode_form: str = "NFKC",
+        unicode_form: Literal["NFC", "NFD", "NFKC", "NFKD"] = "NFKC",
         strip_whitespace: bool = True,
         collapse_blank_lines: bool = True,
         max_consecutive_blank_lines: int = 2,
         remove_control_chars: bool = True,
     ) -> None:
         self.normalize_unicode = normalize_unicode
-        self.unicode_form = unicode_form
+        self.unicode_form: Literal["NFC", "NFD", "NFKC", "NFKD"] = unicode_form
         self.strip_whitespace = strip_whitespace
         self.collapse_blank_lines = collapse_blank_lines
         self.max_consecutive_blank_lines = max_consecutive_blank_lines
