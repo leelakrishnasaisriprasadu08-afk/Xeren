@@ -11,13 +11,16 @@ Stage 2: Initializes from Stage 1 weights, then trains domain specialization (~9
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 import yaml
 import torch
+from dotenv import load_dotenv
 
 root_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(root_dir))
+load_dotenv(root_dir / ".env")
 
 from training.src.data.dataloader import create_dataloader
 from training.src.engine.optimizer import build_optimizer, get_cosine_schedule_with_warmup
@@ -54,23 +57,21 @@ def check_gpu():
 def build_tokenizer_for_stage(stage: int, cfg: dict, all_texts: list) -> XerenTokenizer:
     """Load or train tokenizer for the given stage."""
     tokenizer_dir = Path(cfg["data"]["tokenizer_dir"])
+    target_vocab = cfg["model"]["vocab_size"]
 
     if tokenizer_dir.exists() and (tokenizer_dir / "tokenizer.json").exists():
         print(f"Loading existing tokenizer from {tokenizer_dir}...")
         tokenizer = XerenTokenizer.load(tokenizer_dir)
         print(f"  Tokenizer vocab size: {tokenizer.vocab_size}")
 
-        # For Stage 2 with 32K vocab, we need a larger tokenizer
-        if stage == 2 and tokenizer.vocab_size < 32768:
-            print("Stage 2 requires 32K vocab tokenizer. Training new tokenizer...")
-            vocab_size = cfg["model"]["vocab_size"]
-            tokenizer = XerenTokenizer.train_from_iterator(iter(all_texts), vocab_size=vocab_size)
+        if tokenizer.vocab_size < target_vocab:
+            print(f"Stage requires {target_vocab} vocab tokenizer (current: {tokenizer.vocab_size}). Training new tokenizer...")
+            tokenizer = XerenTokenizer.train_from_iterator(iter(all_texts), vocab_size=target_vocab)
             tokenizer.save(tokenizer_dir)
-            print(f"  New 32K tokenizer saved to {tokenizer_dir}")
+            print(f"  New {target_vocab} tokenizer saved to {tokenizer_dir}")
     else:
-        vocab_size = cfg["model"]["vocab_size"]
-        print(f"Training new tokenizer (vocab_size={vocab_size}) from dataset...")
-        tokenizer = XerenTokenizer.train_from_iterator(iter(all_texts), vocab_size=vocab_size)
+        print(f"Training new tokenizer (vocab_size={target_vocab}) from dataset...")
+        tokenizer = XerenTokenizer.train_from_iterator(iter(all_texts), vocab_size=target_vocab)
         tokenizer_dir.mkdir(parents=True, exist_ok=True)
         tokenizer.save(tokenizer_dir)
         print(f"  Tokenizer saved to {tokenizer_dir}")

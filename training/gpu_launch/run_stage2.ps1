@@ -1,12 +1,12 @@
 # =============================================================================
-# Xeren-Mini Stage 2 Training Launcher
-# Stage 2: ~120M parameters | Vocab: 32K | RTX A1000 (8GB)
+# Xeren-Mini Tier 3 Stage 2 Training Launcher
+# Stage 2: ~305M parameters | Vocab: 32K | RTX A1000 (8GB)
 # Requires: Stage 1 checkpoint at training/checkpoints/stage1/checkpoint_final.pt
 # =============================================================================
 
 Write-Host "==========================================================" -ForegroundColor Magenta
-Write-Host "    XEREN-MINI STAGE 2 — Domain Specialization" -ForegroundColor Magenta
-Write-Host "    Model: ~120M params | Vocab: 32K | RTX A1000 8GB" -ForegroundColor Magenta
+Write-Host "    XEREN-MINI TIER 3: STAGE 2 — Domain Specialization" -ForegroundColor Magenta
+Write-Host "    Model: ~305M params | Vocab: 32K | RTX A1000 8GB" -ForegroundColor Magenta
 Write-Host "    Heads: Plugin + Confidence + Threat Detection" -ForegroundColor Magenta
 Write-Host "==========================================================" -ForegroundColor Magenta
 
@@ -27,11 +27,13 @@ $env:DATABASE_URL = (Get-Content .env | Select-String "^DATABASE_URL=" | ForEach
 $env:QDRANT_URL = (Get-Content .env | Select-String "^QDRANT_URL=" | ForEach-Object { $_.Line.Split("=", 2)[1] })
 $env:QDRANT_API_KEY = (Get-Content .env | Select-String "^QDRANT_API_KEY=" | ForEach-Object { $_.Line.Split("=", 2)[1] })
 
+$pythonExe = if (Test-Path ".venv\Scripts\python.exe") { ".venv\Scripts\python.exe" } else { "python" }
+
 Write-Host ""
 Write-Host "[1/3] Building Stage 2 domain-specific dataset..." -ForegroundColor Yellow
 Write-Host "      Sources: WildGuard, OpenR1-Math, Hermes, The Stack..." -ForegroundColor Yellow
 
-python training/gpu_launch/train_gpu.py --stage 2 --build-data
+& $pythonExe training/gpu_launch/train_gpu.py --stage 2 --build-data
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Stage 2 training failed!" -ForegroundColor Red

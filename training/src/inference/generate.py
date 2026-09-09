@@ -54,78 +54,88 @@ class XerenGenerator:
         self,
         prompt: str,
         max_new_tokens: int = 128,
-        temperature: float = 0.7,
+        temperature: float = 0.3,
         top_k: int = 40,
         top_p: float = 0.9,
+        repetition_penalty: float = 1.25,
     ) -> str:
         """Autoregressively generate a completion for a prompt."""
         input_ids = self.tokenizer.encode(prompt, add_special_tokens=True)
-        tokens = torch.tensor([input_ids], dtype=torch.long, device=self.device)
-
-        generated = list(input_ids)
+        curr = torch.tensor([input_ids], dtype=torch.long, device=self.device)
         eos_id = self.tokenizer.eos_token_id
+        im_end_id = self.tokenizer.encode("<|im_end|>")[-1] if self.tokenizer else None
 
-        # Initial forward pass to populate KV cache
-        kv_caches = None
-        logits, _, kv_caches = self.model(tokens, kv_caches=kv_caches)
-        next_token_logits = logits[:, -1, :]
-
+        generated_ids = []
         for _ in range(max_new_tokens):
-            if temperature == 0.0:
-                next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)
+            if curr.shape[1] >= self.model.config.max_seq_len:
+                break
+            out = self.model(curr)
+            logits = out["logits"][:, -1, :].clone()
+
+            if repetition_penalty != 1.0:
+                for token_id in set(curr[0].tolist()):
+                    if logits[0, token_id] > 0:
+                        logits[0, token_id] /= repetition_penalty
+                    else:
+                        logits[0, token_id] *= repetition_penalty
+
+            if temperature <= 0.0:
+                next_token = torch.argmax(logits, dim=-1, keepdim=True)
             else:
-                scaled_logits = next_token_logits / temperature
+                scaled_logits = logits / max(temperature, 1e-4)
                 filtered_logits = top_k_top_p_filtering(scaled_logits, top_k=top_k, top_p=top_p)
                 probs = F.softmax(filtered_logits, dim=-1)
                 next_token = torch.multinomial(probs, num_samples=1)
 
             token_val = int(next_token.item())
-            if token_val == eos_id:
+            if token_val in (eos_id, im_end_id):
                 break
 
-            generated.append(token_val)
+            generated_ids.append(token_val)
+            curr = torch.cat([curr, next_token], dim=1)
 
-            # Fast step using KV cache
-            start_pos = len(generated) - 1
-            logits, _, kv_caches = self.model(next_token, start_pos=start_pos, kv_caches=kv_caches)
-            next_token_logits = logits[:, -1, :]
-
-        return self.tokenizer.decode(generated, skip_special_tokens=False)
+        return self.tokenizer.decode(generated_ids, skip_special_tokens=False)
 
     @torch.no_grad()
     def stream_generate(
         self,
         prompt: str,
         max_new_tokens: int = 128,
-        temperature: float = 0.7,
+        temperature: float = 0.3,
         top_k: int = 40,
         top_p: float = 0.9,
+        repetition_penalty: float = 1.25,
     ) -> Iterator[str]:
-        """Stream generated completion tokens."""
+        """Stream generated completion tokens with causal autoregression."""
         input_ids = self.tokenizer.encode(prompt, add_special_tokens=True)
-        tokens = torch.tensor([input_ids], dtype=torch.long, device=self.device)
-
+        curr = torch.tensor([input_ids], dtype=torch.long, device=self.device)
         eos_id = self.tokenizer.eos_token_id
-        kv_caches = None
-        logits, _, kv_caches = self.model(tokens, kv_caches=kv_caches)
-        next_token_logits = logits[:, -1, :]
+        im_end_id = self.tokenizer.encode("<|im_end|>")[-1] if self.tokenizer else None
 
-        start_pos = len(input_ids)
         for _ in range(max_new_tokens):
-            if temperature == 0.0:
-                next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)
+            if curr.shape[1] >= self.model.config.max_seq_len:
+                break
+            out = self.model(curr)
+            logits = out["logits"][:, -1, :].clone()
+
+            if repetition_penalty != 1.0:
+                for token_id in set(curr[0].tolist()):
+                    if logits[0, token_id] > 0:
+                        logits[0, token_id] /= repetition_penalty
+                    else:
+                        logits[0, token_id] *= repetition_penalty
+
+            if temperature <= 0.0:
+                next_token = torch.argmax(logits, dim=-1, keepdim=True)
             else:
-                scaled_logits = next_token_logits / temperature
+                scaled_logits = logits / max(temperature, 1e-4)
                 filtered_logits = top_k_top_p_filtering(scaled_logits, top_k=top_k, top_p=top_p)
                 probs = F.softmax(filtered_logits, dim=-1)
                 next_token = torch.multinomial(probs, num_samples=1)
 
             token_val = int(next_token.item())
-            if token_val == eos_id:
+            if token_val in (eos_id, im_end_id):
                 break
 
             yield self.tokenizer.decode([token_val], skip_special_tokens=False)
-
-            logits, _, kv_caches = self.model(next_token, start_pos=start_pos, kv_caches=kv_caches)
-            next_token_logits = logits[:, -1, :]
-            start_pos += 1
+            curr = torch.cat([curr, next_token], dim=1)

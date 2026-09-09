@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 
 from training.src.model.config import XerenConfig
 
@@ -407,10 +408,9 @@ class XerenTransformer(nn.Module):
         """Calculate total number of trainable parameters."""
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
-    def enable_gradient_checkpointing(self):
-        """Enable gradient checkpointing to save VRAM during Stage 2 training."""
-        for layer in self.layers:
-            layer.attention.wq.weight.requires_grad_(True)
+    def enable_gradient_checkpointing(self, enable: bool = True):
+        """Enable gradient checkpointing to save VRAM during training."""
+        self.gradient_checkpointing = enable
 
     def forward(
         self,
@@ -450,11 +450,20 @@ class XerenTransformer(nn.Module):
         freqs_cis = self.freqs_cis[start_pos: start_pos + seqlen]
 
         new_kv_caches = [] if kv_caches is not None else None
-        for i, layer in enumerate(self.layers):
-            cache_i = kv_caches[i] if kv_caches is not None else None
-            h, new_cache = layer(h, freqs_cis, kv_cache=cache_i)
-            if new_kv_caches is not None:
-                new_kv_caches.append(new_cache)
+        if self.training and getattr(self, "gradient_checkpointing", False) and kv_caches is None:
+            for layer in self.layers:
+                def make_custom_forward(mod):
+                    def _custom(tensor_x):
+                        out_x, _ = mod(tensor_x, freqs_cis, kv_cache=None)
+                        return out_x
+                    return _custom
+                h = checkpoint(make_custom_forward(layer), h, use_reentrant=False)
+        else:
+            for i, layer in enumerate(self.layers):
+                cache_i = kv_caches[i] if kv_caches is not None else None
+                h, new_cache = layer(h, freqs_cis, kv_cache=cache_i)
+                if new_kv_caches is not None:
+                    new_kv_caches.append(new_cache)
 
         h = self.norm(h)
         logits = self.output(h)
@@ -547,3 +556,39 @@ class XerenTransformer(nn.Module):
                 h, _ = layer(h, freqs_cis)
             h = self.norm(h)
             return self.threat_head.predict(h[:, -1, :])
+
+    @torch.no_grad()
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        max_new_tokens: int = 30,
+        temperature: float = 0.7,
+        top_k: int = 50,
+        eos_token_id: Optional[int] = None,
+    ) -> torch.Tensor:
+        """Autoregressive generation for inspection and validation."""
+        was_training = self.training
+        self.eval()
+        curr_ids = input_ids.clone()
+        for _ in range(max_new_tokens):
+            seq_len = curr_ids.shape[1]
+            if seq_len >= self.config.max_seq_len:
+                break
+            out = self.forward(curr_ids)
+            next_token_logits = out["logits"][:, -1, :]
+            if temperature <= 0.0:
+                next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)
+            else:
+                scaled_logits = next_token_logits / max(temperature, 1e-4)
+                if top_k > 0:
+                    v, _ = torch.topk(scaled_logits, min(top_k, scaled_logits.size(-1)))
+                    scaled_logits[scaled_logits < v[:, [-1]]] = -float("Inf")
+                probs = F.softmax(scaled_logits, dim=-1)
+                next_token = torch.multinomial(probs, num_samples=1)
+            curr_ids = torch.cat([curr_ids, next_token], dim=1)
+            if eos_token_id is not None and next_token.item() == eos_token_id:
+                break
+        if was_training:
+            self.train()
+        return curr_ids
+

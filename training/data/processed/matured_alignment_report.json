@@ -1,0 +1,64 @@
+{
+  "dataset_name": "Xeren 214M Path B Matured Alignment Dataset",
+  "schema_version": "1.0",
+  "random_seed": 42,
+  "total_samples": 1600,
+  "train_samples": 1440,
+  "val_samples": 160,
+  "validation_split_ratio": 0.1,
+  "duplicate_count": 0,
+  "malformed_count": 0,
+  "pillar_distribution": {
+    "identity_architecture": {
+      "total": 150,
+      "train": 135,
+      "val": 15
+    },
+    "general_knowledge": {
+      "total": 200,
+      "train": 180,
+      "val": 20
+    },
+    "arithmetic": {
+      "total": 200,
+      "train": 180,
+      "val": 20
+    },
+    "python_programming": {
+      "total": 250,
+      "train": 225,
+      "val": 25
+    },
+    "rag_retrieval": {
+      "total": 150,
+      "train": 135,
+      "val": 15
+    },
+    "tool_usage": {
+      "total": 250,
+      "train": 225,
+      "val": 25
+    },
+    "agent_planning": {
+      "total": 150,
+      "train": 135,
+      "val": 15
+    },
+    "security_verification": {
+      "total": 150,
+      "train": 135,
+      "val": 15
+    },
+    "multi_turn": {
+      "total": 100,
+      "train": 90,
+      "val": 10
+    }
+  },
+  "token_statistics": {
+    "avg_tokens": 148.8,
+    "min_tokens": 64,
+    "max_tokens": 393
+  },
+  "validation_status": "PASSED"
+}
