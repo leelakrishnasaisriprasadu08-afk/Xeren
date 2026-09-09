@@ -296,6 +296,7 @@ def run_foundation_training(args: argparse.Namespace) -> None:
             logger.info(f"--- [EVAL Step {step}] Val Loss: {val_loss:.4f} | Val Perplexity: {val_ppl:.2f} ---")
 
         if step % args.save_interval == 0:
+            output_dir.mkdir(parents=True, exist_ok=True)
             ckpt_p = output_dir / f"checkpoint_step_{step}.pt"
             torch.save({
                 "step": step,
@@ -307,6 +308,7 @@ def run_foundation_training(args: argparse.Namespace) -> None:
 
     # Final Evaluation & Save
     final_val_loss, final_val_ppl = evaluate_foundation(model, val_loader, device)
+    output_dir.mkdir(parents=True, exist_ok=True)
     final_ckpt = output_dir / "checkpoint_final.pt"
     torch.save({
         "step": step,

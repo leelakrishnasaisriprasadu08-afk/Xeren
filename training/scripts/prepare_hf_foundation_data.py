@@ -113,11 +113,11 @@ class FoundationDataPipeline:
 
     def stream_wikitext(self, target_samples: int) -> List[str]:
         """Raw encyclopedic knowledge & general English articles (Preserves raw document flow)."""
-        logger.info(f"Streaming wikitext (target: {target_samples})...")
+        logger.info(f"Streaming Salesforce/wikitext (target: {target_samples})...")
         samples = []
         try:
             from datasets import load_dataset
-            ds = load_dataset("wikitext", "wikitext-103-raw-v1", split="train", streaming=True, token=False)
+            ds = load_dataset("Salesforce/wikitext", "wikitext-103-raw-v1", split="train", streaming=True, token=False)
             curr_doc = ""
             for item in ds:
                 if len(samples) >= target_samples:
@@ -149,7 +149,6 @@ class FoundationDataPipeline:
                 inp = item.get("input", "").strip()
                 out = item.get("output", "").strip()
                 
-                # Format as professional Python module with docstring
                 if inp:
                     code_doc = f'"""\nTask: {inst}\nInput Specification: {inp}\n"""\n\n{out}'
                 else:
@@ -163,21 +162,21 @@ class FoundationDataPipeline:
 
     def stream_metamath(self, target_samples: int) -> List[str]:
         """Mathematical reasoning & step-by-step arithmetic proofs."""
-        logger.info(f"Streaming meta-math/MetaMathQA (target: {target_samples})...")
+        logger.info(f"Streaming openai/gsm8k (target: {target_samples})...")
         samples = []
         try:
             from datasets import load_dataset
-            ds = load_dataset("meta-math/MetaMathQA", split="train", streaming=True, token=False)
+            ds = load_dataset("openai/gsm8k", "main", split="train", streaming=True, token=False)
             for item in ds:
                 if len(samples) >= target_samples:
                     break
-                query = item.get("query", "").strip()
-                resp = item.get("response", "").strip()
+                query = item.get("question", "").strip()
+                resp = item.get("answer", "").strip()
                 math_doc = f"# Problem:\n{query}\n\n# Step-by-Step Solution:\n{resp}"
                 if self._is_valid_text(math_doc):
                     samples.append(math_doc)
         except Exception as e:
-            logger.warning(f"Failed to stream MetaMathQA: {e}")
+            logger.warning(f"Failed to stream GSM8K: {e}")
         return samples
 
     def stream_dolly(self, target_samples: int) -> List[str]:
@@ -228,26 +227,40 @@ class FoundationDataPipeline:
 
     def stream_xlam(self, target_samples: int) -> List[str]:
         """Tool definitions, JSON arguments, and structured schema dispatching."""
-        logger.info(f"Streaming Salesforce/xlam-function-calling-60k (target: {target_samples})...")
+        logger.info(f"Streaming function calling datasets (target: {target_samples})...")
         samples = []
         try:
             from datasets import load_dataset
-            ds = load_dataset("Salesforce/xlam-function-calling-60k", split="train", streaming=True, token=False)
-            for item in ds:
-                if len(samples) >= target_samples:
-                    break
-                query = item.get("query", "").strip()
-                tools = item.get("tools", "")
-                answers = item.get("answers", "")
-                doc = (
-                    f"<|im_start|>system\nYou are Xeren, capable of structured JSON tool dispatch.\n<|im_end|>\n"
-                    f"<|im_start|>user\nAvailable Tools:\n{tools}\n\nTask: {query}\n<|im_end|>\n"
-                    f"<|im_start|>assistant\nAction: Dispatching Tool Call\n```json\n{answers}\n```\n<|im_end|>\n"
-                )
-                if self._is_valid_text(doc):
-                    samples.append(doc)
+            try:
+                ds = load_dataset("NousResearch/hermes-function-calling-v1", split="train", streaming=True, token=False)
+                for item in ds:
+                    if len(samples) >= target_samples:
+                        break
+                    convs = item.get("conversations", [])
+                    if len(convs) >= 2:
+                        doc = "<|im_start|>system\nYou are Xeren, capable of structured tool dispatch.\n<|im_end|>\n"
+                        for c in convs[:3]:
+                            r = "user" if c.get("from") == "human" else "assistant"
+                            doc += f"<|im_start|>{r}\n{c.get('value', '').strip()}\n<|im_end|>\n"
+                        if self._is_valid_text(doc):
+                            samples.append(doc)
+            except Exception:
+                ds = load_dataset("Salesforce/xlam-function-calling-60k", split="train", streaming=True, token=False)
+                for item in ds:
+                    if len(samples) >= target_samples:
+                        break
+                    query = item.get("query", "").strip()
+                    tools = item.get("tools", "")
+                    answers = item.get("answers", "")
+                    doc = (
+                        f"<|im_start|>system\nYou are Xeren, capable of structured JSON tool dispatch.\n<|im_end|>\n"
+                        f"<|im_start|>user\nAvailable Tools:\n{tools}\n\nTask: {query}\n<|im_end|>\n"
+                        f"<|im_start|>assistant\nAction: Dispatching Tool Call\n```json\n{answers}\n```\n<|im_end|>\n"
+                    )
+                    if self._is_valid_text(doc):
+                        samples.append(doc)
         except Exception as e:
-            logger.warning(f"Failed to stream xLAM-60k: {e}")
+            logger.warning(f"Failed to stream tool dataset: {e}")
         return samples
 
     def stream_ultrachat(self, target_samples: int) -> List[str]:
