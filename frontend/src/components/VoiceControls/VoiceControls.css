@@ -1,0 +1,104 @@
+.voice-controls-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+  z-index: 10;
+}
+
+.voice-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* Primary Mic Button */
+.mic-button {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 240, 255, 0.4);
+  background: radial-gradient(circle, rgba(17, 24, 39, 0.95) 0%, rgba(3, 7, 18, 0.95) 100%);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.15);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.mic-button:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.35);
+  transform: scale(1.04);
+}
+
+.mic-button:active {
+  transform: scale(0.96);
+}
+
+.mic-button.listening {
+  border-color: #38bdf8;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.25) 0%, rgba(3, 7, 18, 0.95) 100%);
+  box-shadow: 0 0 28px rgba(56, 189, 248, 0.45);
+}
+
+/* Interrupt Button (Barge-in) */
+.interrupt-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.interrupt-button:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+}
+
+.interrupt-button kbd {
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+/* Error banner */
+.voice-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: var(--text-xs);
+  max-width: 360px;
+  text-align: center;
+}
+
+.voice-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}

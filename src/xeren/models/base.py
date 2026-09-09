@@ -54,7 +54,7 @@ class BaseLLM(ABC):
         pass
 
     @abstractmethod
-    async def astream(
+    def astream(
         self,
         messages: List[ChatMessage],
         config: Optional[ModelConfig] = None,
@@ -80,9 +80,10 @@ class BaseLLM(ABC):
         augmented_messages = list(messages)
         if augmented_messages and augmented_messages[-1].content:
             last = augmented_messages[-1]
+            last_content = last.content or ""
             augmented_messages[-1] = ChatMessage(
                 role=last.role,
-                content=last.content + schema_instruction,
+                content=last_content + schema_instruction,
                 name=last.name,
                 tool_calls=last.tool_calls,
                 tool_call_id=last.tool_call_id,
@@ -111,9 +112,10 @@ class BaseLLM(ABC):
         augmented_messages = list(messages)
         if augmented_messages and augmented_messages[-1].content:
             last = augmented_messages[-1]
+            last_content = last.content or ""
             augmented_messages[-1] = ChatMessage(
                 role=last.role,
-                content=last.content + schema_instruction,
+                content=last_content + schema_instruction,
                 name=last.name,
                 tool_calls=last.tool_calls,
                 tool_call_id=last.tool_call_id,

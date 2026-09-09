@@ -53,7 +53,7 @@ from xeren.rag.retrieval import (
     MetadataFilter,
     SearchResult,
 )
-from xeren.rag.stores import InMemoryVectorStore, VectorStore
+from xeren.rag.stores import ChromaVectorStore, InMemoryVectorStore, QdrantVectorStore, VectorStore
 
 __all__ = [
     # Document models
@@ -102,6 +102,8 @@ __all__ = [
     # Stores
     "VectorStore",
     "InMemoryVectorStore",
+    "QdrantVectorStore",
+    "ChromaVectorStore",
     # Retrieval
     "BaseRetriever",
     "DenseRetriever",

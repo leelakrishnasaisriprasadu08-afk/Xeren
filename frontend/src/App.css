@@ -1,0 +1,73 @@
+.global-glow-cursor-app.glow-cursor {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.global-glow-cursor-app .glow-cursor__canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  user-select: none;
+  z-index: 9999;
+}
+
+.global-glow-cursor-app .glow-cursor__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Ambient canvas background gradient mesh */
+.app-backdrop-mesh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: 
+    radial-gradient(circle at 50% 10%, rgba(0, 240, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(circle at 10% 90%, rgba(56, 189, 248, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 90% 90%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
+  z-index: 0;
+}
+
+/* 3-Column Layout */
+.app-body-layout {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - var(--header-height));
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+  isolation: isolate;
+}
+
+/* Mobile backdrop overlay for sidebars */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 24;
+}
+
+@media (max-width: 1100px) {
+  .mobile-overlay.active {
+    display: block;
+  }
+}

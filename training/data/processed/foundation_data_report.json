@@ -1,0 +1,57 @@
+{
+  "dataset_summary": {
+    "total_samples": 140,
+    "train_samples": 133,
+    "val_samples": 7,
+    "train_tokens": 60777,
+    "val_tokens": 2151,
+    "total_tokens": 62928,
+    "total_characters": 248536,
+    "avg_tokens_per_sample": 449.49,
+    "min_tokens_per_sample": 14,
+    "max_tokens_per_sample": 1604,
+    "rejected_samples_count": 23,
+    "duplicate_samples_filtered": 0
+  },
+  "source_breakdown": {
+    "wikitext": {
+      "samples": 20,
+      "total_characters": 33514,
+      "avg_chars_per_sample": 1675.7
+    },
+    "python_code": {
+      "samples": 20,
+      "total_characters": 9205,
+      "avg_chars_per_sample": 460.2
+    },
+    "metamath": {
+      "samples": 20,
+      "total_characters": 11722,
+      "avg_chars_per_sample": 586.1
+    },
+    "dolly_15k": {
+      "samples": 20,
+      "total_characters": 23045,
+      "avg_chars_per_sample": 1152.2
+    },
+    "hotpotqa": {
+      "samples": 20,
+      "total_characters": 27650,
+      "avg_chars_per_sample": 1382.5
+    },
+    "xlam_tools": {
+      "samples": 20,
+      "total_characters": 70391,
+      "avg_chars_per_sample": 3519.6
+    },
+    "ultrachat": {
+      "samples": 20,
+      "total_characters": 73009,
+      "avg_chars_per_sample": 3650.4
+    }
+  },
+  "paths": {
+    "train_data": "D:\\Xeren\\training\\data\\processed\\foundation_train.json",
+    "val_data": "D:\\Xeren\\training\\data\\processed\\foundation_val.json"
+  }
+}

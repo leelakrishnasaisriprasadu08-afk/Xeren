@@ -1,0 +1,70 @@
+# =============================================================================
+# Xeren-Mini Tier 3: Stage 2 GPU Training Configuration (Maximized 8GB)
+# Model: ~305M parameters | Vocab: 32K | GPU: RTX A1000 (8GB)
+# Architecture: Dim 1024, 24 Layers, 16 Heads (4 KV), SwiGLU 2816, Tied Embeddings
+# Focus: Plugin dispatch, security/threat detection, confidence scores, continuous learning
+# Estimated Training Time: ~120-150 minutes
+# Requires: Stage 1 checkpoint at training/checkpoints/stage1/checkpoint_final.pt
+# =============================================================================
+
+model:
+  preset: stage2
+  vocab_size: 32768
+  dim: 1024
+  n_layers: 24
+  n_heads: 16
+  n_kv_heads: 4
+  hidden_dim: 2816
+  max_seq_len: 2048
+  norm_eps: 0.000001
+  rope_theta: 500000.0                   # Extended RoPE for 2K context
+  dropout: 0.05
+  tie_word_embeddings: true
+  # Stage 2 domain specialization heads
+  num_plugins: 9
+  enable_plugin_head: true
+  enable_confidence_head: true
+  enable_threat_head: true
+  num_threat_classes: 6
+
+training:
+  batch_size: 2                          # Micro-batch for 305M model on 8GB
+  gradient_accumulation_steps: 16       # Effective batch = 32
+  learning_rate: 0.0001                 # Lower LR for fine-tuning from Stage 1
+  min_lr_ratio: 0.1
+  weight_decay: 0.05
+  num_warmup_steps: 200
+  num_epochs: 4
+  max_steps: null
+  device: cuda
+  use_amp: true                         # FP16 mixed precision
+  gradient_checkpointing: true          # REQUIRED for Stage 2 on 8GB VRAM
+  logging_steps: 20
+  eval_steps: 100
+  save_steps: 300
+  max_grad_norm: 1.0
+  # Multi-head loss weights
+  lm_loss_weight: 1.0
+  plugin_loss_weight: 0.3
+  threat_loss_weight: 0.2
+  # Continuous training integration
+  enable_continuous_training: true
+  continuous_pull_every_steps: 100
+  continuous_max_episodes: 100
+
+data:
+  max_seq_len: 2048
+  tokenizer_dir: training/checkpoints/tokenizer_32k
+  train_file: training/data/processed/stage2_train_texts.json
+  val_file: training/data/processed/stage2_val_texts.json
+  checkpoint_dir: training/checkpoints/stage2
+  max_samples_per_hf: 3000
+  # Stage 1 checkpoint to initialize Stage 2 from (weight transfer)
+  stage1_checkpoint: training/checkpoints/stage1/checkpoint_final.pt
+  continuous_buffer: data/continuous_training/new_sessions.jsonl
+
+output:
+  save_final_checkpoint: training/checkpoints/stage2/checkpoint_final.pt
+  export_config: training/checkpoints/stage2/xeren_config.json
+  # Connect to Xeren core after training
+  xeren_provider_path: src/xeren/models/providers/xeren_native.py
