@@ -40,9 +40,9 @@
 
 .capability-card:hover {
   background: var(--bg-card-hover);
-  border-color: rgba(0, 240, 255, 0.3);
+  border-color: rgba(16, 185, 129, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(0, 240, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(16, 185, 129, 0.12);
 }
 
 .capability-card:hover::before {
@@ -53,8 +53,8 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 240, 255, 0.08);
-  border: 1px solid rgba(0, 240, 255, 0.18);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.18);
   color: var(--accent-cyan);
   display: flex;
   align-items: center;

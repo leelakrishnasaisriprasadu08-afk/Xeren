@@ -84,16 +84,18 @@ class ConsistencyCheckerTool:
         contradictions_found = []
 
         for i, s1 in enumerate(sentences):
+            s1_clean = re.sub(r"\b(0|zero|no|without)\s+(errors?|failures?)\b", "", s1)
             for j, s2 in enumerate(sentences[i + 1 :], start=i + 1):
+                s2_clean = re.sub(r"\b(0|zero|no|without)\s+(errors?|failures?)\b", "", s2)
                 # Check for antonym pairs sharing significant noun/subject tokens
-                s1_tokens = set(re.findall(r"\w+", s1)) - self.STOPWORDS
-                s2_tokens = set(re.findall(r"\w+", s2)) - self.STOPWORDS
+                s1_tokens = set(re.findall(r"\w+", s1_clean)) - self.STOPWORDS
+                s2_tokens = set(re.findall(r"\w+", s2_clean)) - self.STOPWORDS
                 common_entities = s1_tokens.intersection(s2_tokens)
 
                 if common_entities:
                     for pattern_a, pattern_b in self.CONTRADICTION_PAIRS:
-                        if (re.search(pattern_a, s1) and re.search(pattern_b, s2)) or (
-                            re.search(pattern_b, s1) and re.search(pattern_a, s2)
+                        if (re.search(pattern_a, s1_clean) and re.search(pattern_b, s2_clean)) or (
+                            re.search(pattern_b, s1_clean) and re.search(pattern_a, s2_clean)
                         ):
                             contradictions_found.append(
                                 f"Contradiction regarding {common_entities}: '{s1[:50]}' vs '{s2[:50]}'"

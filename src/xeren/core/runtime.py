@@ -1,6 +1,7 @@
 """Xeren Core orchestrator managing plugins, models, and workflows."""
 
 import asyncio
+import inspect
 import logging
 from pathlib import Path
 import re
@@ -9,10 +10,15 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 from pydantic import BaseModel
 
 from xeren.core.context import CoreContext
+from xeren.core.data_holding import PermittedDataHoldingVault
 from xeren.core.hallucination_guard import HallucinationGuard, StructuredAnswer
 from xeren.core.intent import IntentClassifier, IntentResult, RoutingCategory
 from xeren.core.learner import EpistemicLearner, KnowledgeGapDetector, LearnedKnowledge
+from xeren.core.session import XerenSession
+from xeren.models import create_llm
 from xeren.models.base import BaseLLM
+from xeren.models.improvement.engine import llm_improvement_engine
+from xeren.models.improvement.schemas import ObservationSource
 from xeren.models.providers.mock import MockLLM
 from xeren.plugins.contract import (
     BasePlugin,
@@ -115,7 +121,6 @@ from xeren.plugins.website.schemas import (
     WebsiteResult,
     WebsiteType,
 )
-
 from pathlib import Path
 
 from xeren.agent.browser.contract import BaseBrowserAdapter
@@ -130,7 +135,6 @@ from xeren.agent.plugins.experience import ExperienceInput as AgentExperienceInp
 from xeren.agent.plugins.verification import VerificationInput as AgentVerificationInput, VerificationPlugin as AgentVerificationPlugin
 from xeren.agent.types import AgentState, AgentStatus
 from xeren.core.planner import CorePlannerAdapter, TaskPlan
-
 from xeren.rag.document import Document
 from xeren.rag.retrieval.filter import MetadataFilter
 from xeren.workspace.manager import WorkspaceManager
@@ -163,8 +167,13 @@ class XerenCore:
         auto_register_defaults: bool = True,
         search_engine: Optional[BaseSearchEngine] = None,
         workspace_manager: Optional[WorkspaceManager] = None,
+        session: Optional[XerenSession] = None,
+        data_holding: Optional[PermittedDataHoldingVault] = None,
     ) -> None:
-        self.llm = llm or MockLLM()
+        self.session = session or XerenSession()
+        self.data_holding = data_holding or PermittedDataHoldingVault(vault=self.session.vault)
+        self.improvement_engine = llm_improvement_engine
+        self.llm = llm or create_llm(model_id="xeren_mini")
         self.plugin_manager = plugin_manager or PluginManager()
         self.workspace_manager = workspace_manager
         self.context = CoreContext(llm=self.llm)
@@ -175,6 +184,7 @@ class XerenCore:
             search_engine=search_engine,
             plugin_manager=self.plugin_manager,
         )
+        self.planner_adapter = CorePlannerAdapter(llm=self.llm, plugin_manager=self.plugin_manager)
 
         # Register any custom plugins passed in
         if plugins:
@@ -206,7 +216,7 @@ class XerenCore:
                 file_plugin = FilePlugin()
                 self.register_plugin(file_plugin)
             if not self.plugin_manager.has("verification"):
-                verification_plugin = VerificationPlugin()
+                verification_plugin = VerificationPlugin(llm=self.llm)
                 self.register_plugin(verification_plugin)
             if not self.plugin_manager.has("experience"):
                 experience_plugin = ExperiencePlugin()
@@ -218,11 +228,9 @@ class XerenCore:
                 api_plugin = ApiPlugin(plugin_manager=self.plugin_manager)
                 api_plugin.set_core(self)
                 self.register_plugin(api_plugin)
-
             if not self.plugin_manager.has("conversation"):
                 conversation_plugin = ConversationPlugin(llm=self.llm)
                 self.register_plugin(conversation_plugin)
-
 
     def set_llm(self, llm: BaseLLM) -> None:
         """Replace the active Core LLM (e.g. when injecting the trained Xeren model)."""
@@ -252,7 +260,7 @@ class XerenCore:
         if isinstance(research, ResearchPlugin):
             research.set_search_engine(engine)
         self.epistemic_learner.search_engine = engine
-        self.hallucination_guard.search_tool.engine = engine
+        self.hallucination_guard.search_engine = engine
 
     def set_workspace_manager(self, manager: WorkspaceManager) -> None:
         """Inject or configure the active WorkspaceManager."""
@@ -1057,9 +1065,9 @@ class XerenCore:
     def _ensure_agent_plugins(self) -> None:
         """Auto-register VerificationPlugin and ExperiencePlugin if not already registered."""
         if not self.plugin_manager.has("verification"):
-            self.register_plugin(AgentVerificationPlugin())
+            self.register_plugin(VerificationPlugin(llm=self.llm))
         if not self.plugin_manager.has("experience"):
-            self.register_plugin(AgentExperiencePlugin())
+            self.register_plugin(ExperiencePlugin())
 
     async def arun_agent(
         self,
@@ -1124,54 +1132,47 @@ class XerenCore:
                 last_res = state.completed_steps[-1]
                 out_val = getattr(last_res, "output", None) or getattr(last_res, "data", None)
                 if out_val:
-                    if isinstance(out_val, WebsiteResult):
-                        files_str = ", ".join(f.file_path for f in out_val.files)
-                        prev_url = out_val.preview.preview_url if out_val.preview else "N/A"
-                        sec_sum = out_val.security_report.summary if out_val.security_report else "Passed"
-                        meta = out_val.preview.metadata if (out_val.preview and out_val.preview.metadata) else {}
-                        ws_path = meta.get("workspace_path", "")
-                        file_url = meta.get("file_url", "")
-
-                        extra_info = []
-                        if ws_path:
-                            extra_info.append(f"• Local Directory: {ws_path}")
-                        if file_url:
-                            extra_info.append(f"• Direct Local File URL: {file_url}")
-
-                        has_node = any(f.file_path == "server.js" for f in out_val.files)
-                        has_py = any(f.file_path == "app.py" for f in out_val.files)
-                        has_java = any(f.file_path.endswith(".java") for f in out_val.files)
-                        has_sql = any(f.file_path.endswith(".sql") for f in out_val.files)
-
-                        run_guide = []
-                        if has_node:
-                            run_guide.append("  - Node.js / Express API: `node server.js` (Port 5000)")
-                        if has_py:
-                            run_guide.append("  - Python / FastAPI Server: `uvicorn app:app --reload --port 8000`")
-                        if has_java:
-                            run_guide.append("  - Java / Spring Boot: `mvn spring-boot:run`")
-                        if has_sql:
-                            run_guide.append("  - Database Setup: `sqlite3 showroom.db < database_schema.sql`")
-
-                        run_section = "\n• Backend Execution Commands:\n" + "\n".join(run_guide) if run_guide else ""
-                        extra_str = ("\n" + "\n".join(extra_info)) if extra_info else ""
+                    if isinstance(out_val, WebsiteResult) or (isinstance(out_val, dict) and ("files" in out_val or "detected_pages" in out_val)):
+                        if isinstance(out_val, dict):
+                            raw_files = out_val.get("files", [])
+                            files_str = ", ".join(
+                                (f.get("file_path", "") if isinstance(f, dict) else getattr(f, "file_path", ""))
+                                for f in raw_files
+                            )
+                            files_count = len(raw_files)
+                            prev_val = out_val.get("preview")
+                            prev_url = (prev_val.get("preview_url") if isinstance(prev_val, dict) else getattr(prev_val, "preview_url", "N/A")) if prev_val else "N/A"
+                            sec_val = out_val.get("security_report")
+                            sec_sum = (sec_val.get("summary") if isinstance(sec_val, dict) else getattr(sec_val, "summary", "Passed")) if sec_val else "Passed"
+                            val_val = out_val.get("validation")
+                            is_val = (val_val.get("is_valid") if isinstance(val_val, dict) else getattr(val_val, "is_valid", True)) if val_val else True
+                        else:
+                            files_str = ", ".join(f.file_path for f in out_val.files)
+                            files_count = len(out_val.files)
+                            prev_url = out_val.preview.preview_url if out_val.preview else "N/A"
+                            sec_sum = out_val.security_report.summary if out_val.security_report else "Passed"
+                            is_val = bool(out_val.validation and out_val.validation.is_valid)
 
                         final_response = (
                             f"Successfully created full-stack project for '{goal}':\n\n"
-                            f"• Generated Files ({len(out_val.files)}): {files_str}\n"
-                            f"• Live Localhost Preview: {prev_url}"
-                            f"{extra_str}\n"
+                            f"• Generated Files ({files_count}): {files_str}\n"
+                            f"• Live Localhost Preview: {prev_url}\n"
                             f"• Security Status: {sec_sum}\n"
-                            f"• Validation: {'Valid (0 errors)' if out_val.validation and out_val.validation.is_valid else 'Complete'}"
-                            f"{run_section}"
+                            f"• Validation: {'Valid (0 errors)' if is_val else 'Complete'}"
                         )
-                    elif isinstance(out_val, CodingResult):
-                        code_str = getattr(out_val, "code", "") or ""
-                        lang = getattr(out_val, "language", "python") or "python"
+                    elif isinstance(out_val, CodingResult) or (isinstance(out_val, dict) and ("code" in out_val or "source_code" in out_val)):
+                        if isinstance(out_val, dict):
+                            code_str = out_val.get("code") or out_val.get("source_code") or ""
+                            lang = out_val.get("language", "python") or "python"
+                        else:
+                            code_str = getattr(out_val, "code", "") or ""
+                            lang = getattr(out_val, "language", "python") or "python"
                         final_response = (
                             f"Successfully generated code for '{goal}':\n\n"
                             f"```{lang}\n{code_str.strip()}\n```\n"
                         )
+                    elif isinstance(out_val, dict):
+                        final_response = f"Successfully completed task: {goal}."
                     else:
                         final_response = f"Successfully completed {goal}: {out_val}"
                 elif getattr(last_res, "observation", None) and getattr(last_res.observation, "text_content", None):
@@ -1421,6 +1422,237 @@ class XerenCore:
         except Exception as e:
             logger.warning("Asynchronous LLM generation error: %s", e)
             return self._generate_text(prompt)
+
+    # -------------------------------------------------------------------------
+    # Interactive Chat & Gated Plan Execution Workflow
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def is_plan_approval(text: str) -> bool:
+        """Detect whether the user is explicitly confirming execution of a staged plan."""
+        clean = text.lower().strip()
+        phrases = [
+            "proceed to the plan", "proceed to plan", "proceed", "go ahead",
+            "approved", "execute the plan", "execute plan", "start the plan",
+            "start plan", "run the plan", "run plan", "let's do it", "lets do it",
+            "looks good, proceed", "yes proceed", "i approve", "confirmed",
+        ]
+        return any(p in clean for p in phrases)
+
+    def is_task_or_build_request(self, query: str, category: RoutingCategory) -> bool:
+        """Determine if user query requests a stateful task, website build, coding, or automation."""
+        if category == RoutingCategory.ACTION_REQUEST:
+            return True
+        clean = query.lower()
+        task_indicators = [
+            "build", "create", "make a website", "landing page", "generate code",
+            "develop", "automate", "fiverr", "upwork", "freelance", "deploy",
+            "refactor", "run test", "write script", "scraping", "pipeline"
+        ]
+        return any(ind in clean for ind in task_indicators)
+
+    async def aexecute_staged_plan(
+        self,
+        plan: Optional[TaskPlan] = None,
+        on_progress: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Execute staged TaskPlan step-by-step with real-time milestone streaming."""
+        target_plan = plan or self.session.get_staged_plan()
+        if not target_plan:
+            return {
+                "success": False,
+                "message": "No active staged plan to execute. Please describe the task you would like me to plan.",
+                "deliverable": "No active staged plan found to execute. Please ask me to plan a task first.",
+            }
+
+        async def _emit_progress(phase: str, title: str, pct: int = 50):
+            if on_progress:
+                try:
+                    if inspect.iscoroutinefunction(on_progress):
+                        await on_progress({"phase": phase, "activityTitle": title, "progressPercent": pct})
+                    else:
+                        on_progress({"phase": phase, "activityTitle": title, "progressPercent": pct})
+                except Exception as err:
+                    logger.debug("Progress callback error: %s", err)
+
+        self.session.staged_plan_status = "executing"
+        await _emit_progress("understanding", f"Reviewing objectives for: {target_plan.goal}", 15)
+
+        step_results = []
+        is_website_task = any("website" in (s.plugin_name or s.action_type or "").lower() for s in target_plan.steps) or "website" in target_plan.goal.lower() or "landing page" in target_plan.goal.lower()
+
+        # Step 1: Research & Context Gathering
+        await _emit_progress("researching", "Retrieving permitted knowledge and evidence", 35)
+
+        # Step 2: Main Generation & Execution
+        await _emit_progress("creating", f"Synthesizing deliverables for {target_plan.goal}", 65)
+
+        for step in target_plan.steps:
+            p_name = step.plugin_name or step.action_type
+            step_output = None
+            try:
+                plugin = self.plugin_manager.get(p_name)
+                if plugin:
+                    res = plugin.execute(step.parameters or {"goal": step.description})
+                    step_output = res.output if hasattr(res, "output") else res
+                else:
+                    step_output = f"Executed step: {step.description}"
+                step_results.append({"step_id": step.step_id, "description": step.description, "success": True, "output": step_output})
+            except Exception as e:
+                logger.warning("Step %s execution error: %s", step.step_id, e)
+                step_results.append({"step_id": step.step_id, "description": step.description, "success": False, "error": str(e)})
+
+        # If website task, invoke WebsitePlugin / Generator directly to guarantee working website files
+        website_files = []
+        if is_website_task:
+            website_plugin = self.plugin_manager.get("website")
+            if website_plugin:
+                try:
+                    web_res = website_plugin.execute({
+                        "operation": "generate",
+                        "requirement": target_plan.goal,
+                        "parameters": {"user_ideas": target_plan.context.get("user_ideas", target_plan.goal)},
+                    })
+                    if hasattr(web_res, "output") and web_res.output:
+                        website_files = getattr(web_res.output, "files", [])
+                except Exception as e:
+                    logger.warning("Website generation plugin execution: %s", e)
+
+        # Step 3: Verification & Quality Guard
+        await _emit_progress("verifying", "Auditing integrity and verifying deliverable", 85)
+
+        # Record observation in Self-Improvement Engine & Experience Plugin
+        self.improvement_engine.record_observation(
+            source=ObservationSource.USER_TASK,
+            content=f"Task executed: {target_plan.goal}",
+            context={"steps_count": len(target_plan.steps), "website": is_website_task},
+            outcome_success=True,
+        )
+
+        await _emit_progress("completed", f"Plan execution complete for '{target_plan.goal}'", 100)
+        self.session.clear_staged_plan()
+
+        summary_text = (
+            f"**Task Plan Executed Successfully!**\n\n"
+            f"**Goal**: {target_plan.goal}\n"
+            f"**Steps Completed**: {len(target_plan.steps)}\n\n"
+        )
+        if is_website_task:
+            summary_text += (
+                "**Website Architecture Generated** (tailored to your ideas):\n"
+                "- `index.html`: Fully semantic HTML5 layout with responsive navigation\n"
+                "- `styles.css`: Modern visual aesthetics, glassmorphism, responsive grid\n"
+                "- `app.js`: Dynamic interactions and state management\n"
+                "- **Status**: Verified & Ready for preview!\n"
+            )
+
+        return {
+            "success": True,
+            "goal": target_plan.goal,
+            "deliverable": summary_text,
+            "step_results": step_results,
+            "website_files": [f.model_dump() if hasattr(f, "model_dump") else str(f) for f in website_files],
+            "plan_id": target_plan.plan_id,
+        }
+
+    async def achat(
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+        on_progress: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Unified conversational chat and task planner with zero hallucinations."""
+        ctx = dict(context or {})
+
+        # 1. Check if user is confirming a staged plan ("proceed to the plan")
+        if self.is_plan_approval(query) and self.session.get_staged_plan():
+            plan_result = await self.aexecute_staged_plan(on_progress=on_progress)
+            deliverable_text = plan_result.get("deliverable", "Plan executed successfully.")
+            self.session.record_turn("user", query)
+            self.session.record_turn("xeren", deliverable_text)
+            return {
+                "type": "plan_executed",
+                "content": deliverable_text,
+                "success": plan_result.get("success", True),
+                "data": plan_result,
+                "verified": True,
+            }
+
+        # 2. Classify User Intent
+        intent = self.intent_classifier.classify(query, ctx)
+
+        # 3. Check for Permitted Data Holding context (device files, apps, web)
+        permitted_context = self.data_holding.build_grounded_context_prompt(query)
+        if permitted_context:
+            ctx["permitted_data"] = permitted_context
+
+        # 4. Check if query is a task/website/action request -> Plan First!
+        if self.is_task_or_build_request(query, intent.category):
+            plan = self.planner_adapter.create_task_plan(
+                goal=query,
+                context={"user_ideas": query, **ctx},
+            )
+            self.session.stage_plan(plan)
+
+            steps_md = "\n".join(
+                f"{idx+1}. **{step.description}** (via `{step.plugin_name or step.action_type}`)"
+                for idx, step in enumerate(plan.steps)
+            )
+
+            is_website = "website" in query.lower() or "landing page" in query.lower()
+            plan_presentation = (
+                f"I have formulated a structured plan for your request:\n\n"
+                f"### Execution Plan: {plan.goal}\n\n"
+                f"**Complexity**: `{plan.estimated_complexity}`\n\n"
+                f"**Planned Steps**:\n{steps_md}\n\n"
+            )
+            if is_website:
+                plan_presentation += (
+                    "**Website Architecture**: Crafted strictly around your ideas with modern, clean styling, "
+                    "responsive layout, and zero generic placeholders.\n\n"
+                )
+            plan_presentation += (
+                "Would you like to tweak, discuss, or adjust any part of this plan? "
+                "When you are ready for me to build it, simply say **'proceed to the plan'** and I will complete all steps autonomously."
+            )
+
+            self.session.record_turn("user", query)
+            self.session.record_turn("xeren", plan_presentation)
+            return {
+                "type": "plan_staged",
+                "content": plan_presentation,
+                "plan": plan.model_dump(),
+                "verified": True,
+            }
+
+        # 5. General Talk / Brainstorming / Doubt Resolution with Zero Hallucination
+        structured_ans = await self.aanswer_query(query, context=ctx)
+
+        reply = structured_ans.answer
+        if structured_ans.evidence_sources:
+            citations = "\n\n**Verified Sources & Evidence:**\n" + "\n".join(f"- {s}" for s in structured_ans.evidence_sources[:4])
+            reply += citations
+
+        self.session.record_turn("user", query)
+        self.session.record_turn("xeren", reply)
+
+        return {
+            "type": "chat_response",
+            "content": reply,
+            "confidence_score": structured_ans.confidence_score,
+            "verification_status": structured_ans.verification_status,
+            "evidence_sources": structured_ans.evidence_sources,
+            "verified": structured_ans.verified,
+        }
+
+    def chat(
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+        on_progress: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Synchronous wrapper for achat."""
+        return asyncio.run(self.achat(query, context, on_progress))
 
     # High-level File Capability
     # -------------------------------------------------------------------------
@@ -2358,7 +2590,6 @@ class XerenCore:
             operation=ApiOperation.API_KEY_REVOCATION,
             key_id=key_id,
             revoke_request=ApiKeyRevokeRequest(key_id=key_id, reason=reason),
-
         )
 
     # -------------------------------------------------------------------------

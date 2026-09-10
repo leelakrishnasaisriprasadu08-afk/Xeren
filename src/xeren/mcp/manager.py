@@ -197,6 +197,64 @@ class MCPManager:
                 ]
             }
 
+        elif server_id == "os_connector":
+            # Direct OS/device access — permission MUST be granted by orchestrator
+            # before this method is ever called.
+            import os
+            import subprocess
+            import platform
+
+            if tool_name == "read_file":
+                path = arguments.get("path", "")
+                try:
+                    from pathlib import Path as _P
+                    content = _P(path).read_text(encoding="utf-8", errors="replace")
+                    return {"path": path, "content": content, "size_bytes": len(content)}
+                except Exception as exc:
+                    return {"path": path, "error": str(exc)}
+
+            elif tool_name == "write_file":
+                path = arguments.get("path", "")
+                content = arguments.get("content", "")
+                try:
+                    from pathlib import Path as _P
+                    _P(path).write_text(content, encoding="utf-8")
+                    return {"path": path, "status": "written", "bytes_written": len(content)}
+                except Exception as exc:
+                    return {"path": path, "error": str(exc)}
+
+            elif tool_name == "list_directory":
+                path = arguments.get("path", ".")
+                try:
+                    entries = os.listdir(path)
+                    return {"directory": path, "entries": entries[:50]}  # cap at 50
+                except Exception as exc:
+                    return {"directory": path, "error": str(exc)}
+
+            elif tool_name == "launch_app":
+                app = arguments.get("app", "")
+                args = arguments.get("args", [])
+                try:
+                    subprocess.Popen([app] + args, shell=True)
+                    return {"app": app, "status": "launched"}
+                except Exception as exc:
+                    return {"app": app, "error": str(exc)}
+
+            elif tool_name == "list_running_apps":
+                try:
+                    if platform.system() == "Windows":
+                        result = subprocess.check_output(
+                            ["tasklist", "/fo", "csv", "/nh"],
+                            text=True, timeout=5
+                        )
+                        apps = [line.split(",")[0].strip('"') for line in result.strip().splitlines()[:20]]
+                    else:
+                        result = subprocess.check_output(["ps", "-e", "-o", "comm="], text=True, timeout=5)
+                        apps = list(set(result.strip().splitlines()))[:20]
+                    return {"running_apps": apps}
+                except Exception as exc:
+                    return {"error": str(exc)}
+
         # Fallback for custom servers or custom tools
         return {
             "status": "executed",

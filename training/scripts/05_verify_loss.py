@@ -19,7 +19,7 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     print("=== Step 05: Verifying Loss Trajectory & Model Generation ===")
 
-    history_file = Path("training/checkpoints/nano_cpu/loss_history.json")
+    history_file = Path("training/checkpoints/mini_gpu/loss_history.json")
     if not history_file.exists():
         print(f"Error: {history_file} not found. Please run 04_run_cpu_test.py first.")
         sys.exit(1)
@@ -52,7 +52,7 @@ def main():
         print("✓ SUCCESS: Training loss decreased monotonically. Gradient descent is working!")
 
     # Load checkpoint and test generation
-    checkpoint_path = Path("training/checkpoints/nano_cpu/checkpoint_final.pt")
+    checkpoint_path = Path("training/checkpoints/mini_gpu/checkpoint_final.pt")
     tokenizer_dir = Path("training/checkpoints/tokenizer")
 
     print("\n--- Testing Autoregressive Generation with Xeren Prompts ---")

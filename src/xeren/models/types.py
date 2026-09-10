@@ -77,6 +77,7 @@ class LLMResponse(BaseModel):
     usage: TokenUsage = Field(default_factory=TokenUsage)
     model_id: str = ""
     raw_response: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class StreamChunk(BaseModel):

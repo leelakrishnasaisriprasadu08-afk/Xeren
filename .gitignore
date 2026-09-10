@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 .venv/
+.venv*/
 venv/
 .env
 .env.*
@@ -15,3 +16,5 @@ scratch/
 *.pt
 *.safetensors
 *.bin
+*.zip
+

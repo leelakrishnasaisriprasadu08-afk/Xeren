@@ -50,29 +50,21 @@ pythonpath = ["src", "."]
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 include = ["src", "tests", "training"]
 exclude = ["**/__pyrefly_virtual__/**", "**/__pycache__/**", ".venv"]
-extraPaths = [
-    ".",
-    "src",
-    "training",
-    ".venv/Lib/site-packages",
-    "C:/Users/Vignan Lara/AppData/Roaming/Python/Python310/site-packages",
-]
+extraPaths = ["src", "training/src", ".venv/Lib/site-packages", "."]
 
 [tool.pyrefly]
 python-interpreter-path = ".venv/Scripts/python.exe"
 search-path = [
     ".",
     "src",
+    "training/src",
     "training",
-    ".venv/Lib/site-packages",
-    "C:/Users/Vignan Lara/AppData/Roaming/Python/Python310/site-packages",
 ]
 site-package-path = [
     ".venv/Lib/site-packages",
-    "C:/Users/Vignan Lara/AppData/Roaming/Python/Python310/site-packages",
 ]
 project-excludes = [
     ".venv/**",

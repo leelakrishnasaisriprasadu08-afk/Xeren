@@ -24,7 +24,7 @@ def main():
     print(f"Loaded {len(texts)} texts for tokenizer training.")
 
     # Train tokenizer
-    vocab_size = 8192  # 8192 is optimal for small models (Nano/Mini) to keep embedding table compact
+    vocab_size = 32768  # ~33k vocab for Xeren-1B model (matches mini_1b preset)
     print(f"Training Byte-Level BPE Tokenizer with vocab_size={vocab_size}...")
     tokenizer = XerenTokenizer.train_from_iterator(iter(texts), vocab_size=vocab_size)
 

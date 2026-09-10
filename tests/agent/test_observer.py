@@ -116,4 +116,3 @@ def test_observer_adapter_switch():
 
     observer.set_browser_adapter(browser2)
     assert observer.browser is browser2
-

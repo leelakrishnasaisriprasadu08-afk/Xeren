@@ -1,4 +1,4 @@
-"""Script 04: Train Xeren-Nano from scratch on Laptop CPU (Smoke-Test)."""
+"""Script 04: Train Xeren from scratch on Laptop CPU."""
 
 import json
 import sys
@@ -19,9 +19,9 @@ from training.src.tokenizer.train_tokenizer import XerenTokenizer
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
-    print("=== Step 04: Training Xeren-Nano from Scratch on Laptop CPU ===")
+    print("=== Step 04: Training Xeren from Scratch on Laptop CPU ===")
 
-    config_path = Path("training/configs/xeren_nano_cpu.yaml")
+    config_path = Path("training/configs/xeren_mini_gpu.yaml")
     with open(config_path, "r") as f:
         cfg = yaml.safe_load(f)
 

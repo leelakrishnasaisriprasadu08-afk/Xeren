@@ -38,7 +38,7 @@
   transform: translateX(-50%);
   width: 65vw;
   height: 45vh;
-  background: radial-gradient(ellipse at center, rgba(0, 240, 255, 0.045) 0%, rgba(124, 58, 237, 0.025) 50%, transparent 80%);
+  background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.045) 0%, rgba(124, 58, 237, 0.025) 50%, transparent 80%);
   animation: atmospheric-breathe-1 12s ease-in-out infinite alternate;
 }
 
@@ -56,18 +56,18 @@
   right: -10%;
   width: 50vw;
   height: 45vh;
-  background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.035) 0%, transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(4, 120, 87, 0.035) 0%, transparent 70%);
   animation: atmospheric-breathe-3 14s ease-in-out infinite alternate;
 }
 
 /* Subtle State Modulation on Radial Glow */
 .state-listening .glow-center-top {
-  background: radial-gradient(ellipse at center, rgba(0, 240, 255, 0.075) 0%, rgba(99, 102, 241, 0.04) 50%, transparent 80%);
+  background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.075) 0%, rgba(99, 102, 241, 0.04) 50%, transparent 80%);
   transform: translateX(-50%) scale(1.08);
 }
 
 .state-thinking .glow-center-top {
-  background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.07) 0%, rgba(59, 130, 246, 0.05) 50%, transparent 80%);
+  background: radial-gradient(ellipse at center, rgba(4, 120, 87, 0.07) 0%, rgba(59, 130, 246, 0.05) 50%, transparent 80%);
   transform: translateX(-50%) scale(1.05);
 }
 

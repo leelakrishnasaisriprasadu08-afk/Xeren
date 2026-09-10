@@ -212,7 +212,8 @@ class ExperienceResult(BaseModel):
 
     @property
     def record(self) -> Any:
-        """Backward-compatible wrapper exposing record.verification.verified."""
+        """Backward-compatible wrapper returning canonical ExperienceRecord."""
+        from xeren.data.schema import DatasetSplit, ExperienceRecord, ReviewStatus, VerificationDetails
         v_passed = True
         score = 1.0
         if self.item is not None:
@@ -224,14 +225,38 @@ class ExperienceResult(BaseModel):
                 score = float(self.item.verification_score)
         elif self.metadata and "verification_passed" in self.metadata:
             v_passed = bool(self.metadata["verification_passed"])
+            if "verification_score" in self.metadata:
+                score = float(self.metadata["verification_score"])
 
-        class VerificationStub:
-            def __init__(self, verified: bool, score: float):
-                self.verified = verified
-                self.score = score
+        v_details = VerificationDetails(
+            verified=v_passed,
+            verifier=self.metadata.get("verifier", "rule_verifier"),
+            score=score,
+            details=self.metadata.get("verification_details", {}),
+        )
+        task_str = self.item.task if self.item else self.metadata.get("task", "Autonomous Agent Task")
+        sample_id = getattr(self.item, "id", self.metadata.get("sample_id", str(uuid.uuid4())))
+        return ExperienceRecord(
+            sample_id=sample_id,
+            task=task_str,
+            plan=self.metadata.get("plan", []),
+            actions=[],
+            prediction_confidence=getattr(self.item, "confidence", 0.95),
+            verification=v_details,
+            success=getattr(self.item, "success", v_passed),
+            final_quality_score=score,
+            is_verified=v_passed,
+            review_status=ReviewStatus.APPROVED,
+            split=DatasetSplit.TRAIN,
+            metadata=self.metadata,
+        )
 
-        class RecordStub:
-            def __init__(self, verified: bool, score: float):
-                self.verification = VerificationStub(verified, score)
-
-        return RecordStub(v_passed, score)
+    @property
+    def fingerprint(self) -> str:
+        """Return 64-character deterministic content fingerprint."""
+        if self.item and getattr(self.item, "content_fingerprint", None):
+            return self.item.content_fingerprint
+        rec = self.record
+        if hasattr(rec, "content_fingerprint"):
+            return rec.content_fingerprint()
+        return hashlib.sha256(str(self.metadata).encode("utf-8")).hexdigest()

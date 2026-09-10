@@ -71,17 +71,17 @@
 
 /* State-Specific Glow Themes */
 .state-idle .presence-volumetric-glow {
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.42) 0%, rgba(0, 240, 255, 0.2) 55%, transparent 75%);
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.42) 0%, rgba(16, 185, 129, 0.2) 55%, transparent 75%);
   animation: aura-breathe 6s ease-in-out infinite alternate;
 }
 
 .state-listening .presence-volumetric-glow {
-  background: radial-gradient(circle, rgba(0, 240, 255, 0.6) 0%, rgba(56, 189, 248, 0.32) 50%, transparent 80%);
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.6) 0%, rgba(56, 189, 248, 0.32) 50%, transparent 80%);
   transform: translate(-50%, -50%) scale(1.08);
 }
 
 .state-thinking .presence-volumetric-glow {
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.62) 0%, rgba(99, 102, 241, 0.38) 55%, transparent 80%);
+  background: radial-gradient(circle, rgba(4, 120, 87, 0.62) 0%, rgba(99, 102, 241, 0.38) 55%, transparent 80%);
   animation: aura-pulse 2.8s ease-in-out infinite alternate;
 }
 
@@ -95,7 +95,7 @@
 }
 
 .state-complete .presence-volumetric-glow {
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.7) 0%, rgba(0, 240, 255, 0.45) 50%, transparent 80%);
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.7) 0%, rgba(16, 185, 129, 0.45) 50%, transparent 80%);
 }
 
 .state-error .presence-volumetric-glow {
@@ -132,7 +132,7 @@
 }
 
 .state-idle .presence-state-dot { background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
-.state-listening .presence-state-dot { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+.state-listening .presence-state-dot { background: #34d399; box-shadow: 0 0 10px #34d399; }
 .state-thinking .presence-state-dot { background: #c084fc; box-shadow: 0 0 10px #c084fc; }
 .state-acting .presence-state-dot { background: #34d399; box-shadow: 0 0 10px #34d399; }
 .state-speaking .presence-state-dot { background: #818cf8; box-shadow: 0 0 10px #818cf8; }

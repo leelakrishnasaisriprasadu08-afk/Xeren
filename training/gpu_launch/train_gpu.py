@@ -30,10 +30,17 @@ from training.src.model.xeren_transformer import XerenTransformer
 from training.src.tokenizer.train_tokenizer import XerenTokenizer
 
 
+<<<<<<< HEAD
+def main():
+    print("=========================================================")
+    print("      XEREN-1B: FULL GPU TRAINING FROM SCRATCH           ")
+    print("=========================================================")
+=======
 STAGE_CONFIGS = {
     1: "training/configs/xeren_mini_50_gpu.yaml",
     2: "training/configs/xeren_mini_150_gpu.yaml",
 }
+>>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
 
 
 def check_gpu():
@@ -275,6 +282,14 @@ def main():
         postgres_uri=os.getenv("DATABASE_URL"),
     )
 
+<<<<<<< HEAD
+    history = trainer.train(num_epochs=num_epochs)
+    print("\n=========================================================")
+    print("✓ Xeren-1B GPU Training Completed!")
+    print(f"  • Checkpoint: {cfg['data']['checkpoint_dir']}/checkpoint_final.pt")
+    print(f"  • Serve with: python training/src/inference/server.py --preset mini_1b")
+    print("=========================================================")
+=======
     # 10. Train
     print(f"\nStarting Stage {stage} training: {num_epochs} epochs, {total_steps} total steps...")
     history = trainer.train(num_epochs=num_epochs, stage=stage, tokenizer=tokenizer)
@@ -289,6 +304,7 @@ def main():
         print("\nYour Xeren-Mini-150 model is ready!")
         print("Connect to Xeren core via: src/xeren/models/providers/xeren_native.py")
     print("=" * 60)
+>>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
 
 
 if __name__ == "__main__":

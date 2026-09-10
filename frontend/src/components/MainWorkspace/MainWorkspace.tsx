@@ -8,12 +8,10 @@ import { Conversation } from '../Conversation/Conversation'
 import { AgentActivity } from '../AgentActivity/AgentActivity'
 import { MessageComposer } from '../MessageComposer/MessageComposer'
 import { SuggestionChips } from '../SuggestionChips/SuggestionChips'
-import { CommandCenter } from '../CommandCenter/CommandCenter'
+import type { CognitiveMode } from '../TopHeader/TopHeader'
 import './MainWorkspace.css'
 
-import type { CognitiveMode } from '../TopHeader/TopHeader'
-
-interface MainWorkspaceProps {
+export interface MainWorkspaceProps {
   presenceState: PresenceState
   activeAmplitude: number
   prefersReducedMotion: boolean
@@ -24,9 +22,11 @@ interface MainWorkspaceProps {
   activeMilestone: AgentMilestone | null
   isListening: boolean
   isSpeaking: boolean
+  isVoiceOutputEnabled?: boolean
+  onToggleVoiceOutput?: (enabled: boolean) => void
   voiceError?: string | null
   activeMode?: CognitiveMode
-  onToggleMode?: () => void
+  onSelectMode?: (mode: CognitiveMode) => void
   activeCommandCenterTab?: 'freelance' | 'security' | 'research' | 'channels'
   onCommandCenterTabChange?: (tab: 'freelance' | 'security' | 'research' | 'channels') => void
   onSendMessage: (text: string) => void
@@ -46,11 +46,13 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   activeMilestone,
   isListening,
   isSpeaking,
+  isVoiceOutputEnabled: _isVoiceOutputEnabled = true,
+  onToggleVoiceOutput: _onToggleVoiceOutput,
   voiceError,
   activeMode = 'think',
-  onToggleMode,
-  activeCommandCenterTab,
-  onCommandCenterTabChange,
+  onSelectMode,
+  activeCommandCenterTab: _activeCommandCenterTab,
+  onCommandCenterTabChange: _onCommandCenterTabChange,
   onSendMessage,
   onStartListening,
   onStopListening,
@@ -59,12 +61,12 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   const hasMessages = messages.length > 0 || !!currentStreamingText
 
   return (
-    <main className="main-workspace" role="main" data-testid="main-workspace">
-      <div className="workspace-scroll-area">
-        {/* Central Hero / Welcome Area */}
-        <section className="workspace-hero" aria-label="AI Presence Stage">
-          {/* Holographic Presence Orb */}
-          <div className="workspace-presence-wrap">
+    <main className="main-workspace two-layer-layout" role="main" data-testid="main-workspace">
+      {/* ══════════════ LAYER 1: TOP LAYER (XEREN PRESENCE MASCOT STAGE) ══════════════ */}
+      <section className={`workspace-top-layer ${hasMessages ? 'compact-stage' : 'spacious-stage'}`} aria-label="AI Entity Stage">
+        <div className="top-layer-inner">
+          {/* Prominent Luminescent Xeren Mascot */}
+          <div className="top-layer-orb-wrapper">
             <XerenPresence
               state={presenceState}
               amplitude={activeAmplitude}
@@ -80,67 +82,62 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
               }}
             />
           </div>
+        </div>
+      </section>
 
-          {/* Welcome Headline */}
-          <h2 className="workspace-greeting">
-            Hello, I'm <span className="xeren-highlight">Xeren</span>
-          </h2>
+      {/* ══════════════ LAYER 2: BOTTOM LAYER (USER CHAT & INTERACTION INTERFACE) ══════════════ */}
+      <section className="workspace-bottom-layer" aria-label="User Chat Interface">
+        <div className="bottom-layer-scroll-area">
+          {!hasMessages ? (
+            <div className="workspace-welcome-view">
+              <h2 className="workspace-greeting">
+                Hello, I'm <span className="xeren-highlight">Xeren</span>
+              </h2>
 
-          <p className="workspace-subtitle">
-            Your AI companion for research, creation and automation.
-            <br />
-            Ask me anything, or tell me what you want to build.
-          </p>
+              <p className="workspace-subtitle">
+                Your AI companion for research, creation and automation.
+                <br />
+                Ask me anything, or tell me what you want to build.
+              </p>
 
-          {/* Quick 4 Capability Entry Points */}
-          <CapabilityCards onSelectPrompt={onSendMessage} />
-        </section>
+              <CapabilityCards onSelectPrompt={onSendMessage} />
+            </div>
+          ) : (
+            <div className="workspace-conversation-wrap" aria-label="Conversation Thread">
+              <Conversation
+                messages={messages}
+                currentStreamingText={currentStreamingText}
+                currentStreamingId={currentStreamingId}
+              />
+            </div>
+          )}
+        </div>
 
-        {/* Integrated Multi-Platform & Security Command Center */}
-        <section className="workspace-command-center-wrap" aria-label="Command Center">
-          <CommandCenter
-            activeTab={activeCommandCenterTab}
-            onTabChange={onCommandCenterTabChange}
+        {/* Docked Interaction Controls */}
+        <footer className="workspace-dock" role="contentinfo">
+          <AgentActivity
+            progressDetails={agentProgress}
+            activeMilestone={activeMilestone}
           />
-        </section>
 
-        {/* Live Conversation Stream (renders when messages exist) */}
-        {hasMessages && (
-          <section className="workspace-conversation-wrap" aria-label="Conversation Thread">
-            <Conversation
-              messages={messages}
-              currentStreamingText={currentStreamingText}
-              currentStreamingId={currentStreamingId}
-            />
-          </section>
-        )}
-      </div>
+          <MessageComposer
+            presenceState={presenceState}
+            isListening={isListening}
+            isSpeaking={isSpeaking}
+            voiceError={voiceError}
+            activeMode={activeMode}
+            onSelectMode={onSelectMode}
+            onSendMessage={onSendMessage}
+            onStartListening={onStartListening}
+            onStopListening={onStopListening}
+            onInterrupt={onInterrupt}
+          />
 
-      {/* Bottom Dock: Agent Milestone + Message Composer + Suggestion Chips */}
-      <footer className="workspace-dock" role="contentinfo">
-        {/* Subtle Autonomous Agent milestone progress indicator */}
-        <AgentActivity
-          progressDetails={agentProgress}
-          activeMilestone={activeMilestone}
-        />
-
-        {/* Large Premium Message Composer */}
-        <MessageComposer
-          presenceState={presenceState}
-          isListening={isListening}
-          isSpeaking={isSpeaking}
-          voiceError={voiceError}
-          activeMode={activeMode}
-          onToggleMode={onToggleMode}
-          onSendMessage={onSendMessage}
-          onStartListening={onStartListening}
-          onStopListening={onStopListening}
-          onInterrupt={onInterrupt}
-        />
-
-        {/* Suggestion Chips */}
-        <SuggestionChips onSelectSuggestion={onSendMessage} />
-      </footer>
+          <SuggestionChips onSelectSuggestion={onSendMessage} />
+        </footer>
+      </section>
     </main>
   )
 }
+
+export default MainWorkspace

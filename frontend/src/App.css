@@ -39,9 +39,9 @@
   inset: 0;
   pointer-events: none;
   background: 
-    radial-gradient(circle at 50% 10%, rgba(0, 240, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(circle at 50% 10%, rgba(16, 185, 129, 0.06) 0%, transparent 60%),
     radial-gradient(circle at 10% 90%, rgba(56, 189, 248, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 90% 90%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 90% 90%, rgba(4, 120, 87, 0.05) 0%, transparent 50%);
   z-index: 0;
 }
 

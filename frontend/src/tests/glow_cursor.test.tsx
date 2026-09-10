@@ -52,8 +52,8 @@ describe('GlowCursor Component Tests', () => {
   it('accepts all custom props without crashing', () => {
     const { unmount } = render(
       <GlowCursor
-        color="#00f0ff"
-        secondaryColor="#a855f7"
+        color="#10b981"
+        secondaryColor="#047857"
         trailLength={28}
         trailWidth={6}
         trailTaper={0.75}

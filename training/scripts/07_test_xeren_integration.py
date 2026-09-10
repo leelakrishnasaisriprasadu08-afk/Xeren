@@ -24,7 +24,7 @@ def test_integration():
 
     # Configure Xeren's existing LocalOpenWeightAdapter to connect to our local server
     config = ModelConfig(
-        model_id="xeren-nano",
+        model_id="xeren-mini",
         provider="local_openweight",
         api_base="http://127.0.0.1:8000/v1",
         temperature=0.7,

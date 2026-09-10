@@ -179,4 +179,3 @@ def test_evaluator_in_progress():
     assert result.is_complete is False
     assert result.success is False
     assert "in progress" in result.reason
-

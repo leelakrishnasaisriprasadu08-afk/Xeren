@@ -67,18 +67,18 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #047857 50%, #ec4899 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 20px rgba(4, 120, 87, 0.4);
   animation: pulseIcon 3s infinite ease-in-out;
 }
 
 @keyframes pulseIcon {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.4)); }
-  50% { transform: scale(1.04); filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.7)); }
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(4, 120, 87, 0.4)); }
+  50% { transform: scale(1.04); filter: drop-shadow(0 0 16px rgba(4, 120, 87, 0.7)); }
 }
 
 .improvement-title-group h2 {
@@ -175,7 +175,7 @@
 
 .telemetry-card-highlight {
   border-color: rgba(99, 102, 241, 0.35);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.06) 100%);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(4, 120, 87, 0.06) 100%);
 }
 
 .telemetry-label {
@@ -503,8 +503,8 @@
 }
 
 .bot-tag {
-  background: rgba(168, 85, 247, 0.12);
-  border: 1px solid rgba(168, 85, 247, 0.25);
+  background: rgba(4, 120, 87, 0.12);
+  border: 1px solid rgba(4, 120, 87, 0.25);
   color: #e9d5ff;
   font-size: 0.72rem;
   padding: 0.15rem 0.45rem;
@@ -625,7 +625,7 @@
 
 /* TopHeader Pill */
 .adaptive-intelligence-pill {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(4, 120, 87, 0.15) 100%);
   border: 1px solid rgba(139, 92, 246, 0.35);
   color: #e0e7ff;
   font-size: 0.74rem;
@@ -641,7 +641,7 @@
 }
 
 .adaptive-intelligence-pill:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(4, 120, 87, 0.3) 100%);
   border-color: rgba(139, 92, 246, 0.6);
   transform: translateY(-1px);
   box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);

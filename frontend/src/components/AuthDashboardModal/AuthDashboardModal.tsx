@@ -317,7 +317,7 @@ export const AuthDashboardModal: React.FC<AuthDashboardModalProps> = ({
                 <div className="passkey-action-card">
                   <div className="passkey-card-header">
                     <div className="passkey-icon-wrap">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
                         <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m3.44-2.049A15.938 15.938 0 0 0 14 11c0-4.418-2.686-8-6-8s-6 3.582-6 8c0 2.457 1.077 4.67 2.784 6.273" />
                         <path d="M12.5 18c1.5 0 2.5-1 2.5-2.5V11c0-2.5-1.5-4-3-4" />
                         <circle cx="12" cy="11" r="1" />

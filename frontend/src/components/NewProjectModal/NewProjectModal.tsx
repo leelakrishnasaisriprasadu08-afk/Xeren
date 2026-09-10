@@ -208,7 +208,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 data-testid="project-type-solo"
               >
                 <div className="card-top-icon-wrap solo-icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
@@ -249,7 +249,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 data-testid="project-type-group"
               >
                 <div className="card-top-icon-wrap group-icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                     <circle cx="9" cy="7" r="4" />
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87" />

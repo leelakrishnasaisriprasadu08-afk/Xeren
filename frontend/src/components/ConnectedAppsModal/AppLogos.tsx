@@ -58,7 +58,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           <rect width="24" height="24" rx="6" fill="url(#canva-grad)" />
           <path
             d="M17.2 14.8c-.8 2.3-2.7 3.7-5.1 3.7-3.4 0-5.8-2.6-5.8-6.5 0-4.1 2.6-6.6 6.1-6.6 2.2 0 3.9 1.1 4.7 3l-2.4 1.2c-.4-1.1-1.3-1.7-2.3-1.7-1.8 0-3.1 1.4-3.1 4.1 0 2.6 1.2 4 2.9 4 1.3 0 2.2-.8 2.6-1.8l2.4.6z"
-            fill="#ffffff"
+            fill="#f8fafc"
           />
         </svg>
       )
@@ -116,7 +116,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           <rect width="24" height="24" rx="6" fill="#10a37f" />
           <path
             d="M18.6 10.4a4.3 4.3 0 0 0-.4-3.4 4.4 4.4 0 0 0-3.7-2.1c-.4 0-.8 0-1.2.2a4.4 4.4 0 0 0-3.3-1.6 4.4 4.4 0 0 0-4.2 3.1 4.4 4.4 0 0 0-2.4 2.1 4.4 4.4 0 0 0-.4 3.7c-.4.5-.6 1.1-.6 1.7a4.4 4.4 0 0 0 2.2 3.8 4.4 4.4 0 0 0 3.3 1.6c.4 0 .8 0 1.2-.2a4.4 4.4 0 0 0 3.3 1.6 4.4 4.4 0 0 0 4.2-3.1 4.4 4.4 0 0 0 2.4-2.1c.5-.8.6-1.8.4-2.7.3-.6.5-1.1.5-1.7a4.4 4.4 0 0 0-.5-1zM13 19.8a3 3 0 0 1-1.9-.7l2.2-1.3a1.4 1.4 0 0 0 .7-1.2v-3.1l1.8 1v2.8a3 3 0 0 1-2.8 2.5zm-5.7-2.3a3 3 0 0 1-.9-2l2.2 1.3a1.4 1.4 0 0 0 1.4 0l2.7-1.6v2.1l-2.5 1.4a3 3 0 0 1-2.9-.8zm-1.8-6.1a3 3 0 0 1 1-1.8v2.6a1.4 1.4 0 0 0 .7 1.2l2.7 1.6-1.8 1-2.4-1.4a3 3 0 0 1-1.2-3.2zm9.3.9l-2.7-1.6 1.8-1 2.4 1.4a3 3 0 0 1 1.2 3.2 3 3 0 0 1-1 1.8v-2.6a1.4 1.4 0 0 0-.7-1.2zm2.1-2.4l-2.2-1.3a1.4 1.4 0 0 0-1.4 0l-2.7 1.6V8.1l2.5-1.4a3 3 0 0 1 3.8 2.8v.1zM11 11.2l1.3-.8 1.3.8v1.6l-1.3.8-1.3-.8v-1.6z"
-            fill="#ffffff"
+            fill="#f8fafc"
           />
         </svg>
       )
@@ -176,11 +176,11 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           className={`app-logo-svg logo-midjourney ${className}`}
           aria-label="Midjourney logo"
         >
-          <rect width="24" height="24" rx="6" fill="#0f172a" />
+          <rect width="24" height="24" rx="6" fill="#f8fafc" />
           {/* Sailboat / yacht silhouette */}
           <path
             d="M12 4v10M12 5l5 7h-5M12 6.5l-4 5.5h4M5 16.5c2 1 5 1 7 0s5-1 7 0c-1 2.5-4 4.5-7 4.5s-6-2-7-4.5z"
-            stroke="#38bdf8"
+            stroke="#34d399"
             strokeWidth="1.6"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -205,7 +205,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
             fillRule="evenodd"
             clipRule="evenodd"
             d="M12 4C7.58 4 4 7.67 4 12.2c0 3.62 2.29 6.69 5.47 7.77.4.08.55-.18.55-.39 0-.2-.01-.86-.01-1.56-2.22.5-2.69-.97-2.69-.97-.36-.95-.89-1.2-.89-1.2-.73-.51.05-.5.05-.5.8.06 1.23.85 1.23.85.71 1.25 1.87.89 2.33.68.07-.53.28-.89.5-1.1-1.78-.21-3.64-.91-3.64-4.05 0-.9.31-1.63.82-2.2-.08-.21-.36-1.04.08-2.17 0 0 .67-.22 2.2.84a7.48 7.48 0 0 1 4 0c1.53-1.06 2.2-.84 2.2-.84.44 1.13.16 1.96.08 2.17.51.57.82 1.3.82 2.2 0 3.15-1.87 3.84-3.65 4.04.29.25.54.74.54 1.49 0 1.08-.01 1.95-.01 2.22 0 .22.15.48.55.4 3.18-1.09 5.46-4.15 5.46-7.78C20 7.67 16.42 4 12 4z"
-            fill="#ffffff"
+            fill="#f8fafc"
           />
         </svg>
       )
@@ -248,10 +248,10 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           className={`app-logo-svg logo-notion ${className}`}
           aria-label="Notion logo"
         >
-          <rect width="24" height="24" rx="6" fill="#ffffff" />
+          <rect width="24" height="24" rx="6" fill="#f8fafc" />
           <path
             d="M6 5.5l2.2.3c.4 0 .5.2.6.6l.3 7.8 4.7-8.3c.2-.4.4-.5.8-.5l3.4.2c.5 0 .7.3.7.8v11.6c0 .5-.3.8-.8.8l-2.2-.2c-.4 0-.6-.3-.6-.8l-.3-7.8-4.8 8.3c-.2.4-.4.5-.8.5l-3.3-.2c-.5 0-.7-.3-.7-.8V6.3c0-.5.3-.8.8-.8z"
-            fill="#000000"
+            fill="#f8fafc"
           />
         </svg>
       )
@@ -270,7 +270,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           className={`app-logo-svg logo-gdrive ${className}`}
           aria-label="Google Drive logo"
         >
-          <rect width="24" height="24" rx="6" fill="#1e293b" />
+          <rect width="24" height="24" rx="6" fill="#f1f5f9" />
           <path d="M8.5 4h7l5 9-3.5 6-8.5-15z" fill="#FFC107" />
           <path d="M3.5 19l3.5-6 13.5 0-3.5 6H3.5z" fill="#2196F3" />
           <path d="M3.5 19L8.5 10 12 16 7 19H3.5z" fill="#4CAF50" />
@@ -313,7 +313,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           <rect width="24" height="24" rx="6" fill="#5865F2" />
           <path
             d="M17.8 7.5c-1-.5-2.1-.8-3.2-1 0 0-.2.4-.3.7 1.2.3 2.3.8 3.3 1.5-1.6-1.1-3.6-1.7-5.6-1.7s-4 .6-5.6 1.7c1-.7 2.1-1.2 3.3-1.5-.1-.3-.3-.7-.3-.7-1.1.2-2.2.5-3.2 1C4.2 11 3.7 14.5 4 17.8c1.3 1 2.6 1.6 3.9 1.9.3-.4.6-.9.9-1.4-.5-.2-.9-.4-1.3-.7.1-.1.2-.2.3-.3 2.8 1.3 5.8 1.3 8.6 0 .1.1.2.2.3.3-.4.3-.8.5-1.3.7.3.5.6 1 .9 1.4 1.3-.3 2.6-.9 3.9-1.9.3-3.8-.6-7.2-2.4-10.3zM9.5 15c-.8 0-1.5-.7-1.5-1.6s.7-1.6 1.5-1.6 1.5.7 1.5 1.6c0 .9-.7 1.6-1.5 1.6zm5 0c-.8 0-1.5-.7-1.5-1.6s.7-1.6 1.5-1.6 1.5.7 1.5 1.6c0 .9-.7 1.6-1.5 1.6z"
-            fill="#ffffff"
+            fill="#f8fafc"
           />
         </svg>
       )
@@ -353,13 +353,13 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           <rect width="24" height="24" rx="6" fill="#5E6AD2" />
           <path
             d="M5 12l7-7 7 7-7 7-7-7z"
-            stroke="#ffffff"
+            stroke="#f8fafc"
             strokeWidth="2"
             strokeLinejoin="round"
           />
           <path
             d="M8.5 12l3.5-3.5 3.5 3.5-3.5 3.5-3.5-3.5z"
-            fill="#ffffff"
+            fill="#f8fafc"
           />
         </svg>
       )
@@ -405,7 +405,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           {/* Main orange body loop */}
           <circle cx="12" cy="14" r="5.5" fill="#E87D0D" />
           {/* White inner ring */}
-          <circle cx="12" cy="14" r="3.6" fill="#FFFFFF" />
+          <circle cx="12" cy="14" r="3.6" fill="#f8fafc" />
           {/* Blue center eye */}
           <circle cx="12" cy="14" r="2.2" fill="#225B99" />
         </svg>
@@ -459,7 +459,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           {/* 3-pinwheel arms */}
           <path
             d="M12 7a5 5 0 0 1 4.5 7.2A3.5 3.5 0 0 0 12 10.5V7z"
-            fill="#FFFFFF"
+            fill="#f8fafc"
           />
           <path
             d="M8.2 14.5A5 5 0 0 1 12 7v3.5a3.5 3.5 0 0 0-3.8 4z"
@@ -490,9 +490,9 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           <ellipse cx="12" cy="19.5" rx="7" ry="1.5" fill="#C2410C" />
           {/* Traffic cone body with alternating orange & white stripes */}
           <path d="M11 4.5h2l.7 3.5h-3.4L11 4.5z" fill="#F97316" />
-          <path d="M10.3 8h3.4l.8 4h-5l.8-4z" fill="#FFFFFF" />
+          <path d="M10.3 8h3.4l.8 4h-5l.8-4z" fill="#f8fafc" />
           <path d="M9.5 12h5l.8 4h-6.6l.8-4z" fill="#F97316" />
-          <path d="M8.7 16h6.6l.7 3h-8l.7-3z" fill="#FFFFFF" />
+          <path d="M8.7 16h6.6l.7 3h-8l.7-3z" fill="#f8fafc" />
         </svg>
       )
 
@@ -515,10 +515,10 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
             fill="#78716C"
           />
           {/* Wilber eyes */}
-          <ellipse cx="11.5" cy="11.5" rx="1.5" ry="1.8" fill="#FFFFFF" />
-          <circle cx="12" cy="11.5" r="0.8" fill="#000000" />
-          <ellipse cx="15.5" cy="11.5" rx="1.5" ry="1.8" fill="#FFFFFF" />
-          <circle cx="15.5" cy="11.5" r="0.8" fill="#000000" />
+          <ellipse cx="11.5" cy="11.5" rx="1.5" ry="1.8" fill="#f8fafc" />
+          <circle cx="12" cy="11.5" r="0.8" fill="#f8fafc" />
+          <ellipse cx="15.5" cy="11.5" rx="1.5" ry="1.8" fill="#f8fafc" />
+          <circle cx="15.5" cy="11.5" r="0.8" fill="#f8fafc" />
           {/* Paintbrush */}
           <path d="M5 18l3-3 1.5 1.5-3 3c-.5.5-1.2.2-1.5 0s-.5-1 0-1.5z" fill="#D97706" />
           <path d="M4.5 18.5c-.5.5-.3 1.2 0 1.5s1 .5 1.5 0l-.8-.8-.7-.7z" fill="#F59E0B" />
@@ -539,10 +539,10 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           className={`app-logo-svg logo-terminal ${className}`}
           aria-label="Terminal logo"
         >
-          <rect width="24" height="24" rx="6" fill="#0F172A" stroke="#334155" strokeWidth="1" />
+          <rect width="24" height="24" rx="6" fill="#f8fafc" stroke="#334155" strokeWidth="1" />
           {/* Prompt >_ */}
-          <path d="M6 8l4 4-4 4" stroke="#00f0ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M12 16h6" stroke="#00f0ff" strokeWidth="2" strokeLinecap="round" />
+          <path d="M6 8l4 4-4 4" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12 16h6" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
         </svg>
       )
 
@@ -560,10 +560,10 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           className={`app-logo-svg logo-device ${className}`}
           aria-label="Local Device App logo"
         >
-          <rect width="24" height="24" rx="6" fill="#111827" stroke="rgba(0, 240, 255, 0.4)" strokeWidth="1" />
+          <rect width="24" height="24" rx="6" fill="#f8fafc" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="1" />
           {/* Monitor & Stand */}
-          <rect x="5" y="6" width="14" height="9" rx="1.5" fill="#1F2937" stroke="#00f0ff" strokeWidth="1" />
-          <circle cx="12" cy="10.5" r="2" fill="#00f0ff" opacity="0.8" />
+          <rect x="5" y="6" width="14" height="9" rx="1.5" fill="#1F2937" stroke="#10b981" strokeWidth="1" />
+          <circle cx="12" cy="10.5" r="2" fill="#10b981" opacity="0.8" />
           <path d="M10 17h4M12 15v2" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       )
@@ -580,10 +580,10 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           className={`app-logo-svg logo-system ${className}`}
           aria-label="Xeren Vault logo"
         >
-          <rect width="24" height="24" rx="6" fill="rgba(0, 240, 255, 0.15)" stroke="#00f0ff" strokeWidth="1.5" />
+          <rect width="24" height="24" rx="6" fill="rgba(16, 185, 129, 0.15)" stroke="#10b981" strokeWidth="1.5" />
           <path
             d="M12 4L6 7v5c0 4.4 2.6 8.5 6 9.8 3.4-1.3 6-5.4 6-9.8V7l-6-3z"
-            fill="#00f0ff"
+            fill="#10b981"
             opacity="0.9"
           />
           <path
@@ -608,9 +608,9 @@ export const AppLogo: React.FC<AppLogoProps> = ({ appId, size = 24, className = 
           className={`app-logo-svg logo-default ${className}`}
           aria-label="Application logo"
         >
-          <rect width="24" height="24" rx="6" fill="#111827" stroke="rgba(0, 240, 255, 0.3)" strokeWidth="1" />
-          <rect x="5" y="6" width="14" height="9" rx="1.5" fill="#1F2937" stroke="#00f0ff" strokeWidth="1" />
-          <path d="M8 10h3M8 12h5" stroke="#00f0ff" strokeWidth="1.2" strokeLinecap="round" />
+          <rect width="24" height="24" rx="6" fill="#f8fafc" stroke="rgba(16, 185, 129, 0.3)" strokeWidth="1" />
+          <rect x="5" y="6" width="14" height="9" rx="1.5" fill="#1F2937" stroke="#10b981" strokeWidth="1" />
+          <path d="M8 10h3M8 12h5" stroke="#10b981" strokeWidth="1.2" strokeLinecap="round" />
           <path d="M10 17h4M12 15v2" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       )
