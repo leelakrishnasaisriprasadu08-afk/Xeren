@@ -20,11 +20,22 @@ from xeren.core.planner import (
     UnsupportedCapabilityError,
     UnsupportedPluginError,
 )
+from xeren.core.intent import IntentClassifier, IntentResult, RoutingCategory
+from xeren.core.hallucination_guard import HallucinationGuard, StructuredAnswer
+from xeren.core.learner import EpistemicLearner, KnowledgeGapDetector, LearnedKnowledge
 from xeren.core.runtime import XerenCore
 
 __all__ = [
     "XerenCore",
     "CoreContext",
+    "IntentClassifier",
+    "IntentResult",
+    "RoutingCategory",
+    "HallucinationGuard",
+    "StructuredAnswer",
+    "EpistemicLearner",
+    "KnowledgeGapDetector",
+    "LearnedKnowledge",
     "BaseCorePlanner",
     "CorePlannerAdapter",
     "TaskPlan",

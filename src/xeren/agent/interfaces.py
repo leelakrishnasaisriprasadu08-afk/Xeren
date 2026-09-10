@@ -72,6 +72,10 @@ class CompletionEvaluation(BaseModel):
         ...,
         description="Whether the task has truly and safely satisfied its requirements",
     )
+    success: bool = Field(
+        default=True,
+        description="Whether the task completed with success",
+    )
     confidence_score: float = Field(
         default=1.0,
         ge=0.0,

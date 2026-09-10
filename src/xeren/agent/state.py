@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 from pydantic import BaseModel, Field
@@ -126,6 +126,36 @@ class TaskState(BaseModel):
             TaskStatus.CANCELLED,
             TaskStatus.TIMED_OUT,
         }
+
+    @property
+    def memory(self) -> Dict[str, Any]:
+        """Backward-compatibility alias for metadata/context."""
+        return self.metadata
+
+    @property
+    def step_count(self) -> int:
+        """Backward-compatibility alias for attempt_count."""
+        return self.attempt_count
+
+    @property
+    def session_id(self) -> str:
+        """Backward-compatibility alias for task_id."""
+        return self.task_id
+
+    @property
+    def task(self) -> str:
+        """Backward-compatibility alias for goal."""
+        return self.goal
+
+    @property
+    def plan(self) -> List[Any]:
+        """Backward-compatibility alias for remaining_steps."""
+        return self.remaining_steps
+
+    @property
+    def history(self) -> List[Tuple[Any, ActionResult]]:
+        """Backward-compatibility alias returning history tuples of (action, result)."""
+        return [(getattr(r, "action", r), r) for r in self.completed_steps]
 
     def record_observation(self, obs: Observation) -> None:
         """Append an observation and merge any newly discovered artifacts."""

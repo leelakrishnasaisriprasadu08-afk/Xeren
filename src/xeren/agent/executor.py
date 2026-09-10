@@ -27,13 +27,11 @@ from typing import Any, Optional
 from xeren.agent.browser.contract import BaseBrowserAdapter
 from xeren.agent.permissions import PermissionManager
 from xeren.agent.types import ActionResult, AgentAction, BrowserObservation
- main
+
 from xeren.plugins.manager import PluginManager
 
 logger = logging.getLogger("xeren.agent.executor")
 
-
- feature/core-architecture
 class AgentExecutor(Executor):
     """Executes actions strictly through the existing Xeren PluginManager.
 
@@ -45,9 +43,17 @@ class AgentExecutor(Executor):
         self,
         plugin_manager: PluginManager,
         workspace_manager: Optional[Any] = None,
+        browser_adapter: Optional[Any] = None,
     ) -> None:
         self.plugin_manager = plugin_manager
         self.workspace_manager = workspace_manager
+        self.browser_adapter = browser_adapter
+        self.browser = browser_adapter
+
+    def set_browser_adapter(self, adapter: Optional[Any]) -> None:
+        """Set or update the active browser adapter."""
+        self.browser_adapter = adapter
+        self.browser = adapter
 
     def execute(
         self,
@@ -63,6 +69,14 @@ class AgentExecutor(Executor):
         # 1. Handle workspace actions directly via WorkspaceManager
         if target == "workspace":
             return self._execute_workspace(action, start_time)
+
+        # 2. Handle desktop/os alias
+        if target in ("desktop", "os") and self.plugin_manager.has("automation"):
+            target = "automation"
+
+        # 3. Handle browser adapter actions directly
+        if target == "browser" and self.browser_adapter and not self.plugin_manager.has("browser"):
+            return self._execute_browser(action, start_time)
 
         # 2. Verify target plugin exists
         if not self.plugin_manager.has(target):
@@ -150,35 +164,73 @@ class AgentExecutor(Executor):
     ) -> ActionResult:
         """Asynchronously execute an action via the PluginManager."""
         start_time = time.perf_counter()
-        target = action.target.lower()
+        raw_target = getattr(action, "target", None)
+        action_type = getattr(action, "action_type", "")
+        if hasattr(action_type, "value"):
+            action_type = action_type.value
+
+        if raw_target:
+            target = str(raw_target).lower()
+        elif action_type:
+            type_lower = str(action_type).lower()
+            if "code" in type_lower:
+                target = "coding"
+            elif "research" in type_lower or "search" in type_lower:
+                target = "research"
+            elif "data" in type_lower:
+                target = "data"
+            elif "web" in type_lower or "site" in type_lower:
+                target = "website"
+            elif "file" in type_lower:
+                target = "file"
+            elif "freelance" in type_lower or "auto" in type_lower:
+                target = "automation"
+            else:
+                target = type_lower
+        else:
+            target = "system"
 
         logger.debug("Async executing action '%s' on target '%s'", action.action_id, target)
 
         if target == "workspace":
             return self._execute_workspace(action, start_time)
 
+        # Handle desktop/os alias
+        if target in ("desktop", "os") and self.plugin_manager.has("automation"):
+            target = "automation"
+
+        # Handle browser adapter actions directly
+        if target == "browser" and self.browser_adapter and not self.plugin_manager.has("browser"):
+            return await self._aexecute_browser(action, start_time)
+
         if not self.plugin_manager.has(target):
             available = self.plugin_manager.list_names()
             msg = f"Target plugin '{target}' is not registered in PluginManager. Available: {available}"
+            action_id = getattr(action, "action_id", "act_0")
             return ActionResult(
-                action_id=action.action_id,
+                action_id=action_id,
                 success=False,
                 error=msg,
                 latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
                 metadata={"target": target, "error_type": "PluginNotFoundError"},
             )
 
+        timeout_sec = float(getattr(action, "timeout_seconds", 30.0) or 30.0)
+        meta = getattr(action, "metadata", {}) or {}
+        params = getattr(action, "parameters", {}) or {}
+        action_id = getattr(action, "action_id", "act_0")
+
         ctx = context or PluginExecutionContext(
-            timeout_seconds=action.timeout_seconds,
-            metadata=action.metadata,
+            timeout_seconds=timeout_sec,
+            metadata=meta,
         )
 
         try:
             plugin_res: PluginExecutionResult = await self.plugin_manager.aexecute(
                 name=target,
-                input_data=action.parameters,
+                input_data=params,
                 context=ctx,
-                timeout=action.timeout_seconds,
+                timeout=timeout_sec,
                 raise_on_error=False,
             )
 
@@ -190,7 +242,7 @@ class AgentExecutor(Executor):
             artifacts = self._extract_artifacts(plugin_res.output)
 
             return ActionResult(
-                action_id=action.action_id,
+                action_id=action_id,
                 success=plugin_res.success,
                 output=plugin_res.output,
                 error=plugin_res.error,
@@ -205,12 +257,78 @@ class AgentExecutor(Executor):
 
         except Exception as err:
             logger.exception("Async error executing action on '%s': %s", target, err)
+            action_id = getattr(action, "action_id", "act_0")
             return ActionResult(
-                action_id=action.action_id,
+                action_id=action_id,
                 success=False,
                 error=str(err),
                 latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
                 metadata={"target": target, "error_type": err.__class__.__name__},
+            )
+
+    def _execute_browser(self, action: Action, start_time: float) -> ActionResult:
+        """Synchronously execute browser action via browser adapter."""
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    return pool.submit(asyncio.run, self._aexecute_browser(action, start_time)).result()
+            return loop.run_until_complete(self._aexecute_browser(action, start_time))
+        except RuntimeError:
+            return asyncio.run(self._aexecute_browser(action, start_time))
+
+    async def _aexecute_browser(self, action: Action, start_time: float) -> ActionResult:
+        """Asynchronously execute browser action via browser adapter."""
+        params = getattr(action, "parameters", {}) or {}
+        op = str(params.get("operation") or params.get("action") or "navigate").lower()
+        action_id = getattr(action, "action_id", "act_0")
+        try:
+            if not getattr(self.browser_adapter, "is_active", False):
+                if hasattr(self.browser_adapter, "ainitialize"):
+                    await self.browser_adapter.ainitialize()
+            res_or_coro: Any = None
+            if op == "navigate":
+                target_url = getattr(action, "target", "")
+                url = params.get("url") or params.get("target_url") or (target_url if str(target_url).startswith("http") else None) or "https://google.com"
+                res_or_coro = self.browser_adapter.navigate(url)
+            elif op == "click":
+                selector = params.get("selector", "")
+                res_or_coro = self.browser_adapter.click(selector)
+            elif op == "type":
+                selector = params.get("selector", "")
+                text = params.get("text", "")
+                res_or_coro = self.browser_adapter.type(selector, text)
+            elif op == "screenshot":
+                res_or_coro = self.browser_adapter.screenshot()
+            elif hasattr(self.browser_adapter, op):
+                fn = getattr(self.browser_adapter, op)
+                res_or_coro = fn(**{k: v for k, v in params.items() if k not in ("operation", "action")})
+            else:
+                obs = self.browser_adapter.observe() if hasattr(self.browser_adapter, "observe") else None
+                res_or_coro = {"observation": obs}
+
+            if asyncio.iscoroutine(res_or_coro):
+                res_data = await res_or_coro
+            else:
+                res_data = res_or_coro
+
+            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            return ActionResult(
+                action_id=action_id,
+                success=True,
+                output=res_data,
+                latency_ms=latency_ms,
+                metadata={"target": "browser", "operation": op},
+            )
+        except Exception as e:
+            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            return ActionResult(
+                action_id=action_id,
+                success=False,
+                error=str(e),
+                latency_ms=latency_ms,
+                metadata={"target": "browser", "operation": op},
             )
 
     def _extract_artifacts(self, output: Any) -> Dict[str, Any]:
@@ -303,6 +421,24 @@ class AgentExecutor(Executor):
                     latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
                     metadata={"target": "workspace", "operation": operation, "files_scanned": len(scanned)},
                 )
+            else:
+                return ActionResult(
+                    action_id=action.action_id,
+                    success=False,
+                    error=f"Unsupported workspace operation: '{operation}'",
+                    latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
+                    metadata={"target": "workspace", "operation": operation},
+                )
+        except Exception as err:
+            logger.exception("Workspace execution failed: %s", err)
+            return ActionResult(
+                action_id=action.action_id,
+                success=False,
+                error=str(err),
+                latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
+                metadata={"target": "workspace", "error_type": type(err).__name__},
+            )
+
 
 class Executor:
     """Dispatches AgentAction instances to browser adapters or plugin subsystems with permission enforcement."""
@@ -460,19 +596,11 @@ class Executor:
                     data={"closed": True},
                     latency_ms=round((time.perf_counter() - start) * 1000, 2),
                 )
- main
+
             else:
                 return ActionResult(
                     action_id=action.action_id,
                     success=False,
- feature/core-architecture
-                    error=f"Unsupported workspace operation: '{operation}'",
-                    latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
-                    metadata={"target": "workspace", "operation": operation},
-                )
-        except Exception as err:
-            logger.exception("Workspace execution failed: %s", err)
-
                     error=f"Unrecognized action type: '{action_type}'",
                     error_code="INVALID_ACTION",
                     error_category="validation",
@@ -482,20 +610,11 @@ class Executor:
 
         except Exception as err:
             logger.exception("Exception during action execution (%s): %s", action_type, err)
- main
+
             return ActionResult(
                 action_id=action.action_id,
                 success=False,
                 error=str(err),
- feature/core-architecture
-                latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
-                metadata={"target": "workspace", "error_type": type(err).__name__},
-            )
-
-
-__all__ = ["AgentExecutor"]
-
-
                 error_code="EXECUTION_ERROR",
                 error_category="runtime",
                 recoverable=True,
@@ -507,5 +626,4 @@ __all__ = ["AgentExecutor"]
         return asyncio.run(self.aexecute(action))
 
 
-__all__ = ["Executor"]
- main
+__all__ = ["AgentExecutor", "Executor"]

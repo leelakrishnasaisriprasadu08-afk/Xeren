@@ -116,6 +116,8 @@ class ActionResult(BaseModel):
     action_id: str = Field(..., description="Corresponding AgentAction id")
     success: bool = Field(..., description="Whether action succeeded")
     data: Optional[Any] = Field(default=None, description="Structured execution payload")
+    output: Optional[Any] = Field(default=None, description="Structured execution output or response payload")
+    artifacts: Dict[str, Any] = Field(default_factory=dict, description="Artifacts produced during execution")
     error: Optional[str] = Field(default=None, description="Sanitized error message if failed")
     error_category: Optional[str] = Field(default=None, description="Error category classification")
     error_code: Optional[str] = Field(default=None, description="Machine-readable error code")
@@ -125,6 +127,14 @@ class ActionResult(BaseModel):
         default=None, description="Post-action page observation if applicable"
     )
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Execution metadata")
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.output is None and self.data is not None:
+            self.output = self.data
+        elif self.data is None and self.output is not None:
+            self.data = self.output
 
 
 class AgentState(BaseModel):

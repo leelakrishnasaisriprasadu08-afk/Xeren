@@ -17,6 +17,7 @@ from xeren.rag.retrieval.hybrid import HybridRetriever
 from xeren.rag.retrieval.keyword import KeywordRetriever
 from xeren.rag.stores.base import VectorStore
 from xeren.rag.stores.chroma import ChromaVectorStore
+from xeren.rag.stores.memory_store import InMemoryVectorStore
 
 
 class KnowledgeToolRegistry:
@@ -33,7 +34,13 @@ class KnowledgeToolRegistry:
         context_builder: Optional[ContextBuilder] = None,
         ingestion_pipeline: Optional[IngestionPipeline] = None,
     ) -> None:
-        self.vector_store = vector_store or ChromaVectorStore()
+        if vector_store is not None:
+            self.vector_store = vector_store
+        else:
+            try:
+                self.vector_store = ChromaVectorStore()
+            except ImportError:
+                self.vector_store = InMemoryVectorStore()
         self.embedding_model = embedding_model or MockEmbeddingModel(dimension=64)
         self.keyword_retriever = keyword_retriever or KeywordRetriever()
 

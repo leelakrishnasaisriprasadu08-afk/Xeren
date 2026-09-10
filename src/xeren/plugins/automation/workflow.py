@@ -41,6 +41,10 @@ class AutomationWorkflow:
             AutomationOperation.TASK_RETRY: self._execute_retry,
             AutomationOperation.TASK_DEPENDENCY_MANAGEMENT: self._execute_dependency_management,
             AutomationOperation.TASK_HISTORY: self._execute_history,
+            AutomationOperation.DESKTOP_LAUNCH: self._execute_desktop_launch,
+            AutomationOperation.DESKTOP_COMMAND: self._execute_desktop_command,
+            AutomationOperation.DESKTOP_LIST: self._execute_desktop_list,
+            AutomationOperation.DESKTOP_TERMINATE: self._execute_desktop_terminate,
         }
 
         handler = handlers.get(op)
@@ -413,6 +417,68 @@ class AutomationWorkflow:
                 "run_records_count": len(run_records),
                 "run_records": [r.model_dump(mode="python") for r in run_records],
             },
+        )
+
+    def _execute_desktop_launch(self, input_data: AutomationInput) -> AutomationResult:
+        app_name = input_data.app_name or (input_data.metadata.get("app_name") if input_data.metadata else None)
+        if not app_name:
+            return AutomationResult(
+                operation=input_data.operation,
+                success=False,
+                error="app_name is required for DESKTOP_LAUNCH.",
+            )
+        args = input_data.app_args or (input_data.metadata.get("args") if input_data.metadata else None)
+        cwd = input_data.cwd or (input_data.metadata.get("cwd") if input_data.metadata else None)
+        res = self.registry.desktop_operator.launch_app(app_name, args=args, cwd=cwd)
+        return AutomationResult(
+            operation=input_data.operation,
+            success=res.get("success", False),
+            error=res.get("error"),
+            metadata=res,
+        )
+
+    def _execute_desktop_command(self, input_data: AutomationInput) -> AutomationResult:
+        cmd = input_data.command or input_data.objective or (input_data.metadata.get("command") if input_data.metadata else None)
+        if not cmd:
+            return AutomationResult(
+                operation=input_data.operation,
+                success=False,
+                error="command string is required for DESKTOP_COMMAND.",
+            )
+        timeout = input_data.timeout_seconds or 30.0
+        cwd = input_data.cwd or (input_data.metadata.get("cwd") if input_data.metadata else None)
+        res = self.registry.desktop_operator.execute_shell(cmd, timeout=timeout, cwd=cwd)
+        return AutomationResult(
+            operation=input_data.operation,
+            success=res.get("success", False),
+            error=res.get("stderr") if not res.get("success") else None,
+            metadata=res,
+        )
+
+    def _execute_desktop_list(self, input_data: AutomationInput) -> AutomationResult:
+        filter_name = input_data.app_name or (input_data.metadata.get("filter_name") if input_data.metadata else None)
+        apps = self.registry.desktop_operator.list_running_apps(filter_name=filter_name)
+        return AutomationResult(
+            operation=input_data.operation,
+            success=True,
+            metadata={"apps": apps, "count": len(apps)},
+        )
+
+    def _execute_desktop_terminate(self, input_data: AutomationInput) -> AutomationResult:
+        target = input_data.pid or input_data.app_name or (input_data.metadata.get("target") if input_data.metadata else None)
+        if not target:
+            return AutomationResult(
+                operation=input_data.operation,
+                success=False,
+                error="pid or app_name is required for DESKTOP_TERMINATE.",
+            )
+        force = bool(input_data.metadata.get("force", False)) if input_data.metadata else False
+        res = self.registry.desktop_operator.terminate_app(target, force=force)
+        return AutomationResult(
+            operation=input_data.operation,
+            success=res.get("success", False),
+            error=res.get("error"),
+            metadata=res,
         )
 
 

@@ -1,18 +1,27 @@
-"""IntentClassifier — Automatically detects user intent and maps to the appropriate plugin."""
+"""IntentClassifier — Automatically detects user intent and maps to the appropriate pipeline and plugin."""
 
 from __future__ import annotations
 
-import re
-import logging
 from dataclasses import dataclass, field
+from enum import Enum
+import logging
+import re
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("xeren.core.intent")
 
 
+class RoutingCategory(str, Enum):
+    """Three-tier high-level intent routing."""
+    GENERAL_KNOWLEDGE = "GENERAL_KNOWLEDGE"  # Routed to LLM
+    XEREN_PROJECT = "XEREN_PROJECT"          # Routed to RAG / internal project docs
+    ACTION_REQUEST = "ACTION_REQUEST"        # Routed to Agent / Tools execution
+
+
 @dataclass
 class IntentResult:
-    """Classified user intent with target plugin and confidence."""
+    """Classified user intent with routing category, target plugin, and confidence."""
+    category: RoutingCategory
     plugin: str
     action: str
     confidence: float
@@ -22,47 +31,52 @@ class IntentResult:
 
 class IntentClassifier:
     """
-    Intelligent Intent Classifier.
-    Eliminates the need for users to mention plugin names.
-
-    Automatically routes:
-    - 'handle my fiverr account / take upwork order' -> automation / freelance
-    - 'create a landing page for bakery / build portfolio website' -> website
-    - 'write a python function to parse json / fix bug in test' -> coding
-    - 'deep search about quantum computing / research facts' -> research
-    - 'clean this csv dataset / visualize sales distribution' -> data
-    - 'open my photo in downloads / save file' -> file
-    - 'check if this claim is factually true' -> verification
-    - 'what did we talk about yesterday / how do you remember' -> experience
-    - 'hello / how are you / explain general topic' -> conversation
+    Intelligent Intent Classifier & Router.
+    Routes queries according to Xeren 3-Tier Architecture:
+    1. GENERAL_KNOWLEDGE -> LLM direct response
+    2. XEREN_PROJECT -> RAG & Internal Knowledge Base
+    3. ACTION_REQUEST -> Agent Controller & Specialized Plugins
     """
 
-    # Keyword and pattern rules for fast, zero-latency local classification
-    INTENT_RULES = [
-        # Multi-Platform Freelance & Workspaces
+    # Rules for Xeren Project specifics (codebase, architecture, checkpoints, training)
+    XEREN_PROJECT_PATTERNS = [
+        re.compile(r"\b(xeren|xeren's|core architecture|runtime\.py|agentcontroller|qlora|curriculum|experience dataset|hallucination guard|training checkpoint|stage1|stage2)\b", re.I),
+        re.compile(r"\b(how (does|do) (xeren|the controller|the agent) work|xeren specs|xeren pipeline|in this repo|in our codebase)\b", re.I),
+    ]
+
+    # Rules for Action Requests (tools, automation, file, code execution, deep search)
+    ACTION_RULES = [
+        # Desktop Apps, OS & Command Execution
         (
-            re.compile(r"\b(fiverr|upwork|freelancer|linkedin|gig|client order|buyer request|proposal|bid on|freelance)\b", re.I),
+            re.compile(r"\b(open|launch|run|execute|start|close|kill|terminate)\s+(chrome|notepad|code|vscode|terminal|powershell|cmd|app|application|command|process)\b|\b(download|curl|wget)\b", re.I),
+            "automation",
+            "desktop_operator",
+            0.95,
+        ),
+        # Multi-Platform Freelance & Automation
+        (
+            re.compile(r"\b(fiverr|upwork|freelancer|linkedin|gig|client order|buyer request|proposal|bid on|freelance|automate)\b", re.I),
             "automation",
             "freelance_platform",
             0.95,
         ),
         # Website building
         (
-            re.compile(r"\b(build (a )?website|create (a )?landing page|web page|portfolio site|html css|frontend template)\b", re.I),
+            re.compile(r"\b((build|create|design) (a )?(landing page|website|web page|portfolio site)|landing page|website|portfolio site|html css|frontend template)\b", re.I),
             "website",
             "generate_website",
             0.92,
         ),
         # Coding & Development
         (
-            re.compile(r"\b(write (a )?code|python script|debug|fix bug|refactor|function|compile|syntax error|git commit|unit test)\b", re.I),
+            re.compile(r"\b(write (a )?(python )?(code|script|function|program)|python (script|function|code)|debug|fix bug|refactor|compile|syntax error|git commit|unit test|implement (a )?(python )?(function|method|class|algorithm))\b", re.I),
             "coding",
             "write_code",
             0.90,
         ),
         # Deep Research & Knowledge
         (
-            re.compile(r"\b(deep search|research|investigate|credibility|sources for|find literature|cross[- ]verify|strawberry)\b", re.I),
+            re.compile(r"\b(search the web|deep search|research|investigate|credibility|sources for|find literature|cross[- ]verify|web search|look up online|strawberry search)\b", re.I),
             "research",
             "deep_research",
             0.93,
@@ -76,7 +90,7 @@ class IntentClassifier:
         ),
         # File & Document operations
         (
-            re.compile(r"\b(open file|read file|save file|read directory|find file|scan folder|photo|document|pdf)\b", re.I),
+            re.compile(r"\b(write .* to (a )?file|open file|read file|save file|read directory|find file|scan folder|photo|document|pdf|list files)\b", re.I),
             "file",
             "file_operation",
             0.88,
@@ -99,52 +113,85 @@ class IntentClassifier:
 
     def classify(self, query: str, context: Optional[Dict[str, Any]] = None) -> IntentResult:
         """
-        Classify user message into target plugin and intended action.
+        Classify user message into routing category, target plugin, and intended action.
         """
         cleaned = query.strip()
         if not cleaned:
             return IntentResult(
+                category=RoutingCategory.GENERAL_KNOWLEDGE,
                 plugin="conversation",
                 action="chat",
                 confidence=1.0,
-                reasoning="Empty query defaulted to conversation.",
+                reasoning="Empty query defaulted to general conversation.",
             )
 
-        # 1. Rule-based pattern matching (ultra-fast, deterministic)
-        for pattern, plugin, action, conf in self.INTENT_RULES:
+        # Explicit context force_category override
+        if context and "force_category" in context:
+            fc = str(context["force_category"]).upper()
+            cat = RoutingCategory[fc] if fc in RoutingCategory.__members__ else (
+                RoutingCategory.XEREN_PROJECT if "project" in fc.lower() else
+                RoutingCategory.ACTION_REQUEST if "action" in fc.lower() else
+                RoutingCategory.GENERAL_KNOWLEDGE
+            )
+            return IntentResult(
+                category=cat,
+                plugin=context.get("active_plugin", "conversation"),
+                action="forced",
+                confidence=1.0,
+                reasoning="Context force_category override applied.",
+            )
+
+        # 1. Check for Xeren Project specifics -> RAG
+        for pat in self.XEREN_PROJECT_PATTERNS:
+            match = pat.search(cleaned)
+            if match:
+                return IntentResult(
+                    category=RoutingCategory.XEREN_PROJECT,
+                    plugin="knowledge",
+                    action="project_rag",
+                    confidence=0.94,
+                    entities={"matched_term": match.group(0)},
+                    reasoning=f"Matched project query pattern '{pat.pattern}' -> routed to RAG.",
+                )
+
+        # 2. Check for Action Requests -> Specialized Agent/Tools
+        for pattern, plugin, action, conf in self.ACTION_RULES:
             match = pattern.search(cleaned)
             if match:
                 entities = {"matched_term": match.group(0)}
-                # Extract platform entity if present
                 if plugin == "automation":
                     platform_match = re.search(r"\b(fiverr|upwork|freelancer|linkedin)\b", cleaned, re.I)
                     if platform_match:
                         entities["platform"] = platform_match.group(1).lower()
 
                 return IntentResult(
+                    category=RoutingCategory.ACTION_REQUEST,
                     plugin=plugin,
                     action=action,
                     confidence=conf,
                     entities=entities,
-                    reasoning=f"Matched pattern '{pattern.pattern}'",
+                    reasoning=f"Matched action pattern '{pattern.pattern}' -> routed to Agent/Tools ({plugin}).",
                 )
 
-        # 2. Context-aware fallback
+        # 3. Context-aware fallback
         if context and "active_plugin" in context:
+            active_p = context["active_plugin"]
             return IntentResult(
-                plugin=context["active_plugin"],
+                category=RoutingCategory.ACTION_REQUEST if active_p != "conversation" else RoutingCategory.GENERAL_KNOWLEDGE,
+                plugin=active_p,
                 action="continue",
                 confidence=0.75,
                 reasoning="Retained active contextual plugin.",
             )
 
-        # 3. Default fallback to conversational coaching
+        # 4. Default fallback -> General Knowledge / LLM
         return IntentResult(
+            category=RoutingCategory.GENERAL_KNOWLEDGE,
             plugin="conversation",
             action="chat",
-            confidence=0.70,
-            reasoning="Defaulted to conversational intelligence.",
+            confidence=0.85,
+            reasoning="Routed to General Knowledge LLM.",
         )
 
 
-__all__ = ["IntentClassifier", "IntentResult"]
+__all__ = ["IntentClassifier", "IntentResult", "RoutingCategory"]

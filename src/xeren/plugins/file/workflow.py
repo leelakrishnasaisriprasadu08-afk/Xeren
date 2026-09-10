@@ -2,8 +2,10 @@
 
 import asyncio
 import logging
+from pathlib import Path
+import shutil
 import time
-from typing import Optional
+from typing import Optional, Union
 
 from xeren.plugins.file.registry import FileToolRegistry
 from xeren.plugins.file.schemas import FileInput, FileOperation, FileResult
@@ -89,8 +91,24 @@ class FileWorkflow:
                 stats={"latency_ms": latency},
             )
 
+    def _create_snapshot_if_needed(self, raw_path: Union[str, Path]) -> Optional[str]:
+        """Create automatic rollback snapshot before modifying an existing file."""
+        try:
+            target = self.registry.security_tool.resolve_and_validate_path(raw_path, must_exist=False)
+            if target.is_file():
+                snapshot_dir = self.registry.workspace_dir / ".xeren" / "snapshots"
+                snapshot_dir.mkdir(parents=True, exist_ok=True)
+                timestamp = int(time.time())
+                sanitized_name = f"{target.name}_{timestamp}.bak"
+                snapshot_path = snapshot_dir / sanitized_name
+                shutil.copy2(target, snapshot_path)
+                return str(snapshot_path)
+        except Exception as e:
+            logger.debug("Failed to create pre-modification snapshot for '%s': %s", raw_path, e)
+        return None
+
     def execute_write(self, input_data: FileInput) -> FileResult:
-        """Execute write operation."""
+        """Execute write operation with automated rollback snapshot."""
         start = time.perf_counter()
         if not input_data.path:
             return FileResult(
@@ -99,6 +117,7 @@ class FileWorkflow:
                 error="Path is required for write operation",
             )
         try:
+            snapshot = self._create_snapshot_if_needed(input_data.path)
             res = self.registry.writer_tool.write_file(
                 raw_path=input_data.path,
                 content=input_data.content or "",
@@ -110,13 +129,16 @@ class FileWorkflow:
                 dry_run=input_data.dry_run,
             )
             latency = round((time.perf_counter() - start) * 1000, 2)
+            stats = {"latency_ms": latency, "checksum_sha256": res.get("checksum_sha256")}
+            if snapshot:
+                stats["snapshot"] = snapshot
             return FileResult(
                 operation=FileOperation.WRITE,
                 success=res["success"],
                 path=res["path"],
                 bytes_written=res["bytes_written"],
                 dry_run=res.get("dry_run", False),
-                stats={"latency_ms": latency, "checksum_sha256": res.get("checksum_sha256")},
+                stats=stats,
             )
         except Exception as err:
             latency = round((time.perf_counter() - start) * 1000, 2)

@@ -11,8 +11,12 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from qdrant_client import QdrantClient
-from qdrant_client.http import models as qmodels
+try:
+    from qdrant_client import QdrantClient
+    from qdrant_client.http import models as qmodels
+except ImportError:
+    QdrantClient = None
+    qmodels = None
 
 from xeren.rag.document import DocumentChunk
 from xeren.rag.embeddings.base import EmbeddedChunk
@@ -36,11 +40,15 @@ class QdrantVectorStore(VectorStore):
         url: Optional[str] = None,
         api_key: Optional[str] = None,
         vector_size: int = 384,
-        distance: qmodels.Distance = qmodels.Distance.COSINE,
+        distance: Optional[Any] = None,
     ) -> None:
+        if QdrantClient is None or qmodels is None:
+            raise ImportError(
+                "qdrant-client is required for QdrantVectorStore. Install it with: pip install qdrant-client"
+            )
         self.collection_name = collection_name
         self.vector_size = vector_size
-        self.distance = distance
+        self.distance = distance or qmodels.Distance.COSINE
 
         try:
             from dotenv import load_dotenv

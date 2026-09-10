@@ -766,7 +766,7 @@ class CorePlannerAdapter(Planner, BaseCorePlanner):
     def replan(self, state: AgentState, failure_reason: str) -> List[str]:
         """Adapt active plan in response to a failed step."""
         logger.info("CorePlannerAdapter replanning due to: %s", failure_reason)
-        key = state.session_id or state.task
+        key = getattr(state, "session_id", getattr(state, "task_id", getattr(state, "task", getattr(state, "goal", "default"))))
         active_plan = self._active_plans.get(key)
 
         revised_steps: List[PlanStep] = []

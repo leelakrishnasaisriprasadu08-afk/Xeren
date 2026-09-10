@@ -89,11 +89,32 @@ class XerenNativeLLM(BaseLLM):
         if not checkpoint_path.exists():
             raise ModelNotFoundError(
                 f"Xeren checkpoint not found at {checkpoint_path}. "
-                f"Run training first: python training/gpu_launch/train_gpu.py --stage 2"
+                f"Run training first: python training/scripts/06_train_xeren_mini_qlora.py"
             )
 
         logger.info(f"Loading Xeren-Mini from {checkpoint_path}...")
         try:
+            # Check if this is a HuggingFace directory checkpoint (e.g. QLoRA merged xeren_mini)
+            if checkpoint_path.is_dir() and (checkpoint_path / "config.json").exists():
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+                self._tokenizer = AutoTokenizer.from_pretrained(str(checkpoint_path), trust_remote_code=True)
+                self._model = AutoModelForCausalLM.from_pretrained(
+                    str(checkpoint_path),
+                    torch_dtype=torch.float16 if self._device == "cuda" else torch.float32,
+                    device_map="auto" if self._device == "cuda" else None,
+                    trust_remote_code=True,
+                )
+                self._model.eval()
+                self._model_type = "hf"
+                num_params = sum(p.numel() for p in self._model.parameters())
+                logger.info(
+                    f"Xeren-Mini HF Model loaded: {num_params/1e6:.1f}M params, "
+                    f"vocab={len(self._tokenizer)}, device={self._device}"
+                )
+                self._loaded = True
+                return
+
+            # Legacy .pt checkpoint loading
             from training.src.model.config import XerenConfig
             from training.src.model.xeren_transformer import XerenTransformer
             from training.src.tokenizer.train_tokenizer import XerenTokenizer
@@ -110,6 +131,7 @@ class XerenNativeLLM(BaseLLM):
             self._model.load_state_dict(checkpoint["model_state_dict"])
             self._model.eval()
             self._model.to(self._device)
+            self._model_type = "scratch"
 
             stage = checkpoint.get("stage", 1)
             # Load 32K tokenizer for Stage 2, 16K for Stage 1
@@ -141,6 +163,19 @@ class XerenNativeLLM(BaseLLM):
         import torch
 
         self._load_model()
+        if getattr(self, "_model_type", "scratch") == "hf":
+            inputs = self._tokenizer(prompt, return_tensors="pt").to(self._device)
+            with torch.no_grad():
+                outputs = self._model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    temperature=temperature if temperature > 0 else 0.2,
+                    do_sample=temperature > 0,
+                    top_p=top_p,
+                    pad_token_id=self._tokenizer.eos_token_id,
+                )
+            new_ids = outputs[0][inputs["input_ids"].shape[1]:]
+            return self._tokenizer.decode(new_ids, skip_special_tokens=True).strip()
         input_ids = self._tokenizer.encode(prompt)
         input_tensor = torch.tensor([input_ids], dtype=torch.long, device=self._device)
 
@@ -190,6 +225,24 @@ class XerenNativeLLM(BaseLLM):
         prompt += "<|im_start|>assistant\n"
         return prompt
 
+    def generate(
+        self,
+        messages: List[ChatMessage],
+        config: Optional[ModelConfig] = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """Synchronously generate a completion for the given chat messages."""
+        return self.complete(messages, config=config, **kwargs)
+
+    async def agenerate(
+        self,
+        messages: List[ChatMessage],
+        config: Optional[ModelConfig] = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """Asynchronously generate a completion for the given chat messages."""
+        return await self.acomplete(messages, config=config, **kwargs)
+
     def complete(
         self,
         messages: List[ChatMessage],
@@ -197,7 +250,7 @@ class XerenNativeLLM(BaseLLM):
         **kwargs: Any,
     ) -> LLMResponse:
         """Run synchronous completion using the Xeren-Mini model."""
-        cfg = config or self._config
+        cfg = config or getattr(self, "config", getattr(self, "_config", None))
         prompt = self._format_prompt(messages)
         start = time.time()
 
@@ -215,9 +268,10 @@ class XerenNativeLLM(BaseLLM):
         prompt_tokens = len(self._tokenizer.encode(prompt))
         completion_tokens = len(self._tokenizer.encode(text))
 
+        model_name = getattr(cfg, "model_id", "xeren-mini")
         return LLMResponse(
             content=text,
-            model=f"xeren-mini-{self._config.model_id}",
+            model=f"xeren-mini-{model_name}",
             usage=TokenUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,

@@ -2,8 +2,12 @@
 
 import os
 from typing import List, Optional
-import chromadb
-from chromadb.config import Settings
+try:
+    import chromadb
+    from chromadb.config import Settings
+except ImportError:
+    chromadb = None
+    Settings = None
 
 from xeren.rag.document import DocumentChunk
 from xeren.rag.embeddings.base import EmbeddedChunk
@@ -16,6 +20,10 @@ class ChromaVectorStore(VectorStore):
     """Vector store implementation using ChromaDB."""
 
     def __init__(self, persist_directory: str = "data/chroma", collection_name: str = "xeren_rag"):
+        if chromadb is None:
+            raise ImportError(
+                "chromadb is required for ChromaVectorStore. Install it with: pip install chromadb"
+            )
         import sys
         if "pytest" in sys.modules:
             self.client = chromadb.EphemeralClient()

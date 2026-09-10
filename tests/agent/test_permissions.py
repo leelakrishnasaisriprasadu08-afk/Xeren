@@ -1,4 +1,3 @@
- feature/core-architecture
 """Tests for DefaultPermissionManager authorization and approval gates."""
 
 import pytest
@@ -152,4 +151,4 @@ def test_strict_mode_blocks_interactive_actions():
     allowed, reason = pm.check_permission(interactive)
     assert allowed is False
     assert "strict mode" in (reason or "").lower()
- main
+

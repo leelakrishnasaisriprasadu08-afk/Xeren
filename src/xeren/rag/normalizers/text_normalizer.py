@@ -3,10 +3,8 @@
 import re
 from typing import List, Literal, Optional, cast
 import unicodedata
- Features/training-data
-from typing import List, Literal, Optional
 
- main
+from typing import List, Literal, Optional
 
 from xeren.rag.document import Document
 from xeren.rag.normalizers.base import BaseNormalizer

@@ -1,4 +1,3 @@
- feature/core-architecture
 """Tests for DefaultRecoveryManager failure classification, bounded retries, and loop prevention."""
 
 import pytest
@@ -174,4 +173,4 @@ def test_recovery_max_retries_exceeded_triggers_replan():
 
     rm.reset()
     assert rm._retry_counts == {}
- main
+

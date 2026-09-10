@@ -1,4 +1,3 @@
- feature/core-architecture
 """Tests for AgentExecutor integrating with existing PluginManager."""
 
 import pytest
@@ -268,4 +267,4 @@ def test_executor_sync_wrapper(mock_browser):
     assert result.success is True
     assert result.data is not None
     assert result.data.get("url") == "https://example.com"
- main
+

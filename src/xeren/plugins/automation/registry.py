@@ -2,6 +2,7 @@
 
 from typing import Any, Callable, Optional
 
+from xeren.plugins.automation.tools.desktop import WindowsDesktopOperator
 from xeren.plugins.automation.tools.executor import TaskExecutorTool
 from xeren.plugins.automation.tools.planner import TaskPlannerTool
 from xeren.plugins.automation.tools.retry import RetryManagerTool
@@ -20,12 +21,14 @@ class AutomationToolRegistry:
         planner_tool: Optional[TaskPlannerTool] = None,
         scheduler_tool: Optional[BaseScheduler] = None,
         retry_tool: Optional[RetryManagerTool] = None,
+        desktop_operator: Optional[WindowsDesktopOperator] = None,
         custom_dispatcher: Optional[Callable[[str, Any, Optional[float]], Any]] = None,
     ) -> None:
         self.state_manager = state_manager or TaskStateManager()
         self.planner_tool = planner_tool or TaskPlannerTool()
         self.scheduler_tool = scheduler_tool or DeterministicScheduler()
         self.retry_tool = retry_tool or RetryManagerTool()
+        self.desktop_operator = desktop_operator or WindowsDesktopOperator()
         self.executor_tool = TaskExecutorTool(
             state_manager=self.state_manager,
             plugin_manager=plugin_manager,

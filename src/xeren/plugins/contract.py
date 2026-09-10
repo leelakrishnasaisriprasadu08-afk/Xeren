@@ -201,6 +201,16 @@ class BasePlugin(ABC):
         """Validate raw or dictionary input against the plugin's input schema."""
         if isinstance(data, self.input_schema):
             return data
+        if hasattr(data, "model_dump"):
+            try:
+                return self.input_schema.model_validate(data.model_dump())
+            except Exception:
+                pass
+        elif hasattr(data, "dict"):
+            try:
+                return self.input_schema.model_validate(data.dict())
+            except Exception:
+                pass
         if isinstance(data, dict):
             try:
                 return self.input_schema.model_validate(data)

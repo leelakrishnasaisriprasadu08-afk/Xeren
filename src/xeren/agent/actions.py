@@ -93,6 +93,10 @@ class ActionResult(BaseModel):
         default=None,
         description="Structured execution output or response payload",
     )
+    data: Optional[Any] = Field(
+        default=None,
+        description="Structured execution payload alias",
+    )
     error: Optional[str] = Field(
         default=None,
         description="Detailed error message if execution failed",
@@ -112,6 +116,12 @@ class ActionResult(BaseModel):
     )
 
     model_config = {"arbitrary_types_allowed": True}
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.output is None and self.data is not None:
+            self.output = self.data
+        elif self.data is None and self.output is not None:
+            self.data = self.output
 
 
 __all__ = [

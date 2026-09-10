@@ -31,6 +31,28 @@ class VerificationWorkflow:
         start = time.perf_counter()
 
         op = input_data.operation
+        if input_data.expected_conditions:
+            corpus = str(input_data.candidate or "")
+            for cond in input_data.expected_conditions:
+                if cond.startswith("contains "):
+                    req = cond.replace("contains ", "").strip()
+                    if req not in corpus:
+                        return VerificationResult(
+                            status=VerificationStatus.FAILED,
+                            operation=op,
+                            confidence_score=0.0,
+                            failure_reasons=[f"Condition not satisfied: {cond}"],
+                            latency_ms=(time.perf_counter() - start) * 1000.0,
+                        )
+        if not input_data.success:
+            return VerificationResult(
+                status=VerificationStatus.FAILED,
+                operation=op,
+                confidence_score=0.0,
+                failure_reasons=["Task reported failure"],
+                latency_ms=(time.perf_counter() - start) * 1000.0,
+            )
+
         if op == VerificationOperation.OUTPUT_VALIDATION:
             res = self._execute_output_validation(input_data)
         elif op == VerificationOperation.FACT_CHECKING:
@@ -68,6 +90,28 @@ class VerificationWorkflow:
         """Asynchronously execute verification with native async judge support."""
         start = time.perf_counter()
         op = input_data.operation
+
+        if input_data.expected_conditions:
+            corpus = str(input_data.candidate or "")
+            for cond in input_data.expected_conditions:
+                if cond.startswith("contains "):
+                    req = cond.replace("contains ", "").strip()
+                    if req not in corpus:
+                        return VerificationResult(
+                            status=VerificationStatus.FAILED,
+                            operation=op,
+                            confidence_score=0.0,
+                            failure_reasons=[f"Condition not satisfied: {cond}"],
+                            latency_ms=(time.perf_counter() - start) * 1000.0,
+                        )
+        if not input_data.success:
+            return VerificationResult(
+                status=VerificationStatus.FAILED,
+                operation=op,
+                confidence_score=0.0,
+                failure_reasons=["Task reported failure"],
+                latency_ms=(time.perf_counter() - start) * 1000.0,
+            )
 
         if op == VerificationOperation.LLM_JUDGE:
             res = await self._aexecute_llm_judge(input_data)

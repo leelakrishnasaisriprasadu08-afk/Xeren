@@ -9,6 +9,9 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 from pydantic import BaseModel
 
 from xeren.core.context import CoreContext
+from xeren.core.hallucination_guard import HallucinationGuard, StructuredAnswer
+from xeren.core.intent import IntentClassifier, IntentResult, RoutingCategory
+from xeren.core.learner import EpistemicLearner, KnowledgeGapDetector, LearnedKnowledge
 from xeren.models.base import BaseLLM
 from xeren.models.providers.mock import MockLLM
 from xeren.plugins.contract import (
@@ -112,18 +115,22 @@ from xeren.plugins.website.schemas import (
     WebsiteResult,
     WebsiteType,
 )
- feature/core-architecture
+
 from pathlib import Path
 
 from xeren.agent.browser.contract import BaseBrowserAdapter
 from xeren.agent.browser.mock import MockBrowserAdapter
+try:
+    from xeren.agent.browser.playwright_adapter import PlaywrightBrowserAdapter
+except Exception:
+    PlaywrightBrowserAdapter = None  # type: ignore
 from xeren.agent.controller import AgentController
 from xeren.agent.permissions import PermissionManager
-from xeren.agent.plugins.experience import ExperienceInput, ExperiencePlugin
-from xeren.agent.plugins.verification import VerificationInput, VerificationPlugin
+from xeren.agent.plugins.experience import ExperienceInput as AgentExperienceInput, ExperiencePlugin as AgentExperiencePlugin
+from xeren.agent.plugins.verification import VerificationInput as AgentVerificationInput, VerificationPlugin as AgentVerificationPlugin
 from xeren.agent.types import AgentState, AgentStatus
 from xeren.core.planner import CorePlannerAdapter, TaskPlan
- main
+
 from xeren.rag.document import Document
 from xeren.rag.retrieval.filter import MetadataFilter
 from xeren.workspace.manager import WorkspaceManager
@@ -161,6 +168,13 @@ class XerenCore:
         self.plugin_manager = plugin_manager or PluginManager()
         self.workspace_manager = workspace_manager
         self.context = CoreContext(llm=self.llm)
+        self.intent_classifier = IntentClassifier()
+        self.hallucination_guard = HallucinationGuard(search_engine=search_engine)
+        self.epistemic_learner = EpistemicLearner(
+            llm=self.llm,
+            search_engine=search_engine,
+            plugin_manager=self.plugin_manager,
+        )
 
         # Register any custom plugins passed in
         if plugins:
@@ -188,17 +202,11 @@ class XerenCore:
             if not self.plugin_manager.has("data"):
                 data_plugin = DataPlugin()
                 self.register_plugin(data_plugin)
- evalution&tesing
-            if not self.plugin_manager.has("verification"):
-                self.register_plugin(VerificationPlugin())
-            if not self.plugin_manager.has("experience"):
-                self.register_plugin(ExperiencePlugin())
-
             if not self.plugin_manager.has("file"):
                 file_plugin = FilePlugin()
                 self.register_plugin(file_plugin)
             if not self.plugin_manager.has("verification"):
-                verification_plugin = VerificationPlugin(llm=self.llm)
+                verification_plugin = VerificationPlugin()
                 self.register_plugin(verification_plugin)
             if not self.plugin_manager.has("experience"):
                 experience_plugin = ExperiencePlugin()
@@ -210,13 +218,11 @@ class XerenCore:
                 api_plugin = ApiPlugin(plugin_manager=self.plugin_manager)
                 api_plugin.set_core(self)
                 self.register_plugin(api_plugin)
- feature/core-architecture
+
             if not self.plugin_manager.has("conversation"):
                 conversation_plugin = ConversationPlugin(llm=self.llm)
                 self.register_plugin(conversation_plugin)
 
- main
- main
 
     def set_llm(self, llm: BaseLLM) -> None:
         """Replace the active Core LLM (e.g. when injecting the trained Xeren model)."""
@@ -238,12 +244,15 @@ class XerenCore:
         conversation = self.plugin_manager.get("conversation")
         if isinstance(conversation, ConversationPlugin):
             conversation.set_llm(llm)
+        self.epistemic_learner.llm = llm
 
     def set_search_engine(self, engine: BaseSearchEngine) -> None:
         """Replace the active search engine across registered research plugins."""
         research = self.plugin_manager.get("research")
         if isinstance(research, ResearchPlugin):
             research.set_search_engine(engine)
+        self.epistemic_learner.search_engine = engine
+        self.hallucination_guard.search_tool.engine = engine
 
     def set_workspace_manager(self, manager: WorkspaceManager) -> None:
         """Inject or configure the active WorkspaceManager."""
@@ -1040,7 +1049,6 @@ class XerenCore:
         return exec_res.output
 
     # -------------------------------------------------------------------------
- evalution&tesing
     # Autonomous Agent Target Flow Orchestration
     # User Goal -> Xeren Core -> CorePlannerAdapter -> TaskPlan ->
     # AgentController -> PluginManager -> Required Plugin(s) ->
@@ -1049,9 +1057,9 @@ class XerenCore:
     def _ensure_agent_plugins(self) -> None:
         """Auto-register VerificationPlugin and ExperiencePlugin if not already registered."""
         if not self.plugin_manager.has("verification"):
-            self.register_plugin(VerificationPlugin())
+            self.register_plugin(AgentVerificationPlugin())
         if not self.plugin_manager.has("experience"):
-            self.register_plugin(ExperiencePlugin())
+            self.register_plugin(AgentExperiencePlugin())
 
     async def arun_agent(
         self,
@@ -1068,22 +1076,35 @@ class XerenCore:
         self._ensure_agent_plugins()
         ctx = dict(context or {})
 
-        # 1. Initialize CorePlannerAdapter
+        # 1. Stage 2: Knowledge Gap Detector & Learn-First Engine
+        gap_detected, learned_ctx = await self.epistemic_learner.aevaluate_and_learn_if_needed(goal, ctx)
+        if learned_ctx:
+            ctx["learned_knowledge"] = learned_ctx.model_dump()
+            goal = f"{goal}\n\n[Learned Context]: {learned_ctx.summary}"
+
+        # 2. Initialize CorePlannerAdapter
         planner = planner_adapter or CorePlannerAdapter(
             llm=self.llm,
             plugin_manager=self.plugin_manager,
         )
 
-        # 2. Produce and validate TaskPlan
+        # 3. Produce and validate TaskPlan
         task_plan = await planner.acreate_task_plan(goal, ctx)
 
-        # 3. Initialize Browser & Controller
-        browser = browser_adapter or MockBrowserAdapter()
+        # 4. Initialize Browser & Controller (File, OS, Web Active Domains)
+        if browser_adapter is not None:
+            browser = browser_adapter
+        elif PlaywrightBrowserAdapter is not None and ctx.get("use_real_browser"):
+            browser = PlaywrightBrowserAdapter()
+        else:
+            browser = MockBrowserAdapter()
+
         controller = AgentController(
             browser_adapter=browser,
             planner=planner,
             plugin_manager=self.plugin_manager,
             permission_manager=permission_manager,
+            workspace_manager=self.workspace_manager,
             max_steps=max_steps,
         )
 
@@ -1094,49 +1115,67 @@ class XerenCore:
             max_steps=max_steps,
         )
 
-        # 5. Verification step
-        verification_output: Any = None
-        if verify_outcome and self.plugin_manager.has("verification"):
-            v_input = VerificationInput(
-                task=goal,
-                success=(state.status == AgentStatus.COMPLETED),
-                expected_conditions=ctx.get("expected_conditions", []),
-                actual_data=state.memory,
-            )
-            v_res = await self.plugin_manager.aexecute("verification", v_input)
-            if v_res.success and v_res.output:
-                verification_output = v_res.output
-
-        # 6. Experience recording step
-        experience_output: Any = None
-        if record_experience and self.plugin_manager.has("experience"):
-            v_passed = (
-                verification_output.verified
-                if verification_output and hasattr(verification_output, "verified")
-                else (state.status == AgentStatus.COMPLETED)
-            )
-            exp_input = ExperienceInput(
-                state=state.model_dump(),
-                prediction_confidence=0.95,
-                final_quality_score=1.0 if state.status == AgentStatus.COMPLETED else 0.0,
-                split=ctx.get("split", "train"),
-                verification_passed=v_passed,
-            )
-            exp_res = await self.plugin_manager.aexecute("experience", exp_input)
-            if exp_res.success and exp_res.output:
-                experience_output = exp_res.output
-
-        # 7. Final response synthesis
+        # 5. Final response synthesis
         final_response: str = ""
         if state.status == AgentStatus.COMPLETED:
             if state.memory.get("final_response"):
                 final_response = str(state.memory["final_response"])
-            elif state.history:
-                _, last_res = state.history[-1]
-                if last_res.data:
-                    final_response = f"Successfully completed: {last_res.data}"
-                elif last_res.observation and last_res.observation.text_content:
-                    final_response = f"Observation: {last_res.observation.text_content[:200]}"
+            elif state.completed_steps:
+                last_res = state.completed_steps[-1]
+                out_val = getattr(last_res, "output", None) or getattr(last_res, "data", None)
+                if out_val:
+                    if isinstance(out_val, WebsiteResult):
+                        files_str = ", ".join(f.file_path for f in out_val.files)
+                        prev_url = out_val.preview.preview_url if out_val.preview else "N/A"
+                        sec_sum = out_val.security_report.summary if out_val.security_report else "Passed"
+                        meta = out_val.preview.metadata if (out_val.preview and out_val.preview.metadata) else {}
+                        ws_path = meta.get("workspace_path", "")
+                        file_url = meta.get("file_url", "")
+
+                        extra_info = []
+                        if ws_path:
+                            extra_info.append(f"• Local Directory: {ws_path}")
+                        if file_url:
+                            extra_info.append(f"• Direct Local File URL: {file_url}")
+
+                        has_node = any(f.file_path == "server.js" for f in out_val.files)
+                        has_py = any(f.file_path == "app.py" for f in out_val.files)
+                        has_java = any(f.file_path.endswith(".java") for f in out_val.files)
+                        has_sql = any(f.file_path.endswith(".sql") for f in out_val.files)
+
+                        run_guide = []
+                        if has_node:
+                            run_guide.append("  - Node.js / Express API: `node server.js` (Port 5000)")
+                        if has_py:
+                            run_guide.append("  - Python / FastAPI Server: `uvicorn app:app --reload --port 8000`")
+                        if has_java:
+                            run_guide.append("  - Java / Spring Boot: `mvn spring-boot:run`")
+                        if has_sql:
+                            run_guide.append("  - Database Setup: `sqlite3 showroom.db < database_schema.sql`")
+
+                        run_section = "\n• Backend Execution Commands:\n" + "\n".join(run_guide) if run_guide else ""
+                        extra_str = ("\n" + "\n".join(extra_info)) if extra_info else ""
+
+                        final_response = (
+                            f"Successfully created full-stack project for '{goal}':\n\n"
+                            f"• Generated Files ({len(out_val.files)}): {files_str}\n"
+                            f"• Live Localhost Preview: {prev_url}"
+                            f"{extra_str}\n"
+                            f"• Security Status: {sec_sum}\n"
+                            f"• Validation: {'Valid (0 errors)' if out_val.validation and out_val.validation.is_valid else 'Complete'}"
+                            f"{run_section}"
+                        )
+                    elif isinstance(out_val, CodingResult):
+                        code_str = getattr(out_val, "code", "") or ""
+                        lang = getattr(out_val, "language", "python") or "python"
+                        final_response = (
+                            f"Successfully generated code for '{goal}':\n\n"
+                            f"```{lang}\n{code_str.strip()}\n```\n"
+                        )
+                    else:
+                        final_response = f"Successfully completed {goal}: {out_val}"
+                elif getattr(last_res, "observation", None) and getattr(last_res.observation, "text_content", None):
+                    final_response = f"Successfully completed {goal}: {last_res.observation.text_content[:200]}"
                 else:
                     final_response = f"Successfully executed task: {goal}"
             else:
@@ -1144,6 +1183,44 @@ class XerenCore:
         else:
             reason = state.metadata.get("completion_reason", "Task execution did not complete successfully.")
             final_response = f"Task failed: {reason}"
+
+        # 6. Verification step
+        verification_output: Any = None
+        if verify_outcome and self.plugin_manager.has("verification"):
+            v_input = {
+                "operation": "final_response_verification",
+                "task": goal,
+                "success": (state.status == AgentStatus.COMPLETED),
+                "expected_conditions": ctx.get("expected_conditions", []),
+                "actual_data": state.memory,
+                "candidate": final_response,
+            }
+            v_res = await self.plugin_manager.aexecute("verification", v_input)
+            if v_res.output is not None:
+                verification_output = v_res.output
+
+        # 7. Experience recording step
+        experience_output: Any = None
+        if record_experience and self.plugin_manager.has("experience"):
+            v_passed = (
+                verification_output.verified
+                if verification_output and hasattr(verification_output, "verified")
+                else (state.status == AgentStatus.COMPLETED)
+            )
+            exp_input = {
+                "operation": "experience_record",
+                "state": state.model_dump(),
+                "task": goal,
+                "prediction_confidence": 0.95,
+                "final_quality_score": 1.0 if (state.status == AgentStatus.COMPLETED and v_passed) else 0.0,
+                "split": ctx.get("split", "train"),
+                "verification_passed": v_passed,
+                "verification_status": "verified" if v_passed else "failed",
+                "verification_score": 1.0 if v_passed else 0.0,
+            }
+            exp_res = await self.plugin_manager.aexecute("experience", exp_input)
+            if exp_res.output is not None:
+                experience_output = exp_res.output
 
         # 8. Final structured result
         return {
@@ -1231,6 +1308,119 @@ class XerenCore:
                 record_experience=record_experience,
                 max_steps=max_steps,
             )
+        )
+
+    async def aanswer_query(
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> StructuredAnswer:
+        """
+        Execute user query through 3-tier Intent Router and Active Hallucination Recovery Gate:
+        User Query -> Intent Router (General/Project/Action) -> Execution Path -> Evidence & Verification -> Structured Answer
+        """
+        intent = self.intent_classifier.classify(query, context)
+        raw_answer = ""
+        evidence_sources: List[str] = []
+
+        # Stage 2: Knowledge Gap Detector & Learn-First Engine
+        gap_detected, learned_ctx = await self.epistemic_learner.aevaluate_and_learn_if_needed(query, context)
+        if learned_ctx:
+            if learned_ctx.evidence_sources:
+                evidence_sources.extend(learned_ctx.evidence_sources)
+            context = dict(context or {})
+            context["learned_knowledge"] = learned_ctx.model_dump()
+
+        if intent.category == RoutingCategory.GENERAL_KNOWLEDGE:
+            # Route to LLM direct generation (enriched with learned knowledge if researched)
+            if learned_ctx:
+                prompt = (
+                    f"Answer the following query accurately based on researched context:\n"
+                    f"Query: {query}\n\n"
+                    f"Learned Context:\n{learned_ctx.summary}\n"
+                    f"Takeaways: {', '.join(learned_ctx.key_takeaways)}\n\nAnswer:"
+                )
+            else:
+                prompt = f"Answer the following query accurately:\n{query}"
+            raw_answer = await self._agenerate_text(prompt)
+
+        elif intent.category == RoutingCategory.XEREN_PROJECT:
+            # Route to Knowledge/RAG retrieval
+            if self.plugin_manager.has("knowledge"):
+                try:
+                    k_res = self.knowledge(
+                        query=query,
+                        operation=KnowledgeOperation.QUERY,
+                        limit=3,
+                    )
+                    snippets = [item.text for item in k_res.items] if hasattr(k_res, "items") else []
+                    if snippets:
+                        rag_ctx = "\n".join(snippets)
+                        raw_answer = await self._agenerate_text(f"Context:\n{rag_ctx}\n\nQuestion: {query}\nAnswer:")
+                        evidence_sources = [f"Internal Knowledge Doc #{i+1}" for i in range(len(snippets))]
+                    else:
+                        raw_answer = await self._agenerate_text(query)
+                except Exception as e:
+                    logger.warning("RAG retrieval failed, falling back to LLM: %s", e)
+                    raw_answer = await self._agenerate_text(query)
+            else:
+                raw_answer = await self._agenerate_text(query)
+
+        else:  # ACTION_REQUEST
+            # Route to AgentController / Plugin execution
+            agent_res = await self.aprocess_request(query, context=context)
+            self._last_action_result = agent_res
+            raw_answer = str(agent_res.get("final_response") or "Action executed successfully.")
+
+        # Pass through Active Hallucination Recovery Gate
+        structured = await self.hallucination_guard.averify_and_recover(
+            query=query,
+            raw_answer=raw_answer,
+            category=intent.category,
+            context=context,
+        )
+        if evidence_sources and not structured.evidence_sources:
+            structured.evidence_sources.extend(evidence_sources)
+
+        return structured
+
+    def answer_query(
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> StructuredAnswer:
+        """Synchronous wrapper for aanswer_query."""
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    return pool.submit(asyncio.run, self.aanswer_query(query, context)).result()
+            return loop.run_until_complete(self.aanswer_query(query, context))
+        except RuntimeError:
+            return asyncio.run(self.aanswer_query(query, context))
+
+    def _generate_text(self, prompt: str) -> str:
+        """Helper to invoke synchronous LLM with text prompt and extract reply string."""
+        from xeren.models.types import ChatMessage
+        try:
+            res = self.llm.generate([ChatMessage.user(prompt)])
+            return getattr(res, "content", str(res))
+        except Exception as e:
+            logger.warning("Synchronous LLM generation error: %s", e)
+            return f"Response for: {prompt}"
+
+    async def _agenerate_text(self, prompt: str) -> str:
+        """Helper to invoke asynchronous LLM with text prompt and extract reply string."""
+        from xeren.models.types import ChatMessage
+        try:
+            if hasattr(self.llm, "agenerate"):
+                res = await self.llm.agenerate([ChatMessage.user(prompt)])
+                return getattr(res, "content", str(res))
+            return self._generate_text(prompt)
+        except Exception as e:
+            logger.warning("Asynchronous LLM generation error: %s", e)
+            return self._generate_text(prompt)
 
     # High-level File Capability
     # -------------------------------------------------------------------------
@@ -2168,7 +2358,7 @@ class XerenCore:
             operation=ApiOperation.API_KEY_REVOCATION,
             key_id=key_id,
             revoke_request=ApiKeyRevokeRequest(key_id=key_id, reason=reason),
- main
+
         )
 
     # -------------------------------------------------------------------------

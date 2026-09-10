@@ -80,13 +80,22 @@ class FileSecurityTool:
         allowed_roots: Optional[Sequence[Union[str, Path]]] = None,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE,
         redaction_enabled: bool = True,
+        include_user_roots: bool = True,
     ) -> None:
         self.workspace_dir = Path(workspace_dir).resolve() if workspace_dir else Path.cwd().resolve()
-        self.allowed_roots = (
-            [Path(r).resolve() for r in allowed_roots]
-            if allowed_roots
-            else [self.workspace_dir]
-        )
+        roots = [Path(r).resolve() for r in allowed_roots] if allowed_roots else [self.workspace_dir]
+        if include_user_roots:
+            try:
+                user_home = Path.home().resolve()
+                if user_home not in roots:
+                    roots.append(user_home)
+                for folder_name in ("Documents", "Downloads", "Desktop"):
+                    sub = (user_home / folder_name).resolve()
+                    if sub.exists() and sub not in roots:
+                        roots.append(sub)
+            except Exception:
+                pass
+        self.allowed_roots = roots
         self.max_file_size_bytes = max_file_size_bytes
         self.redaction_enabled = redaction_enabled
 

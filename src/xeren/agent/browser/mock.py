@@ -121,7 +121,7 @@ class MockBrowserAdapter(BaseBrowserAdapter):
         logger.debug("MockBrowser scrolled %s by %d px", direction, amount)
         return self.observe()
 
-    def extract(self, selector: Optional[str] = None) -> Dict[str, Any]:
+    def extract(self, selector: Optional[str] = None, **kwargs: Any) -> Dict[str, Any]:
         """Simulate extracting content matching a selector."""
         obs = self.observe()
         if not selector:
@@ -140,7 +140,7 @@ class MockBrowserAdapter(BaseBrowserAdapter):
             "text": matched[0].get("text", "") if matched else "",
         }
 
-    def upload(self, selector: str, file_path: str) -> BrowserObservation:
+    def upload(self, selector: str, file_path: str, **kwargs: Any) -> BrowserObservation:
         """Simulate file upload."""
         self.uploaded_files.append({"selector": selector, "file_path": file_path})
         logger.debug("MockBrowser uploaded file '%s' to '%s'", file_path, selector)

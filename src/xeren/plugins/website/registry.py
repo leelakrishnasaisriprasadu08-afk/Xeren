@@ -6,7 +6,11 @@ from xeren.models.base import BaseLLM
 from xeren.models.providers.mock import MockLLM
 from xeren.plugins.coding.plugin import CodingPlugin
 from xeren.plugins.website.tools.generator import WebsiteGeneratorTool
-from xeren.plugins.website.tools.preview import BasePreviewProvider, MockPreviewProvider
+from xeren.plugins.website.tools.preview import (
+    BasePreviewProvider,
+    LiveLocalPreviewProvider,
+    MockPreviewProvider,
+)
 from xeren.plugins.website.tools.requirements import RequirementAnalysisTool
 from xeren.plugins.website.tools.security import WebsiteSecurityTool
 from xeren.plugins.website.tools.validator import WebsiteValidatorTool
@@ -37,7 +41,7 @@ class WebsiteToolRegistry:
             syntax_tool=self.coding_plugin.registry.syntax_tool
         )
         self.security_tool = security_tool or WebsiteSecurityTool()
-        self.preview_provider = preview_provider or MockPreviewProvider()
+        self.preview_provider = preview_provider or LiveLocalPreviewProvider()
 
     def set_llm(self, llm: BaseLLM) -> None:
         """Update active LLM provider across registered tools."""

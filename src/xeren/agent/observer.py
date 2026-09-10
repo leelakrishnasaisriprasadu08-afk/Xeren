@@ -16,12 +16,9 @@ from typing import Optional, Tuple
 
 from xeren.agent.browser.contract import BaseBrowserAdapter
 from xeren.agent.types import ActionResult, AgentAction, AgentState, BrowserObservation
- main
 
 logger = logging.getLogger("xeren.agent.observer")
 
-
- feature/core-architecture
 class DefaultObserver(Observer):
     """Observes action results, generates perception summaries, and gathers artifacts."""
 
@@ -44,28 +41,54 @@ class DefaultObserver(Observer):
             )
 
         # 2. Gather artifacts discovered
-        artifacts: Dict[str, Any] = dict(result.artifacts)
+        artifacts: Dict[str, Any] = dict(getattr(result, "artifacts", {}) or {})
 
         # 3. Create observation
         obs = Observation(
-            action_id=action.action_id,
-            success=result.success,
+            action_id=getattr(action, "action_id", "unknown"),
+            success=getattr(result, "success", True),
             summary=summary,
-            data=result.output,
-            error=result.error,
+            data=getattr(result, "output", getattr(result, "data", None)),
+            error=getattr(result, "error", None),
             artifacts_discovered=artifacts,
             metadata={
-                "target": action.target,
-                "latency_ms": result.latency_ms,
-                "attempt_count": state.attempt_count,
-                **result.metadata,
+                "target": getattr(action, "target", "unknown"),
+                "latency_ms": getattr(result, "latency_ms", 0.0),
+                "attempt_count": getattr(state, "attempt_count", getattr(state, "step_count", 0)),
+                **getattr(result, "metadata", {}),
             },
         )
 
         return obs
 
+    def update_state(
+        self,
+        state: Any,
+        action: Any,
+        result: Any,
+        observation: Optional[Any] = None,
+    ) -> Any:
+        obs = observation or getattr(result, "observation", None)
+        if obs and hasattr(state, "last_observation"):
+            state.last_observation = obs
 
-__all__ = ["DefaultObserver"]
+        if hasattr(state, "history") and isinstance(state.history, list):
+            state.history.append((action, result))
+
+        if hasattr(state, "step_count"):
+            if getattr(result, "success", True):
+                state.step_count += 1
+
+        if hasattr(state, "memory") and isinstance(state.memory, dict):
+            step_c = getattr(state, "step_count", 1)
+            data = getattr(result, "data", None) or getattr(result, "output", None)
+            if data:
+                state.memory[f"step_{step_c}_result"] = data
+
+        return state
+
+    def set_browser_adapter(self, adapter: Any) -> None:
+        self.browser = adapter
 
 class Observer:
     """Observes page state via browser adapter and updates AgentState history."""
@@ -104,5 +127,4 @@ class Observer:
         return state
 
 
-__all__ = ["Observer"]
- main
+__all__ = ["DefaultObserver", "Observer"]

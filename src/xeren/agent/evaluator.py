@@ -3,24 +3,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 from xeren.agent.interfaces import CompletionEvaluation, CompletionEvaluator
 from xeren.agent.state import TaskState
-
-"""Evaluator assessing task completion, quality criteria, and termination conditions."""
-
-import logging
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
-
 from xeren.agent.types import AgentState
- main
 
 logger = logging.getLogger("xeren.agent.evaluator")
 
 
- feature/core-architecture
 class DefaultCompletionEvaluator(CompletionEvaluator):
     """Evaluates task completion against planned requirements, artifact presence, and verification gates.
 
@@ -37,14 +30,17 @@ class DefaultCompletionEvaluator(CompletionEvaluator):
 
     def evaluate(
         self,
-        state: TaskState,
+        state: Any,
         verification_result: Optional[Any] = None,
-    ) -> CompletionEvaluation:
+    ) -> Any:
         """Evaluate if the task requirements and quality gates have truly been satisfied."""
+        if isinstance(state, AgentState) or (hasattr(state, "step_count") and not hasattr(state, "task_id")):
+            return Evaluator().evaluate(state)
+
         satisfied: List[str] = []
         missing: List[str] = []
 
-        logger.debug("Evaluating completion for task '%s' (goal: %s)", state.task_id, state.goal)
+        logger.debug("Evaluating completion for task '%s' (goal: %s)", getattr(state, "task_id", "unknown"), getattr(state, "goal", ""))
 
         # 1. Check Remaining Steps
         if state.remaining_steps:
@@ -117,8 +113,6 @@ class DefaultCompletionEvaluator(CompletionEvaluator):
         )
 
 
-__all__ = ["DefaultCompletionEvaluator"]
-
 class EvaluationResult(BaseModel):
     """Evaluation verdict on agent task progression."""
 
@@ -184,5 +178,4 @@ class Evaluator:
         )
 
 
-__all__ = ["EvaluationResult", "Evaluator"]
- main
+__all__ = ["DefaultCompletionEvaluator", "EvaluationResult", "Evaluator"]

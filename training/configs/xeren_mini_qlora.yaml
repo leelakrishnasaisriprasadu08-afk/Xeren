@@ -1,0 +1,48 @@
+# xeren_mini QLoRA Fine-Tuning Configuration
+# Tailored for NVIDIA RTX A1000 (8GB VRAM)
+
+model:
+  base_model: "Qwen/Qwen2.5-1.5B-Instruct"
+  quantization:
+    load_in_4bit: true
+    bnb_4bit_quant_type: "nf4"
+    bnb_4bit_use_double_quant: true
+    bnb_4bit_compute_dtype: "float16"
+  lora:
+    r: 32
+    lora_alpha: 64
+    lora_dropout: 0.05
+    bias: "none"
+    task_type: "CAUSAL_LM"
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+
+training:
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 0.0002
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  fp16: true
+  gradient_checkpointing: true
+  logging_steps: 10
+  save_strategy: "epoch"
+  max_seq_length: 1024
+
+data:
+  train_file: "training/data/xeren_identity/xeren_alignment_train.jsonl"
+  val_file: "training/data/xeren_identity/xeren_alignment_val.jsonl"
+
+output:
+  adapter_dir: "training/checkpoints/xeren_mini_qlora"
+  progress_file: "training/checkpoints/xeren_mini_qlora/training_progress.json"
+  final_merged_dir: "training/checkpoints/xeren_mini_final"

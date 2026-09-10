@@ -161,7 +161,15 @@ class BaseBrowserAdapter(ABC):
         """Close browser context and release resources."""
         pass
 
+    def initialize(self) -> None:
+        """Initialize browser session if needed."""
+        pass
+
     # Async convenience methods
+    async def ainitialize(self) -> None:
+        """Asynchronously initialize browser session."""
+        await asyncio.to_thread(self.initialize)
+
     async def anavigate(self, url: str) -> BrowserObservation:
         return await asyncio.to_thread(self.navigate, url)
 

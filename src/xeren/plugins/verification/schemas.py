@@ -94,7 +94,12 @@ class VerificationInput(BaseModel):
     strict_mode: bool = Field(default=False, description="Whether failures trigger strict rejection")
     rubric: Optional[Dict[str, Any]] = Field(default=None, description="Evaluation rubric guidelines for judge")
     confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Threshold for VERIFIED status")
+    success: bool = Field(default=True, description="Reported task success")
+    expected_conditions: List[str] = Field(default_factory=list, description="Conditions to verify")
+    actual_data: Dict[str, Any] = Field(default_factory=dict, description="Observed result payload")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Arbitrary metadata")
+
+    model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
 
 
 class VerificationResult(BaseModel):
@@ -123,3 +128,15 @@ class VerificationResult(BaseModel):
     )
     latency_ms: float = Field(default=0.0, ge=0.0, description="Elapsed execution time in milliseconds")
     raw_details: Dict[str, Any] = Field(default_factory=dict, description="Low-level diagnostic details")
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    @property
+    def verified(self) -> bool:
+        """Backward-compatible boolean indicating if verification passed."""
+        return self.status == VerificationStatus.VERIFIED
+
+    @property
+    def score(self) -> float:
+        """Backward-compatible confidence score alias."""
+        return self.confidence_score

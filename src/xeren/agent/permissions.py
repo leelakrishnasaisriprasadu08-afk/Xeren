@@ -15,12 +15,9 @@ import logging
 from typing import Dict, Optional, Set, Tuple
 
 from xeren.agent.types import ActionCategory, AgentAction
- main
 
 logger = logging.getLogger("xeren.agent.permissions")
 
-
- feature/core-architecture
 # Default sensitive / consequential trigger terms
 CONSEQUENTIAL_KEYWORDS = {
     "publish",
@@ -58,17 +55,20 @@ class DefaultPermissionManager(PermissionManager):
         # Set of explicitly approved action_ids
         self._approved_action_ids: Set[str] = set()
 
-    def get_permission_level(self, action: Action) -> PermissionLevel:
+    def get_permission_level(self, action: Any) -> PermissionLevel:
         """Evaluate action properties to determine if approval is required."""
+        if isinstance(action, str):
+            action = Action(target="automation", description=action)
+
         # 1. Explicitly declared permission level
-        if action.permission_level == PermissionLevel.REQUIRES_APPROVAL:
+        if getattr(action, "permission_level", None) == PermissionLevel.REQUIRES_APPROVAL:
             return PermissionLevel.REQUIRES_APPROVAL
 
         # 2. Inspect target, operation, description, and parameter values
-        target = action.target.lower()
-        params = action.parameters
+        target = getattr(action, "target", "automation").lower()
+        params = getattr(action, "parameters", {})
         operation = str(params.get("operation", "")).lower()
-        desc = (action.description or "").lower()
+        desc = (getattr(action, "description", "") or "").lower()
         param_values = " ".join(str(v) for v in params.values()).lower()
 
         # Check against consequential operations and keywords
@@ -174,10 +174,33 @@ class PermissionManager:
         self._pending_approvals: Dict[str, AgentAction] = {}
         self._decision_history: Dict[str, bool] = {}
 
-    def classify_action(self, action: AgentAction) -> ActionCategory:
+    def get_permission_level(self, action: Any) -> PermissionLevel:
+        """Evaluate action properties to determine if approval is required."""
+        category = self.classify_action(action)
+        if getattr(action, "consequential", False) or getattr(action, "requires_approval", False):
+            return PermissionLevel.REQUIRES_APPROVAL
+        if category == ActionCategory.CONSEQUENTIAL and self.require_consequential_approval:
+            return PermissionLevel.REQUIRES_APPROVAL
+        if self.mode == PermissionMode.STRICT and category in {ActionCategory.INTERACTIVE, ActionCategory.CONSEQUENTIAL}:
+            return PermissionLevel.REQUIRES_APPROVAL
+        return PermissionLevel.SAFE
+
+    def is_authorized(self, action: Any, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Check whether the action is permitted to execute."""
+        allowed, _ = self.check_permission(action)
+        return allowed
+
+    def request_approval(self, action: Any, context: Optional[Dict[str, Any]] = None) -> bool:
+        """Prompt or check approval for an action."""
+        action_id = getattr(action, "action_id", "default")
+        return self._decision_history.get(action_id, False)
+
+    def classify_action(self, action: Any) -> ActionCategory:
         """Categorize action into risk levels."""
-        action_name = action.action_type.lower()
-        if action.consequential or action_name in self.CONSEQUENTIAL_TYPES:
+        action_name = str(getattr(action, "action_type", "")).lower()
+        target = str(getattr(action, "target", "")).lower()
+        consequential = bool(getattr(action, "consequential", False))
+        if consequential or action_name in self.CONSEQUENTIAL_TYPES or target in self.CONSEQUENTIAL_TYPES:
             return ActionCategory.CONSEQUENTIAL
         if action_name in {"observe", "extract", "inspect", "get", "query"}:
             return ActionCategory.READ_ONLY
@@ -185,30 +208,31 @@ class PermissionManager:
             return ActionCategory.INTERACTIVE
         return ActionCategory.INTERACTIVE
 
-    def is_consequential(self, action: AgentAction) -> bool:
+    def is_consequential(self, action: Any) -> bool:
         """Check if action is classified as consequential."""
         return self.classify_action(action) == ActionCategory.CONSEQUENTIAL
 
-    def check_permission(self, action: AgentAction) -> Tuple[bool, Optional[str]]:
+    def check_permission(self, action: Any) -> Tuple[bool, Optional[str]]:
         """Check whether action is permitted to execute under current policy."""
         category = self.classify_action(action)
+        action_id = getattr(action, "action_id", "default")
+        action_type = str(getattr(action, "action_type", "action"))
 
         # 1. Consequential actions require explicit approval if configured
         if category == ActionCategory.CONSEQUENTIAL and self.require_consequential_approval:
-            if action.action_id in self._decision_history:
-                allowed = self._decision_history[action.action_id]
+            if action_id in self._decision_history:
+                allowed = self._decision_history[action_id]
                 return (allowed, None if allowed else "Action was explicitly denied by user.")
-            # Action has not yet been approved
-            self._pending_approvals[action.action_id] = action
-            return (False, f"Action '{action.action_type}' is consequential and requires user approval.")
+            self._pending_approvals[action_id] = action
+            return (False, f"Action '{action_type}' is consequential and requires user approval.")
 
         # 2. Strict mode checks interactive actions as well
         if self.mode == PermissionMode.STRICT and category in {ActionCategory.INTERACTIVE, ActionCategory.CONSEQUENTIAL}:
-            if action.action_id in self._decision_history:
-                allowed = self._decision_history[action.action_id]
+            if action_id in self._decision_history:
+                allowed = self._decision_history[action_id]
                 return (allowed, None if allowed else "Action was explicitly denied in strict mode.")
-            self._pending_approvals[action.action_id] = action
-            return (False, f"Strict mode requires approval for '{action.action_type}'.")
+            self._pending_approvals[action_id] = action
+            return (False, f"Strict mode requires approval for '{action_type}'.")
 
         # 3. Safe read-only or auto-approved
         return (True, None)
@@ -229,10 +253,9 @@ class PermissionManager:
         logger.warning("Denied permission for action ID %s. Reason: %s", action_id, reason or "Denied by user policy")
         return False
 
-    def list_pending(self) -> Dict[str, AgentAction]:
+    def list_pending(self) -> Dict[str, Any]:
         """Return all actions awaiting approval."""
         return dict(self._pending_approvals)
 
 
-__all__ = ["PermissionMode", "PermissionManager"]
- main
+__all__ = ["PermissionMode", "PermissionManager", "DefaultPermissionManager", "PermissionLevel"]

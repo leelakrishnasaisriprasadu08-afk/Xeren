@@ -2,14 +2,14 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import uuid
 
 from pydantic import BaseModel, Field, model_validator
 
 
 class AutomationOperation(str, Enum):
-    """The 10 core operations supported by AutomationPlugin."""
+    """The core operations supported by AutomationPlugin including OS desktop tasks."""
 
     TASK_CREATE = "task_create"
     TASK_PLAN = "task_plan"
@@ -21,6 +21,10 @@ class AutomationOperation(str, Enum):
     TASK_RETRY = "task_retry"
     TASK_DEPENDENCY_MANAGEMENT = "task_dependency_management"
     TASK_HISTORY = "task_history"
+    DESKTOP_LAUNCH = "desktop_launch"
+    DESKTOP_COMMAND = "desktop_command"
+    DESKTOP_LIST = "desktop_list"
+    DESKTOP_TERMINATE = "desktop_terminate"
 
 
 class TaskStatus(str, Enum):
@@ -214,6 +218,11 @@ class AutomationInput(BaseModel):
     max_steps: Optional[int] = Field(default=50, ge=1, le=200, description="Safety limit on maximum steps in a task")
     timeout_seconds: Optional[float] = Field(default=300.0, gt=0.0, description="Execution timeout in seconds")
     limit: int = Field(default=50, ge=1, description="Maximum history items or list entries to retrieve")
+    app_name: Optional[str] = Field(default=None, description="Application name or executable path for desktop operations")
+    app_args: Optional[List[str]] = Field(default=None, description="Arguments to pass when launching desktop application")
+    command: Optional[str] = Field(default=None, description="Shell command string to execute")
+    pid: Optional[Union[int, str]] = Field(default=None, description="Process ID or name for process management")
+    cwd: Optional[str] = Field(default=None, description="Working directory for shell execution")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional context or configuration")
 
 

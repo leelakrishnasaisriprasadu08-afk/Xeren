@@ -42,6 +42,9 @@ class ExperienceWorkflow:
             ExperienceOperation.OUTCOME_TRACKING: self._execute_outcome_tracking,
         }
 
+        if input_data.state is not None:
+            return self._execute_record(input_data)
+
         handler = handler_map.get(op)
         if not handler:
             elapsed_ms = (time.perf_counter() - start) * 1000.0
@@ -66,29 +69,41 @@ class ExperienceWorkflow:
     def _execute_record(self, input_data: ExperienceInput) -> ExperienceResult:
         item = input_data.item
         if not item:
-            if not input_data.task:
-                return ExperienceResult(
-                    operation=input_data.operation,
-                    success=False,
-                    error="Task is required when recording an experience item.",
-                )
+            task = input_data.task or (
+                (input_data.state.get("goal") or input_data.state.get("task"))
+                if isinstance(input_data.state, dict)
+                else "Autonomous Agent Execution"
+            )
+            v_status = (
+                input_data.verification_status
+                if input_data.verification_status
+                else ("verified" if input_data.verification_passed else "failed")
+            )
+            score = (
+                input_data.verification_score
+                if input_data.verification_score is not None
+                else (input_data.final_quality_score if input_data.verification_passed else 0.0)
+            )
             item = ExperienceItem(
-                task=input_data.task,
+                task=task,
                 context=input_data.context,
                 selected_plugin=input_data.plugin_name,
                 action=input_data.action,
                 outcome=input_data.outcome,
-                success=input_data.success if input_data.success is not None else True,
-                verification_status=input_data.verification_status,
-                verification_score=input_data.verification_score,
+                success=input_data.verification_passed if input_data.verification_passed is not None else (input_data.success if input_data.success is not None else True),
+                verification_status=v_status,
+                verification_score=score,
                 user_feedback=input_data.user_feedback,
-                confidence=input_data.confidence,
+                confidence=input_data.confidence or input_data.prediction_confidence,
                 lesson=input_data.lesson,
                 failure_reason=input_data.failure_reason,
                 failure_avoidance_advice=input_data.failure_avoidance_advice,
                 error=input_data.error,
                 tags=input_data.tags,
-                metadata=input_data.metadata,
+                metadata={
+                    **(input_data.metadata or {}),
+                    "verification_passed": v_status == "verified",
+                },
             )
 
         saved_item, was_deduplicated = self.registry.recorder_tool.record(item)
@@ -96,7 +111,7 @@ class ExperienceWorkflow:
             operation=input_data.operation,
             success=True,
             item=saved_item,
-            metadata={"deduplicated": was_deduplicated},
+            metadata={"deduplicated": was_deduplicated, "verification_passed": saved_item.verification_status == "verified"},
         )
 
     def _execute_retrieval(self, input_data: ExperienceInput) -> ExperienceResult:

@@ -43,7 +43,7 @@ class StrawberryQueryPlanner:
     SENSITIVE_LEAK_PATTERNS = [
         re.compile(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}\b"),  # Aadhaar / Card numbers
         re.compile(r"\b[A-Z]{5}\d{4}[A-Z]{1}\b"),        # PAN card format
-        re.compile(r"\bpassword|secret_key|api_key|private_key\b", re.I),
+        re.compile(r"\bpassword|secret[\s_]?key|api[\s_]?key|private[\s_]?key\b|\b(?:sk-[A-Za-z0-9]{20,})\b", re.I),
         re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),  # Emails
     ]
 

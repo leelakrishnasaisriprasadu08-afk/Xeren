@@ -174,6 +174,12 @@ class ExperienceInput(BaseModel):
     limit: int = Field(default=5, ge=1, le=100, description="Maximum number of items to return")
     filter_plugin: Optional[str] = Field(default=None, description="Filter experiences by plugin name")
     tags: List[str] = Field(default_factory=list, description="Filter or categorization tags")
+    state: Optional[Dict[str, Any]] = Field(default=None, description="Agent state payload for experience conversion")
+    prediction_confidence: float = Field(default=0.95, ge=0.0, le=1.0)
+    final_quality_score: float = Field(default=1.0, ge=0.0, le=1.0)
+    split: str = Field(default="train", description="Dataset split")
+    verification_passed: bool = Field(default=True)
+    verifier: str = Field(default="system")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Arbitrary metadata")
 
 
@@ -201,3 +207,31 @@ class ExperienceResult(BaseModel):
     error: Optional[str] = Field(default=None, description="Error details if operation failed")
     latency_ms: float = Field(default=0.0, ge=0.0, description="Execution latency in milliseconds")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Arbitrary metadata")
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    @property
+    def record(self) -> Any:
+        """Backward-compatible wrapper exposing record.verification.verified."""
+        v_passed = True
+        score = 1.0
+        if self.item is not None:
+            if self.item.verification_status == "failed" or self.item.verification_status is False:
+                v_passed = False
+            elif self.item.verification_status == "verified" or self.item.verification_status is True:
+                v_passed = True
+            if self.item.verification_score is not None:
+                score = float(self.item.verification_score)
+        elif self.metadata and "verification_passed" in self.metadata:
+            v_passed = bool(self.metadata["verification_passed"])
+
+        class VerificationStub:
+            def __init__(self, verified: bool, score: float):
+                self.verified = verified
+                self.score = score
+
+        class RecordStub:
+            def __init__(self, verified: bool, score: float):
+                self.verification = VerificationStub(verified, score)
+
+        return RecordStub(v_passed, score)

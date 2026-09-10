@@ -22,12 +22,9 @@ from typing import Any, Dict, List, Optional
 import uuid
 
 from xeren.agent.types import ActionResult, AgentAction
- main
 
 logger = logging.getLogger("xeren.agent.recovery")
 
-
- feature/core-architecture
 class DefaultRecoveryManager(RecoveryManager):
     """Manages failure classification, bounded retries, loop prevention, and replan decisions."""
 
@@ -45,6 +42,14 @@ class DefaultRecoveryManager(RecoveryManager):
         self._action_retries: Dict[str, int] = {}
         self._replan_count: int = 0
         self._stagnation_history: Dict[str, int] = {}
+
+    def determine_strategy(self, action: Any, result: Any) -> Any:
+        """Delegate to RecoveryManager for AgentAction strategy determination."""
+        return RecoveryManager().determine_strategy(action, result)
+
+    def generate_recovery_action(self, action: Any, strategy: Any, result: Any) -> Any:
+        """Delegate to RecoveryManager for recovery action generation."""
+        return RecoveryManager().generate_recovery_action(action, strategy, result)
 
     def classify_failure(
         self,
@@ -162,7 +167,8 @@ class DefaultRecoveryManager(RecoveryManager):
         )
 
         # 1. Total cycle bound check
-        if state.attempt_count >= self.max_total_cycles:
+        attempts = getattr(state, "attempt_count", getattr(state, "step_count", len(getattr(state, "history", []))))
+        if attempts >= self.max_total_cycles:
             logger.error("Max total execution cycles (%d) exceeded. Halting task safely.", self.max_total_cycles)
             return RecoveryDecision.FAIL
 
@@ -329,4 +335,3 @@ class RecoveryManager:
 
 
 __all__ = ["RecoveryStrategy", "RecoveryManager"]
- main

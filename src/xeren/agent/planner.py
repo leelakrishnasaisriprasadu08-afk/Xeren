@@ -28,12 +28,9 @@ import uuid
 
 from xeren.agent.types import ActionCategory, AgentAction, AgentState
 from xeren.models.base import BaseLLM
- main
 
 logger = logging.getLogger("xeren.agent.planner")
 
-
- feature/core-architecture
 class TaskPlan(BaseModel):
     """A sequence of planned actions generated for a task goal."""
 
@@ -650,4 +647,3 @@ class Planner:
 
 
 __all__ = ["Planner"]
- main
