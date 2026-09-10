@@ -27,10 +27,10 @@
 
 .suggestion-chip:hover {
   background: rgba(24, 36, 68, 0.85);
-  border-color: rgba(0, 240, 255, 0.3);
+  border-color: rgba(16, 185, 129, 0.3);
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 0 10px rgba(0, 240, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 0 10px rgba(16, 185, 129, 0.1);
 }
 
 .chip-sparkle {

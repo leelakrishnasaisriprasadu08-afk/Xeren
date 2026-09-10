@@ -7,6 +7,7 @@ import { RightSidebar } from './components/RightSidebar/RightSidebar'
 import { MoreMenu } from './components/MoreMenu/MoreMenu'
 import { AtmosphericBackground } from './components/AtmosphericBackground/AtmosphericBackground'
 import { LandingPage } from './components/LandingPage/LandingPage'
+import { Sidebar } from './components/Sidebar/Sidebar'
 import { GlowCursor } from './components/GlowCursor'
 import { NotificationsDrawer, type SystemNotification } from './components/NotificationsDrawer/NotificationsDrawer'
 import { PluginManagerModal } from './components/PluginManagerModal/PluginManagerModal'
@@ -24,21 +25,22 @@ import './App.css'
 
 export interface AppProps {
   initialView?: 'landing' | 'workspace'
+  initialTransportType?: 'mock' | 'websocket'
 }
 
-export const App: React.FC<AppProps> = ({ initialView }) => {
-  const isTestEnv = import.meta.env.MODE === 'test'
+export const App: React.FC<AppProps> = ({ initialView, initialTransportType }) => {
   const [currentView, setCurrentView] = useState<'landing' | 'workspace'>(() => {
     if (initialView) return initialView
     if (typeof window !== 'undefined') {
-      if (window.location.hash === '#workspace') return 'workspace'
       if (window.location.hash === '#landing') return 'landing'
+      if (window.location.hash === '#workspace') return 'workspace'
     }
-    return isTestEnv ? 'workspace' : 'landing'
+    return 'workspace'
   })
 
   const { prefersReducedMotion, setReducedMotionOverride } = useReducedMotion()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth > 900 : true)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
 
   // Interactive Modals and Navigation State
@@ -49,6 +51,7 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProjectWorkspaceOpen, setIsProjectWorkspaceOpen] = useState(false)
+  const [workspaceInitialTab, setWorkspaceInitialTab] = useState<'coach' | 'relay' | 'specs' | 'roles' | 'milestones'>('coach')
   const [isImprovementHubOpen, setIsImprovementHubOpen] = useState(false)
   const [improvementReport, setImprovementReport] = useState<SelfImprovementReport | null>(null)
   const [activeProject, setActiveProject] = useState<Project | null>({
@@ -500,6 +503,11 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
     return true
   }
 
+  const defaultTransport =
+    typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test'
+      ? 'mock'
+      : 'websocket'
+
   const {
     presenceState,
     messages,
@@ -522,7 +530,7 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
     sendMessage,
     interrupt,
     clearHistory,
-  } = useConversation()
+  } = useConversation({ initialTransportType: initialTransportType || defaultTransport })
 
   // Global Keyboard Shortcuts
   const handleGlobalKeyDown = useCallback(
@@ -567,8 +575,8 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
   }, [handleGlobalKeyDown])
 
   const currentTheme = XEREN_SPECTER_THEMES[presenceState] || XEREN_SPECTER_THEMES.idle
-  const cursorColor = currentView === 'landing' ? '#00f0ff' : currentTheme.colorA
-  const cursorSecondaryColor = currentView === 'landing' ? '#a855f7' : currentTheme.colorB
+  const cursorColor = currentView === 'landing' ? '#10b981' : currentTheme.colorA
+  const cursorSecondaryColor = currentView === 'landing' ? '#047857' : currentTheme.colorB
 
   const mainView =
     currentView === 'landing' ? (
@@ -612,7 +620,8 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
           onOpenImprovementHub={() => setIsImprovementHubOpen(true)}
           onGoHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           onReconnect={reconnect}
-          onOpenSettings={() => setIsMenuOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
           onToggleRightPanel={() => setIsRightPanelOpen((prev) => !prev)}
           onViewLanding={() => {
             setCurrentView('landing')
@@ -626,11 +635,49 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
         <div className="app-body-layout">
           {/* Mobile overlay backdrop */}
           <div
-            className={`mobile-overlay ${isRightPanelOpen ? 'active' : ''}`}
+            className={`mobile-overlay ${(isRightPanelOpen || isSidebarOpen) ? 'active' : ''}`}
             onClick={() => {
               setIsRightPanelOpen(false)
+              setIsSidebarOpen(false)
             }}
             aria-hidden="true"
+          />
+
+          {/* LEFT SIDEBAR (Ultra-Clean Workspace Navigation) */}
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            onToggle={() => setIsSidebarOpen((prev) => !prev)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onNewChat={clearHistory}
+            onOpenNewProject={() => setIsNewProjectModalOpen(true)}
+            onOpenPlugins={() => setIsPluginsModalOpen(true)}
+            onOpenApps={() => setIsAppsModalOpen(true)}
+            onOpenKnowledge={() => setIsKnowledgeModalOpen(true)}
+            onOpenProjects={() => {
+              setWorkspaceInitialTab('coach')
+              setIsProjectWorkspaceOpen(true)
+            }}
+            onOpenRelay={() => {
+              setWorkspaceInitialTab('relay')
+              setIsProjectWorkspaceOpen(true)
+            }}
+            activeProjectName={activeProject?.name}
+            currentUserHandle={currentUser.handle}
+            onSelectNav={(navId) => {
+              if (navId === 'projects') {
+                setWorkspaceInitialTab('coach')
+                setIsProjectWorkspaceOpen(true)
+              } else if (navId === 'relay') {
+                setWorkspaceInitialTab('relay')
+                setIsProjectWorkspaceOpen(true)
+              } else if (navId === 'new-project') setIsNewProjectModalOpen(true)
+              else if (navId === 'plugins') setIsPluginsModalOpen(true)
+              else if (navId === 'web-agent' || navId === 'apps') setIsAppsModalOpen(true)
+              else if (navId === 'knowledge') setIsKnowledgeModalOpen(true)
+              else if (navId === 'new-chat') clearHistory()
+              else if (navId === 'settings') setIsSettingsOpen(true)
+            }}
           />
 
           {/* CENTRAL MAIN WORKSPACE (Full Width Studio Canvas) */}
@@ -647,15 +694,15 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
             isSpeaking={isSpeaking}
             voiceError={voiceInputError}
             activeMode={activeMode}
-            onToggleMode={() =>
-              setActiveMode((prev) => (prev === 'think' ? 'reason' : prev === 'reason' ? 'create' : 'think'))
-            }
+            onSelectMode={setActiveMode}
             activeCommandCenterTab={activeCommandCenterTab}
             onCommandCenterTabChange={setActiveCommandCenterTab}
             onSendMessage={(text) => sendMessage(text, 'text')}
             onStartListening={startListening}
             onStopListening={stopListening}
             onInterrupt={interrupt}
+            isVoiceOutputEnabled={isVoiceOutputEnabled}
+            onToggleVoiceOutput={setIsVoiceOutputEnabled}
           />
 
           {/* 4. FLOATING COMMAND HUB (Bottom-Right Action Trigger + Chart of Subsystem Buttons) */}
@@ -707,6 +754,7 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
           onClose={() => setIsProjectWorkspaceOpen(false)}
           project={activeProject}
           currentUserId={currentUser.user_id}
+          initialTab={workspaceInitialTab}
           onProjectUpdated={(updated) => setActiveProject(updated)}
         />
 
@@ -759,8 +807,8 @@ export const App: React.FC<AppProps> = ({ initialView }) => {
 
         {/* Settings Modal / Menu */}
         <MoreMenu
-          isOpen={isMenuOpen}
-          onClose={() => setIsMenuOpen(false)}
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
           transportType={transportType}
           onSwitchTransport={switchTransport}
           isVoiceOutputEnabled={isVoiceOutputEnabled}

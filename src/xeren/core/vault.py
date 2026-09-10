@@ -78,7 +78,14 @@ class UserVault:
     # Directory Grants (One-Time Permission System)
     # ------------------------------------------------------------------
 
-    def grant_directory(self, path: str | Path, allow_write: bool = True, description: str = "") -> None:
+    def grant_directory(
+        self,
+        path: str | Path,
+        allow_write: bool = True,
+        description: str = "",
+        tier: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> None:
         """Grant persistent one-time access to a directory."""
         normalized = Path(path).resolve().as_posix()
         now = datetime.now(timezone.utc).isoformat()
@@ -95,6 +102,13 @@ class UserVault:
             logger.info("Persistent access granted to: %s", normalized)
         finally:
             conn.close()
+
+        if tier:
+            tier_enum = DataSensitivityTier(tier) if isinstance(tier, str) and tier in DataSensitivityTier._value2member_map_ else DataSensitivityTier.SENSITIVE
+            try:
+                self.set_tier_override(normalized, tier_enum)
+            except Exception as e:
+                logger.debug("Failed setting tier override for %s: %s", normalized, e)
 
     def revoke_directory(self, path: str | Path) -> bool:
         """Revoke previously granted directory access."""
@@ -116,6 +130,8 @@ class UserVault:
             if normalized == grant_norm or normalized.startswith(grant_norm + "/"):
                 return True
         return False
+
+    is_path_granted = is_directory_granted
 
     def get_all_granted_directories(self) -> List[Dict[str, Any]]:
         """List all directories with permanent access grants."""
@@ -163,6 +179,15 @@ class UserVault:
             return overrides
         finally:
             conn.close()
+
+    def get_path_tier(self, path: str | Path) -> DataSensitivityTier:
+        """Get the sensitivity tier for a path, checking user overrides or defaulting to LIBERAL."""
+        normalized = Path(path).as_posix().lower()
+        overrides = self.get_all_tier_overrides()
+        for p, tier in overrides.items():
+            if normalized == p or normalized.startswith(p + "/"):
+                return tier
+        return DataSensitivityTier.LIBERAL
 
     # ------------------------------------------------------------------
     # Account Credentials (Encrypted)

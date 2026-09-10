@@ -59,7 +59,7 @@ describe('Lightfall Component Tests', () => {
     // Rerender with paused and different colors
     rerender(
       <Lightfall
-        colors={['#00f0ff', '#a855f7']}
+        colors={['#10b981', '#047857']}
         backgroundColor="#050510"
         paused={true}
         speed={2}

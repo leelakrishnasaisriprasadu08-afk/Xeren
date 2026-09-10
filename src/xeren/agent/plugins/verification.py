@@ -1,3 +1,5 @@
+"""VerificationPlugin adapting verification tools to BasePlugin, emitting canonical VerificationDetails."""
+
 from __future__ import annotations
 
 import logging
@@ -9,6 +11,7 @@ from pydantic import BaseModel, Field
 from xeren.data.schema import VerificationDetails
 from xeren.plugins.contract import (
     BasePlugin,
+    PluginCapability,
     PluginExecutionContext,
     PluginExecutionResult,
     PluginManifest,
@@ -17,9 +20,14 @@ from xeren.plugins.contract import (
 logger = logging.getLogger("xeren.agent.plugins.verification")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Input / Output schemas
+# ─────────────────────────────────────────────────────────────────────────────
+
 class VerificationInput(BaseModel):
     """Input parameters for outcome verification."""
-    task: str = Field(default="", description="Goal or task description being verified")
+
+    task: Optional[str] = Field(default="", description="Goal or task description being verified")
     artifacts: Dict[str, Any] = Field(default_factory=dict, description="Artifacts collected during task execution")
     rules: List[str] = Field(default_factory=list, description="Optional verification rules or assertions to check")
     success: bool = Field(default=True, description="Reported task success")
@@ -33,6 +41,7 @@ class VerificationInput(BaseModel):
 
 class VerificationOutput(BaseModel):
     """Structured outcome verification payload."""
+
     verified: bool = Field(default=True, description="Whether verification passed")
     verifier: str = Field(default="rule_verifier", description="Verifier type")
     score: float = Field(default=1.0, ge=0.0, le=1.0, description="Verification confidence score")
@@ -45,6 +54,8 @@ class VerificationOutput(BaseModel):
         description="List of verification findings or check summaries",
     )
 
+    model_config = {"arbitrary_types_allowed": True}
+
     def to_verification_details(self) -> VerificationDetails:
         """Convert to Xeren data schema VerificationDetails."""
         if isinstance(self.details, VerificationDetails):
@@ -56,23 +67,48 @@ class VerificationOutput(BaseModel):
             details=self.details if isinstance(self.details, dict) else {},
         )
 
-    model_config = {"arbitrary_types_allowed": True}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Plugin
+# ─────────────────────────────────────────────────────────────────────────────
 
 class VerificationPlugin(BasePlugin):
     """Plugin implementing outcome verification for autonomous agent runs."""
 
-    def __init__(self, verifier_name: str = "VerificationPlugin", **kwargs: Any) -> None:
+    def __init__(
+        self,
+        verifier_name: str = "rule_verifier",
+        llm: Optional[Any] = None,
+        judge: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> None:
         self.verifier_name = verifier_name
+        self.llm = llm
+        self.judge = judge
+
+    def set_llm(self, llm: Optional[Any]) -> None:
+        """Update active LLM provider."""
+        self.llm = llm
+
+    def set_judge(self, judge: Optional[Any]) -> None:
+        """Update active judge."""
+        self.judge = judge
 
     @property
     def manifest(self) -> PluginManifest:
         return PluginManifest(
             name="verification",
             version="0.1.0",
-
             description="Evaluates and verifies agent task outcomes against defined criteria",
-            capabilities=["verification", "quality_gate"],
+            capabilities=[
+                PluginCapability.OUTPUT_VALIDATION,
+                PluginCapability.FACT_CHECKING,
+                PluginCapability.CONSISTENCY_CHECKING,
+                PluginCapability.CONFIDENCE_SCORING,
+                PluginCapability.LLM_JUDGE,
+                PluginCapability.FINAL_RESPONSE_VERIFICATION,
+                PluginCapability.CODE_VERIFICATION,
+            ],
             input_schema_name="VerificationInput",
             output_schema_name="VerificationOutput",
             author="Xeren",
@@ -133,7 +169,6 @@ class VerificationPlugin(BasePlugin):
             for rule in rules:
                 total_checks += 1
                 rule_lower = rule.lower()
-                # Simple rule evaluator: e.g. "contains:keyword" or "exists:key"
                 if rule_lower.startswith("exists:"):
                     target_key = rule.split(":", 1)[1].strip()
                     if target_key in artifacts:
@@ -150,7 +185,6 @@ class VerificationPlugin(BasePlugin):
                     else:
                         findings.append(f"Rule FAILED: artifact '{target_key}' is empty or missing.")
                 else:
-                    # Generic heuristic pass
                     checks_passed += 1
                     findings.append(f"Rule verified: '{rule}'.")
 
@@ -169,7 +203,6 @@ class VerificationPlugin(BasePlugin):
         input_data: Union[BaseModel, Dict[str, Any]],
         context: Optional[PluginExecutionContext] = None,
     ) -> PluginExecutionResult:
-
         """Execute verification on provided artifacts and rules."""
         start_time = time.perf_counter()
         validated = (
@@ -227,7 +260,6 @@ class VerificationPlugin(BasePlugin):
         total_checks += art_details.details.get("total_checks", 1)
 
         score = checks_passed / total_checks if total_checks > 0 else 1.0
-        # If success_flag is False or any expected condition failed, fail verification
         all_conds_met = (len(findings) == 0) or not any("FAILED" in f or "failure" in f for f in findings)
         is_verified = success_flag and art_details.verified and all_conds_met
 
@@ -256,6 +288,14 @@ class VerificationPlugin(BasePlugin):
             latency_ms=latency_ms,
             metadata={"verified": is_verified, "score": final_score},
         )
+
+    async def aexecute(
+        self,
+        input_data: Union[BaseModel, Dict[str, Any]],
+        context: Optional[PluginExecutionContext] = None,
+    ) -> PluginExecutionResult:
+        """Asynchronously execute verification."""
+        return self.execute(input_data, context)
 
 
 __all__ = [

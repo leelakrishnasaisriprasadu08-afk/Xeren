@@ -3,9 +3,20 @@
 import json
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
-from sqlmodel import Field, Session, SQLModel, create_engine, select
-from sqlalchemy import Column
-from sqlalchemy.types import JSON
+try:
+    from sqlmodel import Field, Session, SQLModel, create_engine, select
+    from sqlalchemy import Column
+    from sqlalchemy.types import JSON
+    SQLMODEL_AVAILABLE = True
+except ImportError:
+    SQLMODEL_AVAILABLE = False
+    Field = lambda *args, **kwargs: None  # type: ignore
+    Session = Any  # type: ignore
+    SQLModel = object  # type: ignore
+    create_engine = None  # type: ignore
+    select = None  # type: ignore
+    Column = None  # type: ignore
+    JSON = None  # type: ignore
 
 from xeren.plugins.experience.schemas import ExperienceItem, UserFeedback
 from xeren.plugins.experience.stores.base import BaseExperienceStore

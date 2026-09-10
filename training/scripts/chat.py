@@ -43,6 +43,11 @@ def get_default_checkpoint() -> Path:
             return c
     return candidates[0]
 
+<<<<<<< HEAD
+    checkpoint_path = Path("training/checkpoints/mini_gpu/checkpoint_final.pt")
+    tokenizer_dir = Path("training/checkpoints/tokenizer")
+=======
+>>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
 
 def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: int):
     """Run interactive streaming chat using merged HuggingFace model."""
@@ -68,6 +73,13 @@ def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: in
     num_params = sum(p.numel() for p in model.parameters())
     print(f"{GREEN}[Ready] Xeren-Mini loaded! ({num_params / 1e6:.1f}M params | {device.upper()}){RESET}")
 
+<<<<<<< HEAD
+    print("\n✓ Xeren is ready! Type your message below.")
+    print("• Note: This is the 60-step CPU test model. It learns more fluent language")
+    print("• Model: Xeren trained from scratch.")
+    print("• Type 'exit' or 'quit' to stop.\n")
+    print("-" * 60)
+=======
     # Initialize XerenCore with full plugin architecture
     core = None
     intent_classifier = None
@@ -88,6 +100,7 @@ def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: in
     except Exception as e:
         print(f"{YELLOW}[Notice] Core plugin integration skipped: {e}{RESET}")
         core = None
+>>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
 
     default_system = (
         "You are Xeren, an autonomous reasoning and action AI system capable of "

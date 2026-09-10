@@ -147,7 +147,7 @@ export const AtmosphericBackground: React.FC<AtmosphericBackgroundProps> = ({
 
           if (dist < 85) {
             const lineAlpha = (1 - dist / 85) * 0.065
-            ctx.strokeStyle = `rgba(0, 240, 255, ${lineAlpha})`
+            ctx.strokeStyle = `rgba(16, 185, 129, ${lineAlpha})`
             ctx.beginPath()
             ctx.moveTo(p1.x, p1.y)
             ctx.lineTo(p2.x, p2.y)

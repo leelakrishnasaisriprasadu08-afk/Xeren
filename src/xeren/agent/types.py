@@ -95,6 +95,24 @@ class BrowserObservation(BaseModel):
     error: Optional[BrowserError] = Field(default=None, description="Error encountered during observation")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Observation metadata")
 
+    @property
+    def success(self) -> bool:
+        """Indicate observation succeeded."""
+        return self.error is None and (self.status_code is None or self.status_code < 400)
+
+    @property
+    def content(self) -> str:
+        """Compatibility property matching adapter.BrowserObservation.content."""
+        return self.text_content
+
+    @property
+    def elements(self) -> List[Dict[str, Any]]:
+        """Compatibility property returning interactive elements as list of dicts."""
+        return [
+            {"selector": el.selector, "text": el.text or "", "tag_name": el.tag_name}
+            for el in self.interactive_elements
+        ]
+
 
 class AgentAction(BaseModel):
     """Action proposed or executed by an autonomous agent."""
@@ -136,6 +154,26 @@ class ActionResult(BaseModel):
         elif self.data is None and self.output is not None:
             self.data = self.output
 
+    @property
+    def url(self) -> str:
+        """Forwarded URL from attached BrowserObservation if present."""
+        return self.observation.url if self.observation else ""
+
+    @property
+    def title(self) -> str:
+        """Forwarded title from attached BrowserObservation if present."""
+        return self.observation.title if self.observation else ""
+
+    @property
+    def content(self) -> str:
+        """Forwarded content from attached BrowserObservation if present."""
+        return self.observation.content if self.observation else ""
+
+    @property
+    def elements(self) -> List[Dict[str, Any]]:
+        """Forwarded elements from attached BrowserObservation if present."""
+        return self.observation.elements if self.observation else []
+
 
 class AgentState(BaseModel):
     """State trace and memory of an autonomous work agent."""
@@ -158,3 +196,13 @@ class AgentState(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Execution metadata")
 
     model_config = {"arbitrary_types_allowed": True}
+
+    @property
+    def completed_steps(self) -> List[ActionResult]:
+        """Return results of successfully completed actions in history."""
+        return [res for _, res in self.history if getattr(res, "success", False)]
+
+    @property
+    def failed_steps(self) -> List[ActionResult]:
+        """Return results of failed actions in history."""
+        return [res for _, res in self.history if not getattr(res, "success", False)]

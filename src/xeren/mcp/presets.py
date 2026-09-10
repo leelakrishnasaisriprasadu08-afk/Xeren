@@ -17,7 +17,63 @@ def get_default_mcp_presets() -> List[MCPServerConfig]:
     """Return pre-configured popular apps with realistic tool signatures."""
     return [
         MCPServerConfig(
+            id="os_connector",
+            name="OS & Device Connector",
+            description="Direct Python-native device access: read/write local files, launch apps, list running processes. Permission-gated by the orchestrator.",
+            transport=MCPTransportType.STDIO,
+            command="python",
+            args=["-m", "xeren.mcp.os_connector"],
+            enabled=True,
+            status="connected",
+            icon="🖥️",
+            category="system",
+            tools=[
+                MCPTool(
+                    name="read_file",
+                    description="Read a local file by absolute path (user must grant permission).",
+                    server_id="os_connector",
+                    parameters={"path": {"type": "string", "description": "Absolute path to the file"}},
+                    category="filesystem",
+                ),
+                MCPTool(
+                    name="write_file",
+                    description="Write content to a local file (user must grant permission).",
+                    server_id="os_connector",
+                    parameters={
+                        "path": {"type": "string"},
+                        "content": {"type": "string"},
+                    },
+                    category="filesystem",
+                ),
+                MCPTool(
+                    name="list_directory",
+                    description="List contents of a local directory.",
+                    server_id="os_connector",
+                    parameters={"path": {"type": "string"}},
+                    category="filesystem",
+                ),
+                MCPTool(
+                    name="launch_app",
+                    description="Launch a local application by name/path (user must grant permission).",
+                    server_id="os_connector",
+                    parameters={
+                        "app": {"type": "string"},
+                        "args": {"type": "array", "items": {"type": "string"}},
+                    },
+                    category="system",
+                ),
+                MCPTool(
+                    name="list_running_apps",
+                    description="List currently running applications/processes on this device.",
+                    server_id="os_connector",
+                    parameters={},
+                    category="system",
+                ),
+            ],
+        ),
+        MCPServerConfig(
             id="filesystem",
+
             name="Local Filesystem",
             description="Secure local workspace file and directory management across project folders.",
             transport=MCPTransportType.STDIO,

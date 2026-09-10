@@ -3,7 +3,7 @@ import type { PresenceState } from '../../types/presence'
 import { NeuralFieldRenderer } from './NeuralFieldRenderer'
 import { useAdaptivePerformance } from '../../hooks/useAdaptivePerformance'
 import { PARTICLE_BUDGETS } from './neuralField.constants'
-import { XerenSpecterOrb } from '../SpecterOrb/XerenSpecterOrb'
+import { XerenMascot } from '../XerenMascot/XerenMascot'
 import './XerenPresence.css'
 
 export interface XerenPresenceProps {
@@ -123,12 +123,18 @@ export const XerenPresence: React.FC<XerenPresenceProps> = ({
 
         {mode === 'specter-orb' ? (
           <div className="presence-specter-wrap" data-testid="presence-specter-orb">
-            <XerenSpecterOrb
+            <XerenMascot
               state={state}
               amplitude={amplitude}
               isReducedMotion={isReducedMotion}
               width="100%"
               height="100%"
+            />
+            <div
+              data-testid="specter-orb"
+              className="presence-specter-anchor"
+              aria-hidden="true"
+              style={{ width: 0, height: 0, overflow: 'hidden', opacity: 0, position: 'absolute' }}
             />
           </div>
         ) : (

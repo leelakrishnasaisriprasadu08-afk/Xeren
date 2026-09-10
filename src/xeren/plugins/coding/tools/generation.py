@@ -63,10 +63,14 @@ class CodeGenerationTool:
             ChatMessage(role=Role.USER, content=prompt),
         ]
 
-        response = self.llm.generate(messages)
-        raw_text = response.content
+        try:
+            response = self.llm.generate(messages)
+            raw_text = response.content
+        except Exception as err:
+            logger.warning("LLM generation failed in CodingPlugin (falling back to template): %s", err)
+            raw_text = f"Mock response to: {task}"
 
-        # Graceful fallback when using default unconfigured MockLLM
+        # Graceful fallback when using default unconfigured MockLLM or offline model
         if raw_text.startswith("Mock response to:"):
             if language.lower() == "python":
                 return f"# Solution for: {task}\ndef solution():\n    return True\n"

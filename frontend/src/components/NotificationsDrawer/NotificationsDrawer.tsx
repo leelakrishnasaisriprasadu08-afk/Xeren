@@ -47,11 +47,11 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
       case 'order':
         return { label: 'Freelance Workspace', color: '#10b981' }
       case 'research':
-        return { label: 'Strawberry AI', color: '#00f0ff' }
+        return { label: 'Strawberry AI', color: '#10b981' }
       case 'project_invite':
-        return { label: 'Project Invitation', color: '#a855f7' }
+        return { label: 'Project Invitation', color: '#047857' }
       default:
-        return { label: 'System Event', color: '#a855f7' }
+        return { label: 'System Event', color: '#047857' }
     }
   }
 

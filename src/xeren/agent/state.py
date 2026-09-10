@@ -85,15 +85,15 @@ class TaskState(BaseModel):
         default=None,
         description="The action currently being considered or executed",
     )
-    completed_steps: List[ActionResult] = Field(
+    completed_steps: List[Any] = Field(
         default_factory=list,
         description="Chronological record of successfully executed actions",
     )
-    failed_steps: List[ActionResult] = Field(
+    failed_steps: List[Any] = Field(
         default_factory=list,
         description="Chronological record of failed action attempts",
     )
-    remaining_steps: List[Action] = Field(
+    remaining_steps: List[Any] = Field(
         default_factory=list,
         description="Pending sequence of planned actions awaiting execution",
     )

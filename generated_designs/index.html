@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XEREN LLM Landing Page Designs Gallery</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b0d12;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 40px 24px 80px;
+    }
+    header {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto 40px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      letter-spacing: 0.05em;
+    }
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+      color: #ffffff;
+    }
+    p.sub {
+      color: #94a3b8;
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+      gap: 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #11141b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .card.selected {
+      border: 2px solid #10b981;
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.25);
+    }
+    .card-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .card-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .tag-selected {
+      background: #10b981;
+      color: #062b1b;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+    .card-desc {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .img-container {
+      width: 100%;
+      background: #000;
+    }
+    .img-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: opacity 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="badge">XEREN AI DESIGN SUITE</div>
+    <h1>Landing Page Generated Designs</h1>
+    <p class="sub">Click and inspect any of the high-resolution generated visual concepts for XEREN.</p>
+  </header>
+
+  <main class="grid">
+    <!-- Selected Design -->
+    <article class="card selected">
+      <div class="card-header">
+        <div class="card-title">
+          <span>Option 2: Emerald Reasoning Studio</span>
+          <span class="tag-selected">Currently Implemented in App</span>
+        </div>
+        <div class="card-desc">Matte charcoal (#0E1013) + Mint glow • Dedicated [ Cognitive Reasoning Engine ]</div>
+      </div>
+      <div class="img-container">
+        <a href="./2_emerald_arc_studio.jpg" target="_blank">
+          <img src="./2_emerald_arc_studio.jpg" alt="Option 2: Emerald Reasoning Studio" />
+        </a>
+      </div>
+    </article>
+
+    <!-- Option 1 -->
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Option 1: Raw Monochrome Minimal</div>
+        <div class="card-desc">Stark black & white • Pure typography • CoT Reasoning switch</div>
+      </div>
+      <div class="img-container">
+        <a href="./1_raw_monochrome_minimal.jpg" target="_blank">
+          <img src="./1_raw_monochrome_minimal.jpg" alt="Option 1: Raw Monochrome Minimal" />
+        </a>
+      </div>
+    </article>
+
+    <!-- Option 3 -->
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Option 3: Warm Amber Horizon</div>
+        <div class="card-desc">Dark espresso + Amber glow • 4 visual 2D pattern transformation cards</div>
+      </div>
+      <div class="img-container">
+        <a href="./3_warm_amber_horizon.jpg" target="_blank">
+          <img src="./3_warm_amber_horizon.jpg" alt="Option 3: Warm Amber Horizon" />
+        </a>
+      </div>
+    </article>
+
+    <!-- Option 4 -->
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Option 4: Dual-Mode Violet Canvas</div>
+        <div class="card-desc">Midnight slate + Violet glow • Top mode switch (Free Chat vs Deep Reasoning)</div>
+      </div>
+      <div class="img-container">
+        <a href="./4_dual_mode_violet_canvas.jpg" target="_blank">
+          <img src="./4_dual_mode_violet_canvas.jpg" alt="Option 4: Dual-Mode Violet Canvas" />
+        </a>
+      </div>
+    </article>
+
+    <!-- Option 5 -->
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Option 5: Interactive Playground Split-Hero</div>
+        <div class="card-desc">Deep obsidian + Violet glow • Live streaming code card</div>
+      </div>
+      <div class="img-container">
+        <a href="./5_interactive_playground_split.jpg" target="_blank">
+          <img src="./5_interactive_playground_split.jpg" alt="Option 5: Interactive Playground Split-Hero" />
+        </a>
+      </div>
+    </article>
+
+    <!-- Option 6 -->
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Option 6: Cyber-Neural Core Matrix</div>
+        <div class="card-desc">Cyan neural mesh • 3D glowing vector lattice orb</div>
+      </div>
+      <div class="img-container">
+        <a href="./6_cyber_neural_core.jpg" target="_blank">
+          <img src="./6_cyber_neural_core.jpg" alt="Option 6: Cyber-Neural Core Matrix" />
+        </a>
+      </div>
+    </article>
+
+    <!-- Option 7 -->
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Option 7: Bento Grid Developer Platform</div>
+        <div class="card-desc">3-column modular cards • Python SDK snippet + Benchmark charts</div>
+      </div>
+      <div class="img-container">
+        <a href="./7_bento_grid_platform.jpg" target="_blank">
+          <img src="./7_bento_grid_platform.jpg" alt="Option 7: Bento Grid Developer Platform" />
+        </a>
+      </div>
+    </article>
+  </main>
+</body>
+</html>

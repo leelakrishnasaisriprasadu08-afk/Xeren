@@ -11,17 +11,17 @@ from typing import Optional
 
 @dataclass
 class XerenConfig:
-    vocab_size: int = 16384
+    vocab_size: int = 32768
     dim: int = 512
     n_layers: int = 8
     n_heads: int = 8
     n_kv_heads: Optional[int] = 4  # GQA (Grouped Query Attention)
     hidden_dim: Optional[int] = None  # SwiGLU intermediate dim
     max_seq_len: int = 1024
-    norm_eps: float = 1e-6
+    norm_eps: float = 1e-5
     rope_theta: float = 10000.0
     dropout: float = 0.0
-    tie_word_embeddings: bool = True
+    tie_word_embeddings: bool = False
 
     # Domain specialization heads (enabled in Stage 2)
     num_plugins: int = 9          # research, coding, file, browser, api, conversation, data, knowledge, website
@@ -42,6 +42,10 @@ class XerenConfig:
     # Nano — CPU verification (~12M params)
     # -------------------------------------------------------------------------
     @classmethod
+<<<<<<< HEAD
+    def mini(cls, vocab_size: int = 32768) -> "XerenConfig":
+        """Xeren-Mini preset (~90M params) — single GPU training from scratch."""
+=======
     def nano(cls, vocab_size: int = 16384) -> "XerenConfig":
         """Xeren-Nano preset (~12M params) optimized for fast CPU verification."""
         return cls(
@@ -70,6 +74,7 @@ class XerenConfig:
         - Agentic task trajectories (AgentInstruct, local Xeren data)
         - Basic plugin dispatch learning
         """
+>>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
         return cls(
             vocab_size=vocab_size,
             dim=768,
@@ -78,9 +83,53 @@ class XerenConfig:
             n_kv_heads=4,
             hidden_dim=2048,
             max_seq_len=1024,
+<<<<<<< HEAD
+            norm_eps=1e-5,
+            tie_word_embeddings=False,
+        )
+
+    @classmethod
+    def mini_120m(cls, vocab_size: int = 32768) -> "XerenConfig":
+        """Xeren-120M preset (~120M params) — NVIDIA GPU training from scratch."""
+        return cls(
+            vocab_size=vocab_size,
+            dim=768,
+            n_layers=17,
+            n_heads=12,
+            n_kv_heads=4,
+            max_seq_len=1024,
+            norm_eps=1e-5,
+            tie_word_embeddings=False,
+        )
+
+    @classmethod
+    def mini_1b(cls, vocab_size: int = 32768) -> "XerenConfig":
+        """Xeren-1B preset (~1.016B params) — large GPU training from scratch.
+
+        Architecture:
+            dim=2048, n_layers=19, n_heads=16, n_kv_heads=8
+            hidden_dim=5504 (SwiGLU), max_seq_len=2048
+            vocab_size=32768 (~33k BPE tokens)
+            Total: ~1.016B trainable parameters
+
+        VRAM Requirements:
+            Training: 40GB+ GPU (A100 40GB, RTX 3090 24GB + CPU offload)
+            Inference (fp16): ~2GB GPU
+        """
+        return cls(
+            vocab_size=vocab_size,
+            dim=2048,
+            n_layers=19,
+            n_heads=16,
+            n_kv_heads=8,
+            max_seq_len=2048,
+            norm_eps=1e-5,
+            rope_theta=10000.0,
+=======
             norm_eps=1e-6,
             rope_theta=10000.0,
             dropout=0.1,
+>>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
             tie_word_embeddings=False,
             num_plugins=9,
             enable_plugin_head=False,

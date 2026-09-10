@@ -398,4 +398,3 @@ def test_agent_controller_sync_wrapper():
     assert state.status == AgentStatus.COMPLETED
     assert state.step_count >= 1
     controller.close()
-

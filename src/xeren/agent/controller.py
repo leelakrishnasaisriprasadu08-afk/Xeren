@@ -5,29 +5,25 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
 
 from xeren.agent.actions import Action, ActionResult, ActionType, PermissionLevel
 from xeren.agent.browser.contract import BaseBrowserAdapter
-from xeren.agent.evaluator import DefaultCompletionEvaluator
-from xeren.agent.executor import AgentExecutor
+from xeren.agent.evaluator import DefaultCompletionEvaluator, Evaluator
+from xeren.agent.executor import AgentExecutor, Executor
 from xeren.agent.interfaces import (
     CompletionEvaluator,
-    Executor,
-    Observer,
-    PermissionManager,
-    Planner,
     RecoveryDecision,
-    RecoveryManager,
 )
-from xeren.agent.observer import DefaultObserver
-from xeren.agent.permissions import DefaultPermissionManager
-from xeren.agent.planner import MockPlanner
+from xeren.agent.observer import DefaultObserver, Observer
+from xeren.agent.permissions import DefaultPermissionManager, PermissionManager
+from xeren.agent.planner import MockPlanner, Planner
 from xeren.agent.plugins.experience import ExperiencePlugin
 from xeren.agent.plugins.verification import VerificationPlugin
-from xeren.agent.recovery import DefaultRecoveryManager
+from xeren.agent.recovery import DefaultRecoveryManager, RecoveryManager, RecoveryStrategy
 from xeren.agent.state import TaskState, TaskStatus
+from xeren.agent.types import ActionCategory, AgentAction, AgentState, AgentStatus
 from xeren.data.schema import VerificationDetails
 from xeren.plugins.manager import PluginManager
 
@@ -38,17 +34,18 @@ class AgentController:
     """Central orchestrator driving autonomous goal execution loops.
 
     Coordinates the autonomous execution loop:
-    PLAN → SELECT ACTION → PERMISSION CHECK → EXECUTE → OBSERVE → EVALUATE → CONTINUE / RETRY / REPLAN / COMPLETE / STOP.
+    PLAN -> SELECT ACTION -> PERMISSION CHECK -> EXECUTE -> OBSERVE -> EVALUATE -> CONTINUE / RETRY / REPLAN / COMPLETE / STOP.
+    Supports both TaskState planner execution and AgentState browser loop workflows.
     """
 
     def __init__(
         self,
         browser_adapter: Optional[BaseBrowserAdapter] = None,
-        planner: Optional[Planner] = None,
-        executor: Optional[Executor] = None,
-        observer: Optional[Observer] = None,
-        recovery_manager: Optional[RecoveryManager] = None,
-        permission_manager: Optional[PermissionManager] = None,
+        planner: Optional[Any] = None,
+        executor: Optional[Any] = None,
+        observer: Optional[Any] = None,
+        recovery_manager: Optional[Any] = None,
+        permission_manager: Optional[Any] = None,
         completion_evaluator: Optional[CompletionEvaluator] = None,
         plugin_manager: Optional[PluginManager] = None,
         verification_plugin: Optional[VerificationPlugin] = None,
@@ -65,13 +62,30 @@ class AgentController:
         self.plugin_manager = plugin_manager if plugin_manager is not None else PluginManager()
         self.plugins = self.plugin_manager
         self.workspace_manager = workspace_manager
-        self.planner = planner if planner is not None else MockPlanner()
-        self.executor = executor if executor is not None else AgentExecutor(self.plugin_manager, workspace_manager=workspace_manager, browser_adapter=self.browser_adapter)
-        self.observer = observer if observer is not None else DefaultObserver()
-        self.recovery_manager = recovery_manager if recovery_manager is not None else DefaultRecoveryManager(max_total_cycles=max_total_cycles)
-        self.recovery = self.recovery_manager
-        self.permission_manager = permission_manager if permission_manager is not None else DefaultPermissionManager()
+
+        if browser_adapter is not None:
+            self.planner = planner if planner is not None else Planner()
+            self.permission_manager = permission_manager if permission_manager is not None else PermissionManager()
+            self.executor = executor if executor is not None else Executor(
+                browser_adapter=self.browser_adapter,
+                permission_manager=self.permission_manager,
+                plugin_manager=self.plugin_manager,
+            )
+            self.observer = observer if observer is not None else Observer(browser_adapter=self.browser_adapter)
+            self.recovery_manager = recovery_manager if recovery_manager is not None else RecoveryManager()
+        else:
+            self.planner = planner if planner is not None else MockPlanner()
+            self.permission_manager = permission_manager if permission_manager is not None else DefaultPermissionManager()
+            self.executor = executor if executor is not None else AgentExecutor(
+                self.plugin_manager,
+                workspace_manager=workspace_manager,
+                browser_adapter=self.browser_adapter,
+            )
+            self.observer = observer if observer is not None else DefaultObserver()
+            self.recovery_manager = recovery_manager if recovery_manager is not None else DefaultRecoveryManager(max_total_cycles=max_total_cycles)
+
         self.permissions = self.permission_manager
+        self.recovery = self.recovery_manager
         self.completion_evaluator = completion_evaluator if completion_evaluator is not None else DefaultCompletionEvaluator()
         self.evaluator = self.completion_evaluator
         self.max_steps = max_total_cycles
@@ -117,28 +131,89 @@ class AgentController:
         task: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         max_steps: Optional[int] = None,
-    ) -> TaskState:
+    ) -> Any:
         """Synchronously execute an autonomous task from goal to completion."""
         effective_goal = goal or task or ""
         effective_metadata = dict(metadata or context or {})
+        effective_max_steps = max_steps or self.max_steps or self.max_total_cycles
+
+        if self.browser is not None or "task_plan" in effective_metadata or effective_metadata.get("use_agent_state"):
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        return pool.submit(
+                            asyncio.run,
+                            self.arun(
+                                goal=goal,
+                                initial_artifacts=initial_artifacts,
+                                metadata=metadata,
+                                timeout=timeout,
+                                task=task,
+                                context=context,
+                                max_steps=max_steps,
+                            ),
+                        ).result()
+                return loop.run_until_complete(
+                    self.arun(
+                        goal=goal,
+                        initial_artifacts=initial_artifacts,
+                        metadata=metadata,
+                        timeout=timeout,
+                        task=task,
+                        context=context,
+                        max_steps=max_steps,
+                    )
+                )
+            except RuntimeError:
+                return asyncio.run(
+                    self.arun(
+                        goal=goal,
+                        initial_artifacts=initial_artifacts,
+                        metadata=metadata,
+                        timeout=timeout,
+                        task=task,
+                        context=context,
+                        max_steps=max_steps,
+                    )
+                )
+
+        return self._run_task_state(
+            goal=effective_goal,
+            initial_artifacts=initial_artifacts,
+            metadata=effective_metadata,
+            timeout=timeout,
+            max_steps=effective_max_steps,
+        )
+
+    def _run_task_state(
+        self,
+        goal: str,
+        initial_artifacts: Optional[Dict[str, Any]],
+        metadata: Dict[str, Any],
+        timeout: Optional[float],
+        max_steps: int,
+    ) -> TaskState:
+        """Execute synchronous TaskState planner loop."""
         start_time = time.perf_counter()
         effective_timeout = timeout or self.timeout_seconds
 
         # 1. PLAN: Initialize TaskState and formulate initial plan
-        state = self._initialize_task(effective_goal, initial_artifacts, effective_metadata)
-        logger.info("Starting autonomous task '%s' for goal: %s", state.task_id, effective_goal)
+        state = self._initialize_task(goal, initial_artifacts, metadata)
+        logger.info("Starting autonomous task '%s' for goal: %s", state.task_id, goal)
 
-        task_plan = effective_metadata.get("task_plan")
+        task_plan = metadata.get("task_plan")
         if task_plan is not None and hasattr(task_plan, "steps") and task_plan.steps:
             steps = list(task_plan.steps)
         elif hasattr(self.planner, "create_plan"):
-            plan = self.planner.create_plan(effective_goal, context=state.metadata)
+            plan = self.planner.create_plan(goal, context=state.metadata)
             steps = getattr(plan, "steps", plan if isinstance(plan, list) else [])
         elif hasattr(self.planner, "plan"):
-            plan = self.planner.plan(goal=effective_goal, context=state.metadata)
+            plan = self.planner.plan(goal=goal, context=state.metadata)
             steps = getattr(plan, "steps", plan if isinstance(plan, list) else [])
         elif callable(self.planner):
-            plan = self.planner(effective_goal)
+            plan = self.planner(goal)
             steps = getattr(plan, "steps", plan if isinstance(plan, list) else [])
         else:
             steps = []
@@ -149,13 +224,11 @@ class AgentController:
 
         # 2. LOOP: Execute steps until terminal status reached
         while not state.is_terminal:
-            # Check cancellation
             if self._cancelled:
                 state.status = TaskStatus.CANCELLED
                 state.metadata["cancellation_reason"] = "Task was explicitly cancelled by user/system"
                 break
 
-            # Check timeout
             elapsed = time.perf_counter() - start_time
             if effective_timeout is not None and elapsed > effective_timeout:
                 logger.warning("Task '%s' timed out after %.2fs", state.task_id, elapsed)
@@ -163,7 +236,6 @@ class AgentController:
                 state.metadata["timeout_seconds"] = effective_timeout
                 break
 
-            # Check total execution cycles
             cycles_limit = max_steps or self.max_total_cycles
             if state.attempt_count >= cycles_limit:
                 logger.error("Task '%s' reached cycle limit (%d). Terminating safely.", state.task_id, cycles_limit)
@@ -171,15 +243,13 @@ class AgentController:
                 state.metadata["failure_reason"] = f"Max execution cycles ({cycles_limit}) exceeded"
                 break
 
-            # Execute a single step
             state = self.step(state)
 
-            # If waiting for approval, pause execution and break loop for external authorization
             if state.status == TaskStatus.WAITING_APPROVAL:
                 logger.info("Task '%s' paused awaiting approval.", state.task_id)
                 break
 
-        # 3. Post-execution finalization: Verification & Experience recording
+        # 3. Post-execution finalization
         self._finalize_task(state)
         return state
 
@@ -192,31 +262,56 @@ class AgentController:
         task: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         max_steps: Optional[int] = None,
-    ) -> TaskState:
+    ) -> Any:
         """Asynchronously execute an autonomous task from goal to completion."""
         effective_goal = goal or task or ""
         effective_metadata = dict(metadata or context or {})
+        effective_max_steps = max_steps or self.max_steps or self.max_total_cycles
+
+        if self.browser is not None or "task_plan" in effective_metadata or effective_metadata.get("use_agent_state"):
+            return await self._arun_agent_state(
+                goal=effective_goal,
+                context=effective_metadata,
+                max_steps=effective_max_steps,
+            )
+
+        return await self._arun_task_state(
+            goal=effective_goal,
+            initial_artifacts=initial_artifacts,
+            metadata=effective_metadata,
+            timeout=timeout,
+            max_steps=effective_max_steps,
+        )
+
+    async def _arun_task_state(
+        self,
+        goal: str,
+        initial_artifacts: Optional[Dict[str, Any]],
+        metadata: Dict[str, Any],
+        timeout: Optional[float],
+        max_steps: int,
+    ) -> TaskState:
+        """Execute asynchronous TaskState planner loop."""
         start_time = time.perf_counter()
         effective_timeout = timeout or self.timeout_seconds
 
-        state = self._initialize_task(effective_goal, initial_artifacts, effective_metadata)
-        logger.info("Starting async autonomous task '%s' for goal: %s", state.task_id, effective_goal)
+        state = self._initialize_task(goal, initial_artifacts, metadata)
+        logger.info("Starting async autonomous task '%s' for goal: %s", state.task_id, goal)
 
-        # 1. PLAN: Initialize TaskState and formulate initial plan
-        task_plan = effective_metadata.get("task_plan")
+        task_plan = metadata.get("task_plan")
         if task_plan is not None and hasattr(task_plan, "steps") and task_plan.steps:
             steps = list(task_plan.steps)
         elif hasattr(self.planner, "aplan") and asyncio.iscoroutinefunction(self.planner.aplan):
-            plan = await self.planner.aplan(goal=effective_goal, context=state.metadata)
+            plan = await self.planner.aplan(goal=goal, context=state.metadata)
             steps = getattr(plan, "steps", plan if isinstance(plan, list) else [])
         elif hasattr(self.planner, "create_plan"):
-            plan = self.planner.create_plan(effective_goal, context=state.metadata)
+            plan = self.planner.create_plan(goal, context=state.metadata)
             steps = getattr(plan, "steps", plan if isinstance(plan, list) else [])
         elif hasattr(self.planner, "plan"):
-            plan = self.planner.plan(goal=effective_goal, context=state.metadata)
+            plan = self.planner.plan(goal=goal, context=state.metadata)
             steps = getattr(plan, "steps", plan if isinstance(plan, list) else [])
         elif callable(self.planner):
-            plan = self.planner(effective_goal)
+            plan = self.planner(goal)
             steps = getattr(plan, "steps", plan if isinstance(plan, list) else [])
         else:
             steps = []
@@ -249,6 +344,128 @@ class AgentController:
                 break
 
         self._finalize_task(state)
+        return state
+
+    async def _arun_agent_state(
+        self,
+        goal: str,
+        context: Dict[str, Any],
+        max_steps: int,
+    ) -> AgentState:
+        """Execute autonomous AgentState browser loop."""
+        task_plan = context.get("task_plan")
+
+        state = AgentState(
+            task=goal,
+            status=AgentStatus.PLANNING,
+            task_plan=task_plan,
+            metadata=context,
+            memory=dict(context),
+        )
+
+        limit = max_steps or self.max_total_cycles
+
+        # Populate plan steps
+        if task_plan is not None and hasattr(task_plan, "steps") and task_plan.steps:
+            state.plan = [
+                getattr(s, "description", None) or getattr(s, "target", "") or getattr(s, "action_type", "action")
+                for s in task_plan.steps
+            ]
+        elif hasattr(self.planner, "create_plan"):
+            plan_res = self.planner.create_plan(goal, context=state.memory)
+            if hasattr(plan_res, "steps"):
+                state.plan = [
+                    getattr(s, "description", None) or getattr(s, "target", "") or getattr(s, "action_type", "action")
+                    for s in plan_res.steps
+                ]
+            elif isinstance(plan_res, list):
+                state.plan = [str(s) for s in plan_res]
+
+        state.status = AgentStatus.EXECUTING
+
+        if hasattr(self.observer, "aobserve") and self.browser is not None:
+            try:
+                obs = await self.observer.aobserve()
+                state.last_observation = obs
+            except Exception:
+                pass
+
+        step_idx = 0
+        while not self._cancelled and step_idx < limit:
+            action: Optional[AgentAction] = None
+
+            if task_plan is not None and hasattr(task_plan, "steps") and step_idx < len(task_plan.steps):
+                p_step = task_plan.steps[step_idx]
+                action_type = getattr(p_step, "action_type", "navigate")
+                target = getattr(p_step, "target", None)
+                params = dict(getattr(p_step, "parameters", {}) or {})
+                cat = getattr(p_step, "category", ActionCategory.INTERACTIVE)
+                consequential = getattr(p_step, "consequential", False)
+                action = AgentAction(
+                    action_id=getattr(p_step, "step_id", getattr(p_step, "action_id", str(uuid.uuid4()))),
+                    action_type=action_type,
+                    target=target,
+                    parameters=params,
+                    category=cat,
+                    consequential=consequential,
+                    description=getattr(p_step, "description", None),
+                )
+            elif hasattr(self.planner, "next_action"):
+                action = self.planner.next_action(state)
+
+            if action is None:
+                state.status = AgentStatus.COMPLETED
+                break
+
+            state.current_step = action.description or action.action_type
+
+            # Execute action
+            result = await self.executor.aexecute(action)
+
+            # Observe & update state
+            if hasattr(self.observer, "update_state"):
+                self.observer.update_state(state, action, result)
+            else:
+                state.history.append((action, result))
+                if result.success:
+                    state.step_count += 1
+
+            step_idx += 1
+
+            if not result.success:
+                if not getattr(result, "recoverable", True) or result.error_code == "PERMISSION_DENIED":
+                    state.status = AgentStatus.FAILED
+                    state.metadata["completion_reason"] = result.error or "Permission denied or unrecoverable error"
+                    break
+
+                # Recovery attempt if steps remain
+                if hasattr(self.recovery_manager, "determine_strategy") and step_idx < limit:
+                    strat = self.recovery_manager.determine_strategy(action, result)
+                    if hasattr(self.recovery_manager, "generate_recovery_action"):
+                        rec_action = self.recovery_manager.generate_recovery_action(action, strat, result)
+                        if rec_action and step_idx < limit:
+                            rec_res = await self.executor.aexecute(rec_action)
+                            if hasattr(self.observer, "update_state"):
+                                self.observer.update_state(state, rec_action, rec_res)
+                            else:
+                                state.history.append((rec_action, rec_res))
+                                if rec_res.success:
+                                    state.step_count += 1
+                            step_idx += 1
+                break
+
+            if state.plan and state.step_count >= len(state.plan):
+                state.status = AgentStatus.COMPLETED
+                break
+
+        if not self._cancelled and state.status == AgentStatus.EXECUTING:
+            if state.history and all(res.success for _, res in state.history):
+                state.status = AgentStatus.COMPLETED
+            elif state.history and any(not res.success for _, res in state.history):
+                state.status = AgentStatus.FAILED
+            else:
+                state.status = AgentStatus.COMPLETED
+
         return state
 
     def _normalize_action(self, raw_action: Any) -> Action:
@@ -361,7 +578,6 @@ class AgentController:
         if state.is_terminal:
             return state
 
-        # If no remaining steps, evaluate completion or replan
         if not state.remaining_steps:
             return self._evaluate_and_complete(state)
 
@@ -453,7 +669,6 @@ class AgentController:
         if result.success:
             state.record_success(action, result)
 
-            # If this was the last planned step, evaluate task completion
             if not state.remaining_steps:
                 return self._evaluate_and_complete(state)
 
@@ -489,14 +704,13 @@ class AgentController:
             state.status = TaskStatus.WAITING_APPROVAL
             return state
 
-        else:  # RecoveryDecision.FAIL or unrecoverable
+        else:
             state.status = TaskStatus.FAILED
             state.metadata["failure_reason"] = result.error or "Execution failed and recovery is impossible"
             return state
 
     def _evaluate_and_complete(self, state: TaskState) -> TaskState:
         """Run verification gate and evaluate if task requirements have been satisfied."""
-        # 1. Run Verification Plugin if available
         verif_result: Optional[VerificationDetails] = None
         if self.verification_plugin is not None:
             try:
@@ -510,7 +724,6 @@ class AgentController:
             except Exception as err:
                 logger.warning("Verification check encountered error: %s", err)
 
-        # 2. Evaluate Completion
         evaluation = self.completion_evaluator.evaluate(state, verif_result)
         state.metadata["completion_evaluation"] = evaluation.model_dump()
 
@@ -519,7 +732,6 @@ class AgentController:
             logger.info("Task '%s' successfully COMPLETED!", state.task_id)
             return state
 
-        # Not complete: check if replan can satisfy missing requirements
         replan_reason = evaluation.reason
         logger.warning("Task '%s' not complete: %s. Attempting replan.", state.task_id, replan_reason)
         new_plan = self.planner.replan(state, replan_reason)
@@ -566,14 +778,17 @@ class AgentController:
 
     def set_browser_adapter(self, adapter: Optional[BaseBrowserAdapter]) -> None:
         """Switch active browser adapter (e.g. from Mock to Playwright)."""
+        self.browser_adapter = adapter
         self.browser = adapter
         if adapter is not None:
             if hasattr(self.executor, "set_browser_adapter"):
                 self.executor.set_browser_adapter(adapter)
-            elif hasattr(self.executor, "browser_adapter"):
-                self.executor.browser_adapter = adapter
+            elif hasattr(self.executor, "browser"):
+                self.executor.browser = adapter
             if hasattr(self.observer, "set_browser_adapter"):
                 self.observer.set_browser_adapter(adapter)
+            elif hasattr(self.observer, "browser"):
+                self.observer.browser = adapter
 
     async def aclose(self) -> None:
         """Clean up all browser session resources."""

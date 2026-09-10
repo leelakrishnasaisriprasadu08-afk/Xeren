@@ -35,10 +35,13 @@ class TestQdrantFilterBuilding:
         q_filter = store._build_qdrant_filter(meta_filter)
 
         assert isinstance(q_filter, qmodels.Filter)
-        assert q_filter.must is not None
-        assert len(q_filter.must) == 1
-        condition = q_filter.must[0]
+        must = q_filter.must
+        assert must is not None
+        assert len(must) == 1
+        condition = must[0]
+        assert isinstance(condition, qmodels.FieldCondition)
         assert condition.key == "tenant_id"
+        assert condition.match is not None
         assert condition.match.value == "corp_alpha"
 
     def test_filter_in_operator(self) -> None:
@@ -47,10 +50,13 @@ class TestQdrantFilterBuilding:
         q_filter = store._build_qdrant_filter(meta_filter)
 
         assert isinstance(q_filter, qmodels.Filter)
-        assert q_filter.must is not None
-        assert len(q_filter.must) == 1
-        condition = q_filter.must[0]
+        must = q_filter.must
+        assert must is not None
+        assert len(must) == 1
+        condition = must[0]
+        assert isinstance(condition, qmodels.FieldCondition)
         assert condition.key == "access_level"
+        assert condition.match is not None
         assert condition.match.any == ["public", "internal"]
 
     def test_filter_neq_operator(self) -> None:
@@ -61,14 +67,19 @@ class TestQdrantFilterBuilding:
         q_filter = store._build_qdrant_filter(meta_filter)
 
         assert isinstance(q_filter, qmodels.Filter)
-        assert q_filter.must is not None
-        assert len(q_filter.must) == 1
-        negated = q_filter.must[0]
+        must = q_filter.must
+        assert must is not None
+        assert len(must) == 1
+        negated = must[0]
         assert isinstance(negated, qmodels.Filter)
-        assert negated.must_not is not None
-        assert len(negated.must_not) == 1
-        assert negated.must_not[0].key == "department"
-        assert negated.must_not[0].match.value == "confidential_hr"
+        must_not = negated.must_not
+        assert must_not is not None
+        assert len(must_not) == 1
+        inner = must_not[0]
+        assert isinstance(inner, qmodels.FieldCondition)
+        assert inner.key == "department"
+        assert inner.match is not None
+        assert inner.match.value == "confidential_hr"
 
     def test_filter_or_logic(self) -> None:
         store = QdrantVectorStore(persist_path=":memory:")
@@ -80,8 +91,9 @@ class TestQdrantFilterBuilding:
         q_filter = store._build_qdrant_filter(meta_filter)
 
         assert isinstance(q_filter, qmodels.Filter)
-        assert q_filter.should is not None
-        assert len(q_filter.should) == 2
+        should = q_filter.should
+        assert should is not None
+        assert len(should) == 2
 
 
 class TestQdrantMultiTenantRetrieval:

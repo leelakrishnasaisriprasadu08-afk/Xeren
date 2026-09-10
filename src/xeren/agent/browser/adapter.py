@@ -103,6 +103,13 @@ class BrowserObservation(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
+    @property
+    def success(self) -> bool:
+        """Indicate observation succeeded."""
+        err = getattr(self, "error", None)
+        status = getattr(self, "status_code", 200)
+        return err is None and (status is None or status < 400)
+
 
 class BaseBrowserAdapter(ABC):
     """Abstract contract for generic web browser automation.

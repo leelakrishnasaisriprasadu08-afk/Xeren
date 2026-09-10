@@ -51,7 +51,42 @@ class XerenSession:
         self.active_workspace_type: str = "personal"
         self.active_workspace_id: Optional[str] = None
 
+        # Interactive planning & task gating state
+        self.active_plan: Optional[Any] = None
+        self.staged_plan_status: str = "idle"  # "idle", "staged", "executing", "completed"
+        self.conversation_history: List[Dict[str, Any]] = []
+
         logger.info("XerenSession initialized: id=%s user=%s", self.session_id, self.user_id)
+
+    # ------------------------------------------------------------------
+    # Task Plan Staging & Approval
+    # ------------------------------------------------------------------
+
+    def stage_plan(self, plan: Any) -> None:
+        """Stage a planned task awaiting user's explicit 'proceed to the plan' approval."""
+        self.active_plan = plan
+        self.staged_plan_status = "staged"
+        logger.info("Plan staged in session %s for goal: %s", self.session_id, getattr(plan, "goal", "custom"))
+
+    def get_staged_plan(self) -> Optional[Any]:
+        """Fetch the currently staged plan."""
+        return self.active_plan
+
+    def clear_staged_plan(self) -> None:
+        """Clear active plan after execution or rejection."""
+        self.active_plan = None
+        self.staged_plan_status = "idle"
+
+    def record_turn(self, role: str, content: str) -> None:
+        """Record a chat turn in session conversation history."""
+        self.conversation_history.append({
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        # Keep last 50 turns
+        if len(self.conversation_history) > 50:
+            self.conversation_history = self.conversation_history[-50:]
 
     # ------------------------------------------------------------------
     # Authentication & Unlocking

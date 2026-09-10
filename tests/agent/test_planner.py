@@ -189,4 +189,3 @@ def test_planner_replan():
     assert "after failure" in new_plan[1]
     assert "Retry action" in new_plan[2]
     assert state.plan == new_plan
-

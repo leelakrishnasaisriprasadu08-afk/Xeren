@@ -447,7 +447,19 @@ class XerenTransformer(nn.Module):
         bsz, seqlen = input_ids.shape
         h = self.tok_embeddings(input_ids)
 
+<<<<<<< HEAD
+        required_len = start_pos + seqlen
+        if required_len > self.freqs_cis.shape[0]:
+            head_dim = self.config.dim // self.config.n_heads
+            new_len = max(required_len * 2, self.config.max_seq_len * 2)
+            self.freqs_cis = precompute_freqs_cis(
+                head_dim, new_len, self.config.rope_theta
+            ).to(self.tok_embeddings.weight.device)
+
+        freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
+=======
         freqs_cis = self.freqs_cis[start_pos: start_pos + seqlen]
+>>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
 
         new_kv_caches = [] if kv_caches is not None else None
         if self.training and getattr(self, "gradient_checkpointing", False) and kv_caches is None:
