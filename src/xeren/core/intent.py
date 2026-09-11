@@ -60,26 +60,35 @@ class IntentClassifier:
             "freelance_platform",
             0.95,
         ),
-        # Website building
+        # Website building, 3D interactive applications & digital objects
         (
-            re.compile(r"\b((build|create|design) (a )?(landing page|website|web page|portfolio site)|landing page|website|portfolio site|html css|frontend template)\b", re.I),
+            re.compile(
+                r"\b((build|create|design|generate|make|develop|render|launch|set\s+up)\s+(a|an|the|some|me\s+a)?\s*(3[- ]?d\s+)?(site[s]?|website[s]?|web\s*page[s]?|web\s*app[s]?|landing\s*page[s]?|portfolio[s]?|showroom[s]?|car\s*showroom[s]?|model[s]?|object[s]?|scene[s]?|asset[s]?|view[s]?|space[s]?|cars?|hypercars?)|3[- ]?d\s+(site[s]?|website[s]?|page[s]?|app[s]?|showroom[s]?|model[s]?|object[s]?|view[s]?|scene[s]?|asset[s]?)|landing\s*page|website|web\s*app|portfolio\s*site|html\s*css|frontend\s*template|three\.?js|webgl)\b",
+                re.I,
+            ),
             "website",
             "generate_website",
-            0.92,
+            0.95,
         ),
-        # Coding & Development
+        # Coding, Development & Sandbox Execution
         (
-            re.compile(r"\b(write (a )?(python )?(code|script|function|program)|python (script|function|code)|debug|fix bug|refactor|compile|syntax error|git commit|unit test|implement (a )?(python )?(function|method|class|algorithm))\b", re.I),
+            re.compile(
+                r"\b(write\s+(a\s+)?(python\s+)?(code|script|function|program)|python\s+(script|function|code)|run\s+(python\s+)?(code|script|sandbox)|execute\s+(python\s+)?(code|script)|debug|fix\s+bug|refactor|compile|syntax\s+error|git\s+commit|unit\s+test|implement\s+(a\s+)?(python\s+)?(function|method|class|algorithm))\b",
+                re.I,
+            ),
             "coding",
             "write_code",
-            0.90,
+            0.92,
         ),
-        # Deep Research & Knowledge
+        # Deep Research, Web Scraping & Open Source Assets
         (
-            re.compile(r"\b(search the web|deep search|research|investigate|credibility|sources for|find literature|cross[- ]verify|web search|look up online|strawberry search)\b", re.I),
+            re.compile(
+                r"\b(search\s+(the\s+)?(web|internet|online)|scrape\s+(free\s+)?(open[- ]source\s+)?(resources|assets|data|models|info|web|sites?)|deep\s+search|research|investigate|credibility|sources\s+for|find\s+literature|cross[- ]verify|web\s+search|look\s+up\s+(on\s+)?online|gather\s+resources|find\s+(open[- ]source|free)\s+resources)\b",
+                re.I,
+            ),
             "research",
             "deep_research",
-            0.93,
+            0.94,
         ),
         # Data Analysis & Cleaning
         (

@@ -43,6 +43,8 @@ class ActionCategory(str, Enum):
     INTERACTIVE = "interactive"
     CONSEQUENTIAL = "consequential"
     SYSTEM = "system"
+    INTERROGATION = "interrogation"
+    INTERPERSONAL = "interpersonal"
 
 
 class BrowserError(BaseModel):

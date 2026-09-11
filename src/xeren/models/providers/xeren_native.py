@@ -72,7 +72,7 @@ class XerenNativeLLM(BaseLLM):
         self._device = "cuda" if (TORCH_AVAILABLE and __import__("torch").cuda.is_available()) else "cpu"
         self._checkpoint_path = config.api_base or os.getenv(
             "XEREN_CHECKPOINT",
-            "training/checkpoints/stage2/checkpoint_final.pt",
+            "training/checkpoints/xeren_mini_final",
         )
         self._max_new_tokens = 512
         self._loaded = False
@@ -155,7 +155,7 @@ class XerenNativeLLM(BaseLLM):
     def _generate_tokens(
         self,
         prompt: str,
-        max_new_tokens: int = 512,
+        max_new_tokens: int = 2048,
         temperature: float = 0.7,
         top_p: float = 0.9,
     ) -> str:
@@ -271,7 +271,8 @@ class XerenNativeLLM(BaseLLM):
         model_name = getattr(cfg, "model_id", "xeren-mini")
         return LLMResponse(
             content=text,
-            model=f"xeren-mini-{model_name}",
+            message=ChatMessage.assistant(content=text),
+            model_id=f"xeren-mini-{model_name}",
             usage=TokenUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,

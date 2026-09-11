@@ -11,6 +11,12 @@ from xeren.models.checkpoint import (
     CheckpointMetadata,
 )
 from xeren.models.config import LocalModelConfig, ModelConfig
+from xeren.models.presets import (
+    MODEL_PRESETS,
+    get_model_preset,
+    get_presets_by_temperature_range,
+    list_model_presets,
+)
 from xeren.models.errors import (
     AuthenticationError,
     ConfigurationError,
@@ -75,6 +81,8 @@ ModelRegistry.register("groq", LocalOpenWeightAdapter)
 ModelRegistry.register("deepseek", LocalOpenWeightAdapter)
 ModelRegistry.register("openrouter", LocalOpenWeightAdapter)
 ModelRegistry.register("together", LocalOpenWeightAdapter)
+ModelRegistry.register("gemini", LocalOpenWeightAdapter)
+ModelRegistry.register("google", LocalOpenWeightAdapter)
 
 if XEREN_NATIVE_AVAILABLE and XerenNativeLLM:
     ModelRegistry.register("xeren_native", XerenNativeLLM)
@@ -111,7 +119,7 @@ def create_llm(
     # 1. Determine provider
     if is_xeren_mini:
         # Check if local PyTorch checkpoint exists
-        ckpt_path = api_base or os.getenv("XEREN_CHECKPOINT", "training/checkpoints/stage2/checkpoint_final.pt")
+        ckpt_path = api_base or os.getenv("XEREN_CHECKPOINT", "training/checkpoints/xeren_mini_final")
         if XEREN_NATIVE_AVAILABLE and Path(ckpt_path).exists():
             effective_provider = "xeren_native"
             effective_model = raw_model or "xeren-mini-1.5b"
@@ -128,7 +136,9 @@ def create_llm(
                 effective_provider = "openai"
             elif os.getenv("DEEPSEEK_API_KEY"):
                 effective_provider = "deepseek"
-            elif XEREN_NATIVE_AVAILABLE and Path("training/checkpoints/stage2/checkpoint_final.pt").exists():
+            elif os.getenv("GEMINI_API_KEY"):
+                effective_provider = "gemini"
+            elif XEREN_NATIVE_AVAILABLE and Path("training/checkpoints/xeren_mini_final").exists():
                 effective_provider = "xeren_native"
             else:
                 effective_provider = "ollama"
@@ -141,6 +151,7 @@ def create_llm(
                 "groq": "llama-3.3-70b-versatile",
                 "openai": "gpt-4o-mini",
                 "deepseek": "deepseek-chat",
+                "gemini": "gemini-1.5-pro",
                 "ollama": "llama3.2",
                 "local": "llama3.2",
                 "local_openweight": "llama3.2",
@@ -176,6 +187,10 @@ __all__ = [
     # Configurations
     "ModelConfig",
     "LocalModelConfig",
+    "MODEL_PRESETS",
+    "get_model_preset",
+    "list_model_presets",
+    "get_presets_by_temperature_range",
     # Types & Schemas
     "Role",
     "ChatMessage",

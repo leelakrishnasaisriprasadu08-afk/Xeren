@@ -31,8 +31,21 @@ class MockLLM(BaseLLM):
         if self.canned_response is not None:
             return self.canned_response
         if messages and messages[-1].content:
-            return f"Mock response to: {messages[-1].content}"
-        return "Mock default response"
+            try:
+                from xeren.core.knowledge_grounding import answer_grounded_query
+                grounded = answer_grounded_query(messages[-1].content)
+                if grounded:
+                    return grounded
+                    
+                # Dynamic open-source scraper fallback!
+                from xeren.core.dynamic_scraper import scrape_real_world_data
+                scraped_data = scrape_real_world_data(messages[-1].content)
+                if scraped_data:
+                    return scraped_data
+            except Exception:
+                pass
+            return "I am currently operating in offline mode. I couldn't find a local answer for your query, and my core reasoning engines are unreachable. Please verify my connection."
+        return "I am currently operating in offline mode."
 
     def generate(
         self,
