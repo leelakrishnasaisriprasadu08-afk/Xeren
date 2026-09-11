@@ -30,6 +30,9 @@ export interface MainWorkspaceProps {
   activeCommandCenterTab?: 'freelance' | 'security' | 'research' | 'channels'
   onCommandCenterTabChange?: (tab: 'freelance' | 'security' | 'research' | 'channels') => void
   onSendMessage: (text: string) => void
+  onProceedPlan?: (planText?: string) => void
+  onRevisePlan?: (planId?: string) => void
+  onCancelPlan?: (planId?: string) => void
   onStartListening: () => void
   onStopListening: () => void
   onInterrupt: () => void
@@ -54,11 +57,21 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   activeCommandCenterTab: _activeCommandCenterTab,
   onCommandCenterTabChange: _onCommandCenterTabChange,
   onSendMessage,
+  onProceedPlan,
+  onRevisePlan,
+  onCancelPlan,
   onStartListening,
   onStopListening,
   onInterrupt,
 }) => {
   const hasMessages = messages.length > 0 || !!currentStreamingText
+
+  const activeStagedPlan = messages
+    .slice()
+    .reverse()
+    .find((m) => m.metadata?.planStaged && m.metadata?.plan)?.metadata?.plan
+
+  const handleProceed = onProceedPlan || ((text) => onSendMessage(text || 'proceed to the plan'))
 
   return (
     <main className="main-workspace two-layer-layout" role="main" data-testid="main-workspace">
@@ -108,6 +121,9 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 messages={messages}
                 currentStreamingText={currentStreamingText}
                 currentStreamingId={currentStreamingId}
+                onProceedPlan={handleProceed}
+                onRevisePlan={onRevisePlan}
+                onCancelPlan={onCancelPlan}
               />
             </div>
           )}
@@ -115,6 +131,28 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 
         {/* Docked Interaction Controls */}
         <footer className="workspace-dock" role="contentinfo">
+          {/* Active Staged Plan Floating Quick-Bar */}
+          {activeStagedPlan && presenceState !== 'acting' && presenceState !== 'thinking' && (
+            <div
+              className="active-staged-plan-dock-pill"
+              data-testid="active-staged-plan-dock-pill"
+            >
+              <div className="dock-pill-left">
+                <span className="dock-pill-dot" />
+                <span className="dock-pill-title">Plan Waiting for Approval:</span>
+                <span className="dock-pill-goal">{activeStagedPlan.goal || 'Autonomous Plan'}</span>
+              </div>
+              <button
+                type="button"
+                className="dock-pill-proceed-btn"
+                onClick={() => handleProceed('proceed to the plan')}
+                data-testid="dock-pill-proceed-btn"
+              >
+                <span>⚡ Proceed to the Plan</span>
+              </button>
+            </div>
+          )}
+
           <AgentActivity
             progressDetails={agentProgress}
             activeMilestone={activeMilestone}

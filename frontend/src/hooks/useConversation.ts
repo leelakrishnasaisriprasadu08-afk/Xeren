@@ -223,6 +223,7 @@ export function useConversation(options: UseConversationOptions = {}) {
           const finalContent = event.text || streamingTextRef.current
           const finalId = event.messageId || event.response_id || currentStreamingId || `msg_asst_${Date.now()}`
 
+          const hasPlan = !!(event as any).plan || !!(event as any).plan_staged
           const assistantMsg: Message = {
             id: finalId,
             role: 'xeren',
@@ -230,6 +231,12 @@ export function useConversation(options: UseConversationOptions = {}) {
             timestamp: Date.now(),
             status: 'complete',
             isStreaming: false,
+            metadata: {
+              plan: (event as any).plan || null,
+              planStaged: (event as any).plan_staged ?? hasPlan,
+              research: (event as any).research || null,
+              heldDataApplied: (event as any).held_data_applied || null,
+            },
           }
 
           setMessages((prev) => {
@@ -335,6 +342,15 @@ export function useConversation(options: UseConversationOptions = {}) {
     setPresenceState('idle')
   }, [])
 
+  const proceedWithStagedPlan = useCallback(async (customPlanText?: string) => {
+    try {
+      await fetch('/api/plan/proceed', { method: 'POST' })
+    } catch (_) {
+      // Local fallback
+    }
+    sendMessage(customPlanText || 'proceed to the plan', 'text')
+  }, [sendMessage])
+
   return {
     presenceState,
     setPresenceState,
@@ -357,6 +373,7 @@ export function useConversation(options: UseConversationOptions = {}) {
     startListening,
     stopListening,
     sendMessage,
+    proceedWithStagedPlan,
     interrupt,
     clearHistory,
   }
