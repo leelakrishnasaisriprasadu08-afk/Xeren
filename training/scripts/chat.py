@@ -23,10 +23,12 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # ANSI Color formatting
+BLUE = "\033[94m"
 CYAN = "\033[96m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 MAGENTA = "\033[95m"
+RED = "\033[91m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
@@ -59,7 +61,7 @@ def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: in
 
     model = AutoModelForCausalLM.from_pretrained(
         str(model_dir),
-        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+        dtype=torch.float16 if device == "cuda" else torch.float32,
         device_map="auto" if device == "cuda" else None,
         trust_remote_code=True,
     )
@@ -89,19 +91,45 @@ def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: in
         print(f"{YELLOW}[Notice] Core plugin integration skipped: {e}{RESET}")
         core = None
 
+    # Ensure background preview server is active on port 8080
+    try:
+        import socket, threading, http.server, functools
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("127.0.0.1", 8080)) != 0:
+                serve_path = Path("d:/Xeren/workspace/generated_sites").resolve()
+                serve_path.mkdir(parents=True, exist_ok=True)
+                class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+                    def log_message(self, format, *args): pass
+                _h = functools.partial(_QuietHandler, directory=str(serve_path))
+                _srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8080), _h)
+                _t = threading.Thread(target=_srv.serve_forever, daemon=True)
+                _t.start()
+    except Exception:
+        pass
+
     default_system = (
-        "You are Xeren, an autonomous reasoning and action AI system capable of "
-        "multi-step planning, tool execution, retrieval-augmented generation, and precise problem solving."
+        "You are Xeren, a powerful, fluent AI assistant built by the Xeren team and Leela Krishna. "
+        "You help users with coding, research, file operations, web search, data analysis, "
+        "and automated workflows using a plugin system. "
+        "you are recognize your Xeren engineering team by the 6 members. they are Leela Krishna, Dinesh Kumar, Pallavi, Manideep, Yaswanth, Guna Bhargav and you are devoloped at Vignan's Lara Institute of Technology and Science, Guntur, India. "
+        "You are an all-rounder autonomous AI agent equipped with active live execution plugins: WebsitePlugin (generates full-stack and 3D websites with Three.js, WebGL, and live previews), CodingPlugin (runs and tests code in sandboxes), ResearchPlugin (real-time web search and scraping open-source resources), KnowledgePlugin (local RAG), and File/AutomationPlugin (workspace file operations). "
+        "You can build websites, render 3D scenes, execute code, search and scrape online, and manage files. Never refuse user requests by claiming you cannot build websites, render 3D objects, execute code, or search the web—you have specialized plugins to do all of these. "
+        "You are always helpful, honest, eloquent, and friendly. "
+        "You are Xeren and you never claim to be Alibaba, Qwen, ChatGPT, or any other AI model."
     )
     messages: List[Dict[str, str]] = [{"role": "system", "content": default_system}]
 
-    print(f"\n{BOLD}{'=' * 65}")
-    print(f"      💬 XEREN INTERACTIVE CHAT TERMINAL")
-    print(f"{'=' * 65}{RESET}")
-    print("  • Type your message and press Enter.")
-    print("  • Type 'clear' to reset chat memory.")
-    print("  • Type 'exit' or 'quit' to end session.")
-    print(f"{BOLD}{'=' * 65}{RESET}\n")
+    print(f"\n{BOLD}{CYAN}+--------------------------------------------------------------------------------------+{RESET}")
+    print(f"{BOLD}{CYAN}|{RESET}  {BOLD}* XEREN AUTONOMOUS REASONING & PLAN DEMONSTRATION AGENT (v1.0-MINI){RESET}           {BOLD}{CYAN}|{RESET}")
+    print(f"{BOLD}{CYAN}|{RESET}  {MAGENTA}Institution  :{RESET} Vignan's Lara Institute of Technology & Science, Guntur, India     {BOLD}{CYAN}|{RESET}")
+    print(f"{BOLD}{CYAN}|{RESET}  {GREEN}Engineering  :{RESET} Leela Krishna, Dinesh Kumar, Pallavi,                             {BOLD}{CYAN}|{RESET}")
+    print(f"{BOLD}{CYAN}|{RESET}                 Manideep, Yaswanth, Guna Bhargav                                     {BOLD}{CYAN}|{RESET}")
+    print(f"{BOLD}{CYAN}|{RESET}  {YELLOW}Neural Engine:{RESET} 1.5B Unified Neural Substrate (Local CUDA Standalone)                 {BOLD}{CYAN}|{RESET}")
+    print(f"{BOLD}{CYAN}|{RESET}  {BLUE}Capabilities :{RESET} Conversational AI | Deep Multi-Step Planning | 5 Plugin Agents       {BOLD}{CYAN}|{RESET}")
+    print(f"{BOLD}{CYAN}+--------------------------------------------------------------------------------------+{RESET}")
+    print("  * Type your message to chat, ask for code, or request step-by-step plans.")
+    print("  * Type 'create a website for <topic>' to trigger live 3D web generation.")
+    print("  * Type 'clear' to reset chat memory  |  Type 'exit' to quit.\n")
 
     streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
 
@@ -147,15 +175,31 @@ def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: in
                 messages.append({"role": "assistant", "content": assistant_reply})
                 continue
 
-        # 2. Check if query is an action / plugin request
-        is_action = False
-        if core and intent_classifier:
-            intent = intent_classifier.classify(user_input)
-            if intent.category == RoutingCategory.ACTION_REQUEST or any(k in user_input.lower() for k in ["create", "build", "generate website", "make a website", "run code", "analyze data", "3d animat"]):
-                is_action = True
+        # 2. Check if query is an action request using IntentClassifier or plugin triggers
+        is_concrete_action = False
+        target_plugin = "general"
+        if intent_classifier:
+            intent_res = intent_classifier.classify(user_input)
+            if intent_res.category == RoutingCategory.ACTION_REQUEST:
+                is_concrete_action = True
+                target_plugin = intent_res.plugin
 
-        if is_action and core:
-            print(f"\n{CYAN}⚡ [Xeren Plugin Agent] Orchestrating execution via initialized plugins...{RESET}\n")
+        if not is_concrete_action and core:
+            lower_in = user_input.lower()
+            concrete_keywords = [
+                "generate website", "create website", "build website", "make a website",
+                "create an site", "create a site", "build a site", "make a site",
+                "3d website", "3-d website", "web page", "web app", "landing page", "showroom",
+                "3d model", "3d object", "3-d model", "3-d object", "three.js", "threejs",
+                "run python", "run code", "execute python", "execute code", "run sandbox",
+                "search live web", "search the web", "search online", "scrape"
+            ]
+            if any(kw in lower_in for kw in concrete_keywords):
+                is_concrete_action = True
+                target_plugin = "action"
+
+        if is_concrete_action and core:
+            print(f"\n{CYAN}⚡ [Xeren Autonomous Agent] Decomposing goal and dispatching specialized {target_plugin.upper()} plugin...{RESET}\n")
             try:
                 import asyncio
                 res = asyncio.run(core.aprocess_request(user_input, verify_outcome=True, record_experience=True))
@@ -181,12 +225,9 @@ def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: in
 
         inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-        print(f"\n{BOLD}{CYAN}Xeren:{RESET} ", end="", flush=True)
-
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                streamer=streamer,
                 max_new_tokens=max_tokens,
                 temperature=temperature if temperature > 0 else 0.2,
                 do_sample=temperature > 0,
@@ -196,8 +237,41 @@ def run_hf_chat(model_dir: Path, device: str, temperature: float, max_tokens: in
 
         new_ids = outputs[0][inputs["input_ids"].shape[1]:]
         assistant_reply = tokenizer.decode(new_ids, skip_special_tokens=True).strip()
+
+        # Intercept capability refusals and auto-switch to active plugins
+        refusal_triggers = [
+            "cannot create physical",
+            "cannot create 3d",
+            "cannot create websites",
+            "cannot build websites",
+            "cannot build",
+            "cannot generate 3d",
+            "cannot generate websites",
+            "exceeds my capabilities",
+            "unable to create",
+            "as an ai assistant, i cannot",
+            "as an ai, i cannot",
+            "as an ai, i am unable",
+            "i do not have the ability to create",
+            "i cannot execute",
+            "i cannot run code",
+        ]
+        is_refusal = any(trig in assistant_reply.lower() for trig in refusal_triggers)
+        if is_refusal and core:
+            print(f"\n{CYAN}⚡ [Xeren Autonomous Engine] Auto-switching plugins for high-demand task...{RESET}\n")
+            try:
+                import asyncio
+                res = asyncio.run(core.aprocess_request(user_input, verify_outcome=True, record_experience=True))
+                setattr(core, "_last_action_result", res)
+                recovered_reply = res.get("final_response") or "Task executed successfully across Xeren plugins."
+                print(f"{BOLD}{CYAN}Xeren (Autonomous Plugins):{RESET}\n{recovered_reply}\n")
+                messages.append({"role": "assistant", "content": recovered_reply})
+                continue
+            except Exception as e:
+                print(f"{YELLOW}[Plugin execution note]: {e}{RESET}")
+
+        print(f"\n{BOLD}{CYAN}Xeren:{RESET} {assistant_reply}\n")
         messages.append({"role": "assistant", "content": assistant_reply})
-        print()  # Spacer
 
 
 def run_pt_chat(checkpoint_path: Path, device: str, temperature: float, max_tokens: int):
