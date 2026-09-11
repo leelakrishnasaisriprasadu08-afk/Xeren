@@ -1132,6 +1132,490 @@
   transform: scale(1.02);
 }
 
+/* ── Active Scroll Navigation Indicator & Smooth Reveal ── */
+.nav-link-btn.active {
+  color: #34d399;
+  font-weight: 700;
+  position: relative;
+}
+
+.nav-link-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.8);
+}
+
+.btn-down-arrow {
+  display: inline-block;
+  margin-left: 6px;
+  transition: transform 0.2s ease;
+}
+
+.hero-ghost-arch-btn:hover .btn-down-arrow {
+  transform: translateY(2px);
+}
+
+.scroll-reveal-item {
+  opacity: 0.85;
+  transform: translateY(16px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal-item.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. SYSTEM ARCHITECTURE ON-PAGE SHOWCASE SECTION (#architecture)
+   ══════════════════════════════════════════════════════════════════════════ */
+.architecture-showcase-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 24px 60px 24px;
+  position: relative;
+  z-index: 10;
+}
+
+.architecture-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.arch-showcase-card {
+  background: rgba(7, 12, 11, 0.82);
+  border: 1px solid #1b2e27;
+  border-radius: 16px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.arch-showcase-card:hover {
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 24px rgba(16, 185, 129, 0.12);
+  transform: translateY(-3px);
+}
+
+.arch-showcase-card.arch-card-specter {
+  grid-column: 1 / -1;
+  min-height: 280px;
+  padding-bottom: 36px;
+}
+
+.arch-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.arch-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.arch-card-heading {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f5fdf9;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.01em;
+}
+
+.arch-card-description {
+  font-size: 0.94rem;
+  color: #8fa69d;
+  line-height: 1.65;
+  margin: 0 0 20px 0;
+}
+
+.arch-feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.arch-feature-pills span {
+  font-size: 0.78rem;
+  color: #d1fae5;
+  background: rgba(5, 8, 10, 0.75);
+  border: 1px solid #1b2e27;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+/* Photonic Glow Cursor Trail preview */
+.arch-mini-preview-glow {
+  position: relative;
+  height: 60px;
+  background: rgba(5, 8, 10, 0.6);
+  border: 1px dashed rgba(52, 211, 153, 0.25);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+.glow-cursor-trail-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #34d399 0%, rgba(16, 185, 129, 0.2) 70%, transparent 100%);
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.8);
+}
+
+.glow-cursor-trail-dot.dot-1 {
+  left: 20%;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+.glow-cursor-trail-dot.dot-2 {
+  left: 35%;
+  opacity: 0.6;
+  animation: pulseDot 2s infinite ease-in-out 0.3s;
+}
+
+.glow-cursor-trail-dot.dot-3 {
+  left: 50%;
+  opacity: 0.3;
+  animation: pulseDot 2s infinite ease-in-out 0.6s;
+}
+
+.glow-telemetry-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #34d399;
+  letter-spacing: 0.05em;
+  margin-left: auto;
+  padding-right: 14px;
+}
+
+/* Verification Checks List */
+.arch-verification-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.arch-check-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.86rem;
+  color: #d1fae5;
+}
+
+.check-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #34d399;
+  font-size: 0.75rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* Retention Box */
+.arch-retention-badge-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #6ee7b7;
+  font-weight: 600;
+  margin-top: auto;
+}
+
+.retention-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+/* Architecture Deep Dive Bar */
+.arch-deep-dive-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(7, 12, 11, 0.9);
+  border: 1px solid #1b2e27;
+  padding: 18px 28px;
+  border-radius: 12px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.deep-dive-text {
+  font-size: 0.92rem;
+  color: #8fa69d;
+}
+
+.arch-deep-dive-btn {
+  background: transparent;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #34d399;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.arch-deep-dive-btn:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #34d399;
+  transform: translateX(2px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8. DEVELOPER DOCUMENTATION ON-PAGE SHOWCASE SECTION (#docs)
+   ══════════════════════════════════════════════════════════════════════════ */
+.docs-showcase-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 24px 60px 24px;
+  position: relative;
+  z-index: 10;
+}
+
+.docs-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.docs-panel-card {
+  background: rgba(7, 12, 11, 0.82);
+  border: 1px solid #1b2e27;
+  border-radius: 16px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.docs-panel-card:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 24px rgba(16, 185, 129, 0.1);
+}
+
+.docs-panel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+  align-self: flex-start;
+}
+
+.docs-card-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #f5fdf9;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.01em;
+}
+
+.docs-card-text {
+  font-size: 0.92rem;
+  color: #8fa69d;
+  line-height: 1.6;
+  margin: 0 0 20px 0;
+}
+
+/* Code Container */
+.docs-code-container {
+  background: #020406;
+  border: 1px solid #1b2e27;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+.docs-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(16, 185, 129, 0.05);
+  border-bottom: 1px solid #1b2e27;
+}
+
+.code-lang-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #8fa69d;
+  font-family: 'JetBrains Mono', monospace, Consolas, sans-serif;
+}
+
+.code-copy-btn {
+  background: transparent;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #34d399;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.code-copy-btn:hover {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.docs-code-block {
+  margin: 0;
+  padding: 14px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: #a7f3d0;
+  overflow-x: auto;
+}
+
+/* Bullet list */
+.docs-points-list {
+  list-style: none;
+  padding: 0;
+  margin: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.docs-points-list li {
+  font-size: 0.86rem;
+  color: #8fa69d;
+  line-height: 1.5;
+  position: relative;
+  padding-left: 18px;
+}
+
+.docs-points-list li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: #34d399;
+}
+
+.docs-points-list strong {
+  color: #f5fdf9;
+}
+
+/* Security Matrix */
+.docs-security-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  background: rgba(5, 8, 10, 0.7);
+  border: 1px solid #1b2e27;
+  padding: 14px;
+  border-radius: 10px;
+}
+
+.sec-matrix-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  gap: 12px;
+}
+
+.sec-matrix-label {
+  color: #8fa69d;
+}
+
+.sec-matrix-val {
+  color: #34d399;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Docs Footer CTA */
+.docs-footer-cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.docs-workspace-btn {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+  color: #05080a;
+  border: none;
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 12px 28px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+
+.docs-workspace-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(16, 185, 129, 0.45);
+}
+
 /* ── Responsive Mobile Rules ── */
 @media (max-width: 900px) {
   .emerald-nav-header {

@@ -13,6 +13,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 }) => {
   const [isMuted, setIsMuted] = useState(true)
   const [activeModal, setActiveModal] = useState<'architecture' | 'docs' | null>(null)
+  const [activeSection, setActiveSection] = useState<string>('features')
+  const [copiedDocsCode, setCopiedDocsCode] = useState(false)
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -29,15 +31,65 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  // Scroll reveal and active navigation section tracking
+  useEffect(() => {
+    const isTest =
+      typeof window !== 'undefined' &&
+      ((window as any).__VITEST__ ||
+        (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test'))
+
+    // In test environment or if IntersectionObserver is absent, show all items immediately
+    if (isTest || typeof IntersectionObserver === 'undefined') {
+      const items = document.querySelectorAll('.scroll-reveal-item')
+      items.forEach((item) => item.classList.add('is-visible'))
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible')
+            const id = entry.target.getAttribute('id')
+            if (id) {
+              setActiveSection(id)
+            }
+          }
+        })
+      },
+      {
+        threshold: 0.15,
+        rootMargin: '0px 0px -40px 0px',
+      }
+    )
+
+    const revealItems = document.querySelectorAll('.scroll-reveal-item')
+    revealItems.forEach((el) => observer.observe(el))
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
   const handleLaunch = () => {
     onEnterWorkspace?.()
   }
 
   const scrollToSection = (id: string) => {
+    setActiveSection(id)
     const el = document.getElementById(id)
-    if (el) {
+    if (el && typeof el.scrollIntoView === 'function') {
       el.scrollIntoView({ behavior: 'smooth' })
     }
+  }
+
+  const copyDocsCode = () => {
+    const code = `import { XerenClient } from '@xeren/sdk'\n\nconst client = new XerenClient({ ephemeral: true })\nconst session = await client.createSession({ mode: 'reasoning' })\nconst plan = await session.plan('Build verified price alert')\nawait session.execute(plan)`
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(code)
+    }
+    setCopiedDocsCode(true)
+    setTimeout(() => setCopiedDocsCode(false), 2000)
   }
 
   return (
@@ -50,7 +102,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="horizon-particle-drift" />
       </div>
 
-      {/* ── 1. NAVBAR (Sticky, Translucent Glass) ── */}
+      {/* ── 1. NAVBAR (Sticky, Translucent Glass with Active Scroll Indicators) ── */}
       <header className="emerald-nav-header">
         <div className="emerald-nav-brand">
           <div className="emerald-logo-mark" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
@@ -63,26 +115,41 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        {/* Center / Right Links */}
+        {/* Center / Right Links - All Scroll Smoothly to On-Page Sections */}
         <nav className="emerald-nav-links" aria-label="Quick Links">
-          <button type="button" className="nav-link-btn" onClick={() => scrollToSection('features')}>
+          <button
+            type="button"
+            className={`nav-link-btn ${activeSection === 'features' ? 'active' : ''}`}
+            onClick={() => scrollToSection('features')}
+          >
             Features
           </button>
           <button
             type="button"
-            className="nav-link-btn"
-            onClick={() => setActiveModal('architecture')}
-            data-testid="hero-secondary-cta"
+            className={`nav-link-btn ${activeSection === 'architecture' ? 'active' : ''}`}
+            onClick={() => scrollToSection('architecture')}
           >
             Architecture
           </button>
-          <button type="button" className="nav-link-btn" onClick={() => scrollToSection('pipeline')}>
+          <button
+            type="button"
+            className={`nav-link-btn ${activeSection === 'pipeline' ? 'active' : ''}`}
+            onClick={() => scrollToSection('pipeline')}
+          >
             Pipeline
           </button>
-          <button type="button" className="nav-link-btn" onClick={() => scrollToSection('benchmarks')}>
+          <button
+            type="button"
+            className={`nav-link-btn ${activeSection === 'benchmarks' ? 'active' : ''}`}
+            onClick={() => scrollToSection('benchmarks')}
+          >
             Benchmarks
           </button>
-          <button type="button" className="nav-link-btn" onClick={() => setActiveModal('docs')}>
+          <button
+            type="button"
+            className={`nav-link-btn ${activeSection === 'docs' ? 'active' : ''}`}
+            onClick={() => scrollToSection('docs')}
+          >
             Docs
           </button>
         </nav>
@@ -145,9 +212,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <button
             type="button"
             className="hero-ghost-arch-btn"
-            onClick={() => setActiveModal('architecture')}
+            onClick={() => scrollToSection('architecture')}
           >
             <span>View Architecture</span>
+            <span className="btn-down-arrow">↓</span>
           </button>
         </div>
 
@@ -176,9 +244,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* ── 3. TRUST & REPUTATION STRIP ── */}
-      <section className="trust-strip-section" aria-label="Trust Summary">
+      <section className="trust-strip-section scroll-reveal-item" aria-label="Trust Summary">
         <div className="trust-strip-inner">
-          <span className="trust-strip-label">BUILT FOR RESEARCH, ENGINEERING & ENTERPRISE OPS TEAMS</span>
+          <span className="trust-strip-label">BUILT FOR RESEARCH, ENGINEERING &amp; ENTERPRISE OPS TEAMS</span>
           <div className="trust-badges-row">
             <span className="trust-badge-item">🛡️ 100% Zero-Data Retention</span>
             <span className="trust-badge-item">⚡ Deterministic Verification</span>
@@ -188,8 +256,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* ── 4. FEATURE GRID & HIGHLIGHT CARD ── */}
-      <section id="features" className="features-grid-section">
+      {/* ── 4. FEATURE GRID & HIGHLIGHT CARD (SCROLL REVEAL) ── */}
+      <section id="features" className="features-grid-section scroll-reveal-item">
         <div className="section-header-block">
           <div className="section-eyebrow">AGENTIC CAPABILITIES</div>
           <h2 className="section-title">Engineered for autonomous cognitive precision</h2>
@@ -212,7 +280,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             and task automation inside a single unified workspace. Zero tab jumping. Zero context loss.
           </p>
           <div className="featured-banner-tags">
-            <span className="tag-pill">Unified Chat & Deliberation</span>
+            <span className="tag-pill">Unified Chat &amp; Deliberation</span>
             <span className="tag-pill">Autonomous Tool Execution</span>
             <span className="tag-pill">Knowledge Vault RAG</span>
             <span className="tag-pill">Voice Synthesis</span>
@@ -284,8 +352,139 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* ── 5. ARCHITECTURE / HOW IT WORKS (Connected Pipeline Strip) ── */}
-      <section id="pipeline" className="architecture-pipeline-section">
+      {/* ── 5. SYSTEM ARCHITECTURE SHOWCASE (DIRECT ON-PAGE SCROLL SECTION) ── */}
+      <section id="architecture" className="architecture-showcase-section scroll-reveal-item" aria-label="System Architecture">
+        <div className="section-header-block">
+          <div className="section-eyebrow">SYSTEM ARCHITECTURE &amp; NEURAL SPECIFICATION</div>
+          <h2 className="section-title">Autonomous Neural Engine &amp; Reasoning Core</h2>
+          <p className="section-subtitle">
+            Direct hardware-accelerated deduction, spatial cognitive modeling, and real-time verifiable proofs.
+          </p>
+        </div>
+
+        <div className="architecture-showcase-grid">
+          {/* Card 1: SpecterOrb 3D Interactive Latent Cognitive Core */}
+          <div className="arch-showcase-card arch-card-specter">
+            <div
+              className="arch-specter-preview"
+              data-testid={!activeModal ? 'arch-specter-orb-preview' : undefined}
+            >
+              <SpecterOrb
+                width="100%"
+                height="100%"
+                radius={0.3}
+                turbulence={0.22}
+                flowSpeed={0.08}
+                maskRadius={0}
+                maskFeather={0.3}
+                zoom={0.88}
+                glowStrength={1.3}
+                colorA="#10b981"
+                colorB="#059669"
+                colorC="#34d399"
+                backgroundColor="transparent"
+              />
+            </div>
+            <div className="arch-card-header">
+              <span className="arch-badge">LATENT COGNITIVE CORE</span>
+              <div className="arch-card-icon">🧠</div>
+            </div>
+            <h3 className="arch-card-heading">Latent Cognitive Core</h3>
+            <p className="arch-card-description">
+              Multi-step reasoning architecture trained specifically for spatial deduction, mathematical decomposition,
+              and pattern induction. Operates over an ultra-low latency continuous token manifold.
+            </p>
+            <div className="arch-feature-pills">
+              <span>Dynamic Reasoning Paths</span>
+              <span>Spatial Token Projection</span>
+              <span>Self-Audited Milestones</span>
+            </div>
+          </div>
+
+          {/* Card 2: Photonic Glow Cursor */}
+          <div
+            className="arch-showcase-card"
+            data-testid={!activeModal ? 'arch-glow-cursor-card' : undefined}
+          >
+            <div className="arch-card-header">
+              <span className="arch-badge">INTERACTION PHYSICS</span>
+              <div className="arch-card-icon">✨</div>
+            </div>
+            <h3 className="arch-card-heading">Photonic Glow Cursor</h3>
+            <p className="arch-card-description">
+              Hardware-accelerated luminescence tracking pointer velocity with subtle emerald emission falloff.
+              Responsive spatial awareness keeps user intent grounded across multi-modal interfaces.
+            </p>
+            <div className="arch-mini-preview-glow">
+              <div className="glow-cursor-trail-dot dot-1" />
+              <div className="glow-cursor-trail-dot dot-2" />
+              <div className="glow-cursor-trail-dot dot-3" />
+              <span className="glow-telemetry-tag">Sub-1ms Tracking Latency</span>
+            </div>
+          </div>
+
+          {/* Card 3: Autonomous Verification Engine */}
+          <div className="arch-showcase-card">
+            <div className="arch-card-header">
+              <span className="arch-badge">ZERO-ERROR GATING</span>
+              <div className="arch-card-icon">⚡</div>
+            </div>
+            <h3 className="arch-card-heading">Autonomous Verification Engine</h3>
+            <p className="arch-card-description">
+              Automated runtime testing logical consistency, code correctness, and evidence-grounded proofs before output.
+              Employs formal verification barriers to eliminate hallucinations.
+            </p>
+            <div className="arch-verification-checks">
+              <div className="arch-check-line">
+                <span className="check-icon">✓</span>
+                <span>Deterministic Proof Validation</span>
+              </div>
+              <div className="arch-check-line">
+                <span className="check-icon">✓</span>
+                <span>Sandboxed Dynamic Execution</span>
+              </div>
+              <div className="arch-check-line">
+                <span className="check-icon">✓</span>
+                <span>Automated Self-Auditing Feedback</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Zero-Leak Privacy */}
+          <div className="arch-showcase-card">
+            <div className="arch-card-header">
+              <span className="arch-badge">ENTERPRISE SECURITY</span>
+              <div className="arch-card-icon">🛡️</div>
+            </div>
+            <h3 className="arch-card-heading">Zero-Leak Ephemeral Privacy</h3>
+            <p className="arch-card-description">
+              100% ephemeral state handling and verified zero data retention policy across all layers. Cryptographic key
+              rotation and instant RAM destruction upon session close.
+            </p>
+            <div className="arch-retention-badge-box">
+              <span className="retention-dot" />
+              <span>Certified Zero-Data Retention Guarantee</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Dialog Option for Deep-Dive Specs */}
+        <div className="arch-deep-dive-bar">
+          <span className="deep-dive-text">Need complete low-level architectural specs and modal blueprint?</span>
+          <button
+            type="button"
+            className="arch-deep-dive-btn"
+            onClick={() => setActiveModal('architecture')}
+            data-testid="hero-secondary-cta"
+          >
+            <span>Open Architecture Blueprint Dialog</span>
+            <span className="btn-arrow">↗</span>
+          </button>
+        </div>
+      </section>
+
+      {/* ── 6. EXECUTION PIPELINE (CONNECTED PIPELINE STRIP) ── */}
+      <section id="pipeline" className="architecture-pipeline-section scroll-reveal-item">
         <div className="section-header-block">
           <div className="section-eyebrow">EXECUTION PIPELINE</div>
           <h2 className="section-title">How Xeren reasons through tasks</h2>
@@ -300,7 +499,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="node-step-index">01</div>
             <div className="node-icon-wrap">📥</div>
             <div className="node-title">Input</div>
-            <div className="node-desc">Goal ingestion & constraint parsing</div>
+            <div className="node-desc">Goal ingestion &amp; constraint parsing</div>
           </div>
 
           <div className="pipeline-connector-line">
@@ -324,7 +523,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="node-step-index">03</div>
             <div className="node-icon-wrap">🔍</div>
             <div className="node-title">Retriever (RAG)</div>
-            <div className="node-desc">Grounding in private & web vaults</div>
+            <div className="node-desc">Grounding in private &amp; web vaults</div>
           </div>
 
           <div className="pipeline-connector-line">
@@ -336,7 +535,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="node-step-index">04</div>
             <div className="node-icon-wrap">⚙️</div>
             <div className="node-title">Tool Execution</div>
-            <div className="node-desc">Sandboxed APIs, shell, & code run</div>
+            <div className="node-desc">Sandboxed APIs, shell, &amp; code run</div>
           </div>
 
           <div className="pipeline-connector-line">
@@ -348,7 +547,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="node-step-index">05</div>
             <div className="node-icon-wrap">🛡️</div>
             <div className="node-title">Verifier</div>
-            <div className="node-desc">Self-checking tests & logical audit</div>
+            <div className="node-desc">Self-checking tests &amp; logical audit</div>
           </div>
 
           <div className="pipeline-connector-line">
@@ -365,8 +564,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* ── 6. BENCHMARKS / METRICS STRIP ── */}
-      <section id="benchmarks" className="benchmarks-strip-section">
+      {/* ── 7. BENCHMARKS / METRICS STRIP ── */}
+      <section id="benchmarks" className="benchmarks-strip-section scroll-reveal-item">
         <div className="benchmarks-inner-grid">
           <div className="metric-cell">
             <div className="metric-large-number">140+</div>
@@ -389,13 +588,122 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="metric-cell">
             <div className="metric-large-number">1,000,000</div>
             <div className="metric-label">Token Context Window</div>
-            <div className="metric-caption">Full repository & doc comprehension</div>
+            <div className="metric-caption">Full repository &amp; doc comprehension</div>
           </div>
         </div>
       </section>
 
-      {/* ── 7. USE CASES ── */}
-      <section id="use-cases" className="use-cases-section">
+      {/* ── 8. DEVELOPER DOCUMENTATION SHOWCASE (DIRECT ON-PAGE SCROLL SECTION) ── */}
+      <section id="docs" className="docs-showcase-section scroll-reveal-item" aria-label="Developer Documentation">
+        <div className="section-header-block">
+          <div className="section-eyebrow">DEVELOPER DOCUMENTATION &amp; SDK REFERENCE</div>
+          <h2 className="section-title">Build with XEREN Autonomous Core</h2>
+          <p className="section-subtitle">
+            Simple SDK setup, WebSocket/Realtime RPC, and deterministic sandbox tool contracts.
+          </p>
+        </div>
+
+        <div className="docs-showcase-grid">
+          {/* Docs Card 1: Getting Started */}
+          <div className="docs-panel-card">
+            <div className="docs-panel-badge">
+              <span className="docs-badge-icon">🚀</span>
+              <span>GETTING STARTED</span>
+            </div>
+            <h3 className="docs-card-title">Initiate Autonomous Agent Sessions</h3>
+            <p className="docs-card-text">
+              Launch the workspace to initiate a natural reasoning session. Speak naturally via microphone or stream
+              complex multi-step prompts directly through the TypeScript and Python SDKs.
+            </p>
+            <div className="docs-code-container">
+              <div className="docs-code-header">
+                <span className="code-lang-tag">TypeScript SDK</span>
+                <button
+                  type="button"
+                  className="code-copy-btn"
+                  onClick={copyDocsCode}
+                  title="Copy code snippet"
+                >
+                  {copiedDocsCode ? '✓ Copied' : '📋 Copy'}
+                </button>
+              </div>
+              <pre className="docs-code-block">
+                <code>{`import { XerenClient } from '@xeren/sdk'
+
+const client = new XerenClient({ ephemeral: true })
+const session = await client.createSession({ mode: 'reasoning' })
+const plan = await session.plan('Build verified price alert')
+await session.execute(plan)`}</code>
+              </pre>
+            </div>
+          </div>
+
+          {/* Docs Card 2: Multi-Step Tool Verification */}
+          <div className="docs-panel-card">
+            <div className="docs-panel-badge">
+              <span className="docs-badge-icon">⚙️</span>
+              <span>TOOL INTEGRATION</span>
+            </div>
+            <h3 className="docs-card-title">Multi-Step Tool Verification</h3>
+            <p className="docs-card-text">
+              XEREN automatically plans tasks, queries connected knowledge vaults via RAG, invokes sandboxed tools,
+              and self-checks every output before returning it.
+            </p>
+            <ul className="docs-points-list">
+              <li>
+                <strong>DAG Milestone Decomposition:</strong> Breaks ambiguous objectives into ordered dependencies.
+              </li>
+              <li>
+                <strong>Ephemeral Sandboxes:</strong> Tools execute in RAM-isolated environments with zero leak.
+              </li>
+              <li>
+                <strong>Self-Checking Assertions:</strong> Verifies proof consistency before reporting answers.
+              </li>
+            </ul>
+          </div>
+
+          {/* Docs Card 3: Zero Data Retention */}
+          <div className="docs-panel-card">
+            <div className="docs-panel-badge">
+              <span className="docs-badge-icon">🔒</span>
+              <span>SECURITY ARCHITECTURE</span>
+            </div>
+            <h3 className="docs-card-title">Zero Data Retention Architecture</h3>
+            <p className="docs-card-text">
+              All conversations and ephemeral states are processed locally and in temporary memory buffers without persistent retention.
+            </p>
+            <div className="docs-security-matrix">
+              <div className="sec-matrix-row">
+                <span className="sec-matrix-label">Session Memory:</span>
+                <span className="sec-matrix-val">RAM-only, destroyed on disconnect</span>
+              </div>
+              <div className="sec-matrix-row">
+                <span className="sec-matrix-label">Knowledge Vault:</span>
+                <span className="sec-matrix-val">Local Chroma / Qdrant instance</span>
+              </div>
+              <div className="sec-matrix-row">
+                <span className="sec-matrix-label">External Telemetry:</span>
+                <span className="sec-matrix-val">100% Zero third-party logging</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="docs-footer-cta">
+          <button
+            type="button"
+            className="docs-workspace-btn"
+            onClick={handleLaunch}
+          >
+            <span>Launch Neural Workspace &amp; Test Live</span>
+            <span className="btn-arrow">→</span>
+          </button>
+        </div>
+      </section>
+
+      {/* ── 9. ENTERPRISE APPLICATIONS / USE CASES ── */}
+      <section id="use-cases" className="use-cases-section scroll-reveal-item">
         <div className="section-header-block">
           <div className="section-eyebrow">ENTERPRISE APPLICATIONS</div>
           <h2 className="section-title">Engineered for mission-critical workflows</h2>
@@ -417,7 +725,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="use-case-card">
             <div className="use-case-badge">ENGINEERING COPILOTS</div>
-            <h3 className="use-case-title">Autonomous Code & Debugging</h3>
+            <h3 className="use-case-title">Autonomous Code &amp; Debugging</h3>
             <p className="use-case-text">
               Deconstruct complex architecture migrations into atomic sub-tasks. Executes test suites,
               analyzes runtime error traces, and validates builds before generating pull requests.
@@ -437,8 +745,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* ── 8. FINAL CTA BANNER ── */}
-      <section className="final-cta-section">
+      {/* ── 10. FINAL CTA BANNER ── */}
+      <section className="final-cta-section scroll-reveal-item">
         <div className="final-cta-panel">
           <div className="final-cta-glow-backdrop" aria-hidden="true" />
           <div className="final-cta-content">
@@ -461,7 +769,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* ── 9. FOOTER ── */}
+      {/* ── 11. FOOTER ── */}
       <footer className="emerald-footer">
         <div className="footer-top-grid">
           <div className="footer-brand-col">
@@ -490,10 +798,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="footer-links-col">
             <h4>Architecture</h4>
             <ul>
-              <li><button type="button" onClick={() => setActiveModal('architecture')}>System Overview</button></li>
+              <li><button type="button" onClick={() => scrollToSection('architecture')}>System Overview</button></li>
               <li><button type="button" onClick={() => scrollToSection('benchmarks')}>Benchmarks</button></li>
               <li><button type="button" onClick={() => scrollToSection('use-cases')}>Enterprise Security</button></li>
-              <li><button type="button" onClick={() => setActiveModal('docs')}>API Documentation</button></li>
+              <li><button type="button" onClick={() => scrollToSection('docs')}>API Documentation</button></li>
             </ul>
           </div>
 
@@ -520,7 +828,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </footer>
 
-      {/* ── Architecture Modal ── */}
+      {/* ── Architecture Modal (Deep-Dive Dialog) ── */}
       {activeModal === 'architecture' && (
         <div
           className="landing-modal-backdrop"
@@ -536,7 +844,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="modal-header">
               <div className="modal-title-group">
                 <span className="modal-category">SYSTEM ARCHITECTURE</span>
-                <h2 className="modal-title">Autonomous Neural Reasoning Engine</h2>
+                <h2 className="modal-title">Autonomous Neural Engine &amp; Reasoning Core</h2>
               </div>
               <button
                 type="button"
@@ -610,7 +918,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       )}
 
-      {/* ── Docs Modal ── */}
+      {/* ── Docs Modal (Deep-Dive Dialog) ── */}
       {activeModal === 'docs' && (
         <div
           className="landing-modal-backdrop"
