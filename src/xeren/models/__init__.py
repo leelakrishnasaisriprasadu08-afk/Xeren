@@ -49,10 +49,21 @@ from xeren.models.types import (
     ToolCall,
 )
 
+import logging
 import os
+from pathlib import Path
 from typing import Any, Optional
 
-# Register default providers (local, open-weight, and OpenAI-compatible cloud APIs)
+logger = logging.getLogger("xeren.models")
+
+try:
+    from xeren.models.providers.xeren_native import XerenNativeLLM
+    XEREN_NATIVE_AVAILABLE = True
+except Exception as _e:
+    XerenNativeLLM = None  # type: ignore
+    XEREN_NATIVE_AVAILABLE = False
+
+# Register default providers (local, open-weight, native checkpoints, and OpenAI-compatible cloud APIs)
 ModelRegistry.register("mock", MockLLM)
 ModelRegistry.register("local_openweight", LocalOpenWeightAdapter)
 ModelRegistry.register("local", LocalOpenWeightAdapter)
@@ -64,6 +75,11 @@ ModelRegistry.register("groq", LocalOpenWeightAdapter)
 ModelRegistry.register("deepseek", LocalOpenWeightAdapter)
 ModelRegistry.register("openrouter", LocalOpenWeightAdapter)
 ModelRegistry.register("together", LocalOpenWeightAdapter)
+
+if XEREN_NATIVE_AVAILABLE and XerenNativeLLM:
+    ModelRegistry.register("xeren_native", XerenNativeLLM)
+    ModelRegistry.register("xeren_mini", XerenNativeLLM)
+    ModelRegistry.register("xeren-mini", XerenNativeLLM)
 
 
 def create_llm(
@@ -77,38 +93,61 @@ def create_llm(
 ) -> BaseLLM:
     """Convenience factory to instantiate and configure an LLM for Xeren.
 
-    Automatically resolves configuration from environment variables (.env):
-      - Provider: LLM_PROVIDER (e.g. 'ollama', 'groq', 'openai', 'deepseek', 'mock')
-      - Model: LLM_MODEL (e.g. 'llama3.2', 'llama-3.3-70b-versatile', 'gpt-4o-mini')
+    Defaults to Xeren-Mini (1.5B parameter model architecture) or resolves from environment variables:
+      - Provider: LLM_PROVIDER (e.g. 'xeren_mini', 'ollama', 'groq', 'openai', 'deepseek', 'mock')
+      - Model: LLM_MODEL (e.g. 'xeren_mini', 'xeren-mini-1.5b', 'llama3.2', 'gpt-4o-mini')
       - API Key: LLM_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY
-      - API Base: LLM_API_BASE, OLLAMA_HOST
+      - API Base / Checkpoint: LLM_API_BASE, XEREN_CHECKPOINT, OLLAMA_HOST
     """
-    # 1. Determine provider
-    effective_provider = provider or os.getenv("LLM_PROVIDER")
-    if not effective_provider:
-        if os.getenv("GROQ_API_KEY"):
-            effective_provider = "groq"
-        elif os.getenv("OPENAI_API_KEY"):
-            effective_provider = "openai"
-        elif os.getenv("DEEPSEEK_API_KEY"):
-            effective_provider = "deepseek"
-        else:
-            effective_provider = "ollama"
+    raw_model = model_id or os.getenv("LLM_MODEL")
+    raw_provider = provider or os.getenv("LLM_PROVIDER")
 
-    # 2. Determine model_id
-    effective_model = model_id or os.getenv("LLM_MODEL")
-    if not effective_model:
-        defaults = {
-            "groq": "llama-3.3-70b-versatile",
-            "openai": "gpt-4o-mini",
-            "deepseek": "deepseek-chat",
-            "ollama": "llama3.2",
-            "local": "llama3.2",
-            "local_openweight": "llama3.2",
-            "lmstudio": "local-model",
-            "mock": "mock-model",
-        }
-        effective_model = defaults.get(effective_provider.lower(), "llama3.2")
+    # If xeren_mini or 1.5b requested explicitly or default
+    is_xeren_mini = (
+        (raw_model and any(k in raw_model.lower() for k in ("xeren_mini", "xeren-mini", "1.5b")))
+        or (raw_provider and any(k in raw_provider.lower() for k in ("xeren_native", "xeren_mini", "xeren-mini")))
+    )
+
+    # 1. Determine provider
+    if is_xeren_mini:
+        # Check if local PyTorch checkpoint exists
+        ckpt_path = api_base or os.getenv("XEREN_CHECKPOINT", "training/checkpoints/stage2/checkpoint_final.pt")
+        if XEREN_NATIVE_AVAILABLE and Path(ckpt_path).exists():
+            effective_provider = "xeren_native"
+            effective_model = raw_model or "xeren-mini-1.5b"
+        else:
+            # Fallback to local openweight adapter (Ollama or OpenAI-compatible endpoint hosting 1.5b)
+            effective_provider = raw_provider or "ollama"
+            effective_model = raw_model or "xeren-mini-1.5b"
+    else:
+        effective_provider = raw_provider
+        if not effective_provider:
+            if os.getenv("GROQ_API_KEY"):
+                effective_provider = "groq"
+            elif os.getenv("OPENAI_API_KEY"):
+                effective_provider = "openai"
+            elif os.getenv("DEEPSEEK_API_KEY"):
+                effective_provider = "deepseek"
+            elif XEREN_NATIVE_AVAILABLE and Path("training/checkpoints/stage2/checkpoint_final.pt").exists():
+                effective_provider = "xeren_native"
+            else:
+                effective_provider = "ollama"
+
+        effective_model = raw_model
+        if not effective_model:
+            defaults = {
+                "xeren_native": "xeren-mini-1.5b",
+                "xeren_mini": "xeren-mini-1.5b",
+                "groq": "llama-3.3-70b-versatile",
+                "openai": "gpt-4o-mini",
+                "deepseek": "deepseek-chat",
+                "ollama": "llama3.2",
+                "local": "llama3.2",
+                "local_openweight": "llama3.2",
+                "lmstudio": "local-model",
+                "mock": "mock-model",
+            }
+            effective_model = defaults.get(effective_provider.lower(), "xeren-mini-1.5b")
 
     config = ModelConfig(
         model_id=effective_model,
@@ -120,7 +159,12 @@ def create_llm(
         extra_params=extra_params,
     )
 
-    return ModelRegistry.create(config)
+    try:
+        return ModelRegistry.create(config)
+    except Exception as err:
+        logger.warning("Could not instantiate provider '%s' (%s), falling back to mock: %s", effective_provider, effective_model, err)
+        return MockLLM(config)
+
 
 __all__ = [
     # Base interfaces

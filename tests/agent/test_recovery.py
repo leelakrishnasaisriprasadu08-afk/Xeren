@@ -173,4 +173,3 @@ def test_recovery_max_retries_exceeded_triggers_replan():
 
     rm.reset()
     assert rm._retry_counts == {}
-

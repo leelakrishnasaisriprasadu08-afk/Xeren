@@ -7,7 +7,15 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-from sqlmodel import Session, SQLModel, create_engine, select
+try:
+    from sqlmodel import Session, SQLModel, create_engine, select
+    SQLMODEL_AVAILABLE = True
+except ImportError:
+    SQLMODEL_AVAILABLE = False
+    Session = Any  # type: ignore
+    SQLModel = object  # type: ignore
+    create_engine = None  # type: ignore
+    select = None  # type: ignore
 
 from xeren.plugins.experience.schemas import ExperienceItem, UserFeedback
 from xeren.plugins.experience.stores.base import BaseExperienceStore

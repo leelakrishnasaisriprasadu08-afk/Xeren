@@ -20,6 +20,7 @@ from xeren.security.audit import SecurityAuditLogger
 from xeren.security.memory_fence import SecureMemoryFence
 from xeren.security.network_guard import NetworkGuard
 from xeren.security.gate import XerenSecurityGate
+from xeren.security.path_classifier import LLMPathClassifier, TIER_PATHS, VAULT_ROOT
 
 __all__ = [
     "DataSensitivityTier",
@@ -40,4 +41,7 @@ __all__ = [
     "SecureMemoryFence",
     "NetworkGuard",
     "XerenSecurityGate",
+    "LLMPathClassifier",
+    "TIER_PATHS",
+    "VAULT_ROOT",
 ]

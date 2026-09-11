@@ -19,9 +19,9 @@
   max-width: 95vw;
   max-height: 90vh;
   background: rgba(13, 17, 23, 0.96);
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 20px;
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 240, 255, 0.16);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8), 0 0 40px rgba(16, 185, 129, 0.16);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -56,9 +56,9 @@
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: #00f0ff;
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.25);
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -142,8 +142,8 @@
 }
 
 .mcp-tab-btn.active {
-  color: #00f0ff;
-  border-bottom-color: #00f0ff;
+  color: #10b981;
+  border-bottom-color: #10b981;
 }
 
 .tab-counter {
@@ -154,15 +154,15 @@
 }
 
 .mcp-tab-btn.active .tab-counter {
-  background: rgba(0, 240, 255, 0.2);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
 }
 
 .tab-pill {
   font-size: 0.65rem;
   padding: 2px 6px;
-  background: rgba(168, 85, 247, 0.2);
-  border: 1px solid rgba(168, 85, 247, 0.4);
+  background: rgba(4, 120, 87, 0.2);
+  border: 1px solid rgba(4, 120, 87, 0.4);
   color: #d8b4fe;
   border-radius: 10px;
 }
@@ -187,9 +187,9 @@
 }
 
 .quick-add-btn {
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
   font-size: 0.76rem;
   font-weight: 600;
   padding: 6px 12px;
@@ -199,7 +199,7 @@
 }
 
 .quick-add-btn:hover {
-  background: rgba(0, 240, 255, 0.2);
+  background: rgba(16, 185, 129, 0.2);
 }
 
 /* Servers Grid */
@@ -218,7 +218,7 @@
 }
 
 .server-card:hover {
-  border-color: rgba(0, 240, 255, 0.25);
+  border-color: rgba(16, 185, 129, 0.25);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -291,7 +291,7 @@
 }
 
 .transport-badge {
-  color: #38bdf8;
+  color: #34d399;
 }
 
 .server-desc {
@@ -311,7 +311,7 @@
 .server-command-box code {
   font-family: 'JetBrains Mono', Consolas, monospace;
   font-size: 0.72rem;
-  color: #38bdf8;
+  color: #34d399;
 }
 
 .server-card-footer {
@@ -330,12 +330,12 @@
 }
 
 .expand-tools-btn {
-  color: #00f0ff;
+  color: #10b981;
   font-weight: 600;
 }
 
 .expand-tools-btn:hover {
-  background: rgba(0, 240, 255, 0.1);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .delete-server-btn {
@@ -359,8 +359,8 @@
 }
 
 .toggle-switch-btn.active {
-  background: rgba(0, 240, 255, 0.3);
-  border-color: #00f0ff;
+  background: rgba(16, 185, 129, 0.3);
+  border-color: #10b981;
 }
 
 .toggle-slider {
@@ -376,8 +376,8 @@
 
 .toggle-switch-btn.active .toggle-slider {
   left: 23px;
-  background: #00f0ff;
-  box-shadow: 0 0 8px #00f0ff;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
 }
 
 /* Expanded Tools List */
@@ -421,7 +421,7 @@
 }
 
 .tool-name-code code {
-  color: #00f0ff;
+  color: #10b981;
   font-weight: 700;
   font-size: 0.8rem;
 }
@@ -432,9 +432,9 @@
 }
 
 .test-tool-btn {
-  background: rgba(0, 240, 255, 0.08);
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
   font-size: 0.72rem;
   font-weight: 600;
   padding: 4px 10px;
@@ -444,7 +444,7 @@
 }
 
 .test-tool-btn:hover:not(:disabled) {
-  background: rgba(0, 240, 255, 0.2);
+  background: rgba(16, 185, 129, 0.2);
 }
 
 .test-tool-btn:disabled {
@@ -455,7 +455,7 @@
 .tool-execution-result {
   margin-top: 10px;
   background: rgba(5, 8, 15, 0.9);
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 6px;
   padding: 10px;
 }
@@ -534,7 +534,7 @@
 
 .preset-cat {
   font-size: 0.65rem;
-  color: #38bdf8;
+  color: #34d399;
   text-transform: uppercase;
 }
 
@@ -563,9 +563,9 @@
 
 .connect-preset-btn {
   width: 100%;
-  background: rgba(0, 240, 255, 0.12);
-  border: 1px solid rgba(0, 240, 255, 0.35);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
   font-weight: 600;
   font-size: 0.8rem;
   padding: 8px;
@@ -575,7 +575,7 @@
 }
 
 .connect-preset-btn:hover {
-  background: rgba(0, 240, 255, 0.24);
+  background: rgba(16, 185, 129, 0.24);
 }
 
 .connect-preset-btn.installed {
@@ -587,7 +587,7 @@
 /* TAB 3: WORKFLOWS (INTEROPERABILITY) */
 .workflows-intro-banner {
   background: rgba(147, 51, 234, 0.08);
-  border: 1px solid rgba(168, 85, 247, 0.25);
+  border: 1px solid rgba(4, 120, 87, 0.25);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 20px;
@@ -625,7 +625,7 @@
 
 .pipeline-select-box {
   background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(168, 85, 247, 0.4);
+  border: 1px solid rgba(4, 120, 87, 0.4);
   color: #ffffff;
   padding: 6px 12px;
   border-radius: 6px;
@@ -652,7 +652,7 @@
 
 .flow-step-node {
   background: rgba(18, 24, 38, 0.9);
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 12px;
   padding: 14px;
   min-width: 180px;
@@ -668,7 +668,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #00f0ff;
+  background: #10b981;
   color: #000;
   font-size: 0.68rem;
   font-weight: 800;
@@ -681,12 +681,12 @@
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #a855f7;
+  color: #047857;
   margin-bottom: 4px;
 }
 
 .node-tool-name code {
-  color: #00f0ff;
+  color: #10b981;
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -702,7 +702,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #00f0ff;
+  color: #10b981;
   font-size: 1.2rem;
   position: relative;
   flex-shrink: 0;
@@ -716,7 +716,7 @@
 }
 
 .execute-pipeline-btn {
-  background: linear-gradient(135deg, #00f0ff 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #10b981 0%, #10b981 100%);
   border: none;
   color: #040812;
   font-size: 0.85rem;
@@ -724,13 +724,13 @@
   padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 240, 255, 0.35);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
   transition: all 0.2s ease;
 }
 
 .execute-pipeline-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(0, 240, 255, 0.5);
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.5);
 }
 
 .execute-pipeline-btn:disabled {
@@ -828,11 +828,11 @@
 }
 
 .step-res-title strong {
-  color: #a855f7;
+  color: #047857;
 }
 
 .step-res-title code {
-  color: #00f0ff;
+  color: #10b981;
 }
 
 .step-latency {
@@ -907,8 +907,8 @@
 }
 
 .form-row input:focus, .form-row select:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+  border-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
 }
 
 .form-grid-2 {
@@ -923,7 +923,7 @@
 
 .submit-custom-btn {
   width: 100%;
-  background: linear-gradient(135deg, #00f0ff 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #10b981 0%, #10b981 100%);
   border: none;
   color: #040812;
   font-weight: 700;
@@ -944,8 +944,8 @@
 }
 
 .accounts-header-banner {
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
-  border: 1px solid rgba(0, 240, 255, 0.2);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
   border-radius: 14px;
   padding: 16px 20px;
   display: flex;
@@ -970,7 +970,7 @@
 }
 
 .accounts-header-banner strong {
-  color: #00f0ff;
+  color: #10b981;
 }
 
 .vault-security-pill {
@@ -1005,7 +1005,7 @@
 }
 
 .account-card:hover {
-  border-color: rgba(0, 240, 255, 0.3);
+  border-color: rgba(16, 185, 129, 0.3);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
@@ -1067,7 +1067,7 @@
 .account-category {
   font-size: 0.64rem;
   font-weight: 700;
-  color: #38bdf8;
+  color: #34d399;
   letter-spacing: 0.08em;
 }
 
@@ -1120,7 +1120,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(0, 240, 255, 0.12);
+  background: rgba(16, 185, 129, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1147,15 +1147,15 @@
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(168, 85, 247, 0.2);
+  background: rgba(4, 120, 87, 0.2);
   color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  border: 1px solid rgba(4, 120, 87, 0.35);
 }
 
 .masked-token-code code {
   font-family: 'JetBrains Mono', Consolas, monospace;
   font-size: 0.68rem;
-  color: #38bdf8;
+  color: #34d399;
   background: rgba(0, 0, 0, 0.3);
   padding: 1px 5px;
   border-radius: 4px;
@@ -1187,7 +1187,7 @@
 .switch-account-btn {
   background: transparent;
   border: none;
-  color: #00f0ff;
+  color: #10b981;
   font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
@@ -1197,7 +1197,7 @@
 }
 
 .switch-account-btn:hover {
-  background: rgba(0, 240, 255, 0.1);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .logout-account-btn {
@@ -1223,9 +1223,9 @@
 
 .login-account-btn {
   width: 100%;
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
   font-weight: 700;
   font-size: 0.8rem;
   padding: 8px 12px;
@@ -1235,9 +1235,9 @@
 }
 
 .login-account-btn:hover {
-  background: rgba(0, 240, 255, 0.22);
-  border-color: #00f0ff;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  background: rgba(16, 185, 129, 0.22);
+  border-color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
 }
 
 /* Login Modal Overlay */
@@ -1259,9 +1259,9 @@
   width: 480px;
   max-width: 95vw;
   background: rgba(15, 20, 32, 0.98);
-  border: 1px solid rgba(0, 240, 255, 0.4);
+  border: 1px solid rgba(16, 185, 129, 0.4);
   border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 240, 255, 0.2);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(16, 185, 129, 0.2);
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
@@ -1349,8 +1349,8 @@
 
 .login-form input:focus,
 .login-form select:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+  border-color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
 .input-hint {
@@ -1394,7 +1394,7 @@
 }
 
 .submit-login-btn {
-  background: linear-gradient(135deg, #00f0ff 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #10b981 0%, #10b981 100%);
   border: none;
   color: #040812;
   font-weight: 700;
@@ -1402,13 +1402,13 @@
   padding: 9px 16px;
   border-radius: 6px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 240, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
   transition: all 0.15s;
 }
 
 .submit-login-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.5);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
 }
 
 .submit-login-btn:disabled {
@@ -1464,13 +1464,13 @@
 }
 
 .export-logs-btn {
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
 }
 
 .export-logs-btn:hover {
-  background: rgba(0, 240, 255, 0.2);
+  background: rgba(16, 185, 129, 0.2);
 }
 
 .clear-logs-btn {
@@ -1518,7 +1518,7 @@
 }
 
 .logs-select:focus {
-  border-color: #00f0ff;
+  border-color: #10b981;
 }
 
 .search-filter-box {
@@ -1538,8 +1538,8 @@
 }
 
 .logs-search-input:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+  border-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
 }
 
 /* Log Entries List */
@@ -1581,11 +1581,11 @@
 }
 
 .log-entry-row.type-sync {
-  border-left-color: #00f0ff;
+  border-left-color: #10b981;
 }
 
 .log-entry-row.type-tool_call {
-  border-left-color: #a855f7;
+  border-left-color: #047857;
 }
 
 .log-entry-row.type-error {
@@ -1638,15 +1638,15 @@
 }
 
 .log-event-tag.tag-sync {
-  background: rgba(0, 240, 255, 0.15);
-  color: #00f0ff;
-  border: 1px solid rgba(0, 240, 255, 0.35);
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
 .log-event-tag.tag-tool_call {
-  background: rgba(168, 85, 247, 0.15);
+  background: rgba(4, 120, 87, 0.15);
   color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  border: 1px solid rgba(4, 120, 87, 0.35);
 }
 
 .log-event-tag.tag-error {
@@ -1658,7 +1658,7 @@
 .log-user-tag code {
   font-family: 'JetBrains Mono', Consolas, monospace;
   font-size: 0.68rem;
-  color: #38bdf8;
+  color: #34d399;
   background: rgba(0, 0, 0, 0.25);
   padding: 2px 6px;
   border-radius: 4px;
@@ -1682,8 +1682,8 @@
 }
 
 .expand-log-btn:hover {
-  color: #00f0ff;
-  background: rgba(0, 240, 255, 0.1);
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .log-expanded-payload {
@@ -1714,9 +1714,9 @@
 }
 
 .add-device-app-btn {
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.15) 0%, rgba(168, 85, 247, 0.2) 100%);
-  border: 1px solid rgba(0, 240, 255, 0.45);
-  color: #00f0ff;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(4, 120, 87, 0.2) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #10b981;
   font-size: 0.78rem;
   font-weight: 600;
   padding: 6px 14px;
@@ -1726,15 +1726,15 @@
   align-items: center;
   gap: 6px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
 }
 
 .add-device-app-btn:hover {
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.28) 0%, rgba(168, 85, 247, 0.35) 100%);
-  border-color: #00f0ff;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(4, 120, 87, 0.35) 100%);
+  border-color: #10b981;
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
 }
 
 .accounts-filter-bar {
@@ -1766,11 +1766,11 @@
 }
 
 .filter-chip.active {
-  background: rgba(0, 240, 255, 0.12);
-  border-color: #00f0ff;
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #10b981;
+  color: #10b981;
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
 }
 
 .badge-row {
@@ -1814,8 +1814,8 @@
 }
 
 .local-app-highlight-box {
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
-  border: 1px solid rgba(0, 240, 255, 0.25);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.25);
   border-radius: 8px;
   padding: 10px 14px;
   display: flex;
@@ -1832,7 +1832,7 @@
 .local-app-highlight-box strong {
   display: block;
   font-size: 0.82rem;
-  color: #38bdf8;
+  color: #34d399;
   margin-bottom: 2px;
 }
 
@@ -1893,11 +1893,11 @@
 }
 
 .mode-btn.active {
-  background: rgba(0, 240, 255, 0.15);
-  border-color: #00f0ff;
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+  color: #10b981;
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
 }
 
 /* Section Boxes */
@@ -1913,7 +1913,7 @@
   display: block;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #38bdf8;
+  color: #34d399;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 8px;
@@ -1955,7 +1955,7 @@
 .custom-url-tag {
   background: rgba(56, 189, 248, 0.15);
   border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
+  color: #34d399;
   font-size: 0.62rem;
   font-weight: 700;
   padding: 1px 6px;

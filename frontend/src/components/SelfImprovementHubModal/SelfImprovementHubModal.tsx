@@ -518,7 +518,7 @@ export const SelfImprovementHubModal: React.FC<SelfImprovementHubModalProps> = (
                     </div>
                   </div>
 
-                  <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem' }}>
+                  <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(0, 0, 0, 0.08)', paddingTop: '1rem' }}>
                     <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#f1f5f9' }}>Recent Intelligence Evolutions</h4>
                     <ul className="facts-list">
                       {(report?.recent_improvements ?? [

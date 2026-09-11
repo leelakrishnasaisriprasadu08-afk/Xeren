@@ -1,6 +1,6 @@
 {
   "name": "XerenTokenizer",
-  "vocab_size": 915,
+  "vocab_size": 32768,
   "special_tokens": [
     "<|pad|>",
     "<|unk|>",

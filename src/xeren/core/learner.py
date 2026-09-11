@@ -30,9 +30,13 @@ class KnowledgeGapEvaluation(BaseModel):
     """Result of evaluating whether the agent has sufficient knowledge for a task."""
 
     has_gap: bool = Field(..., description="Whether a knowledge gap or low confidence was detected")
+    has_gaps: bool = Field(default=False, description="Alias for has_gap")
     confidence_score: float = Field(..., ge=0.0, le=1.0, description="Estimated confidence score (0.0 to 1.0)")
     gap_topic: Optional[str] = Field(default=None, description="Identified topic or concept requiring research")
     reasons: List[str] = Field(default_factory=list, description="Reasons triggering the knowledge gap")
+
+    def model_post_init(self, __context: Any) -> None:
+        self.has_gaps = self.has_gap
 
 
 class LearnedKnowledge(BaseModel):
@@ -146,6 +150,22 @@ class EpistemicLearner:
         self.strawberry_planner = planner or StrawberryQueryPlanner()
         self.search_engine = search_engine or create_search_engine()
         self.gap_detector = KnowledgeGapDetector(confidence_threshold=confidence_threshold)
+
+    async def identify_knowledge_gaps(
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> KnowledgeGapEvaluation:
+        """Evaluate query or task for knowledge gaps."""
+        return self.gap_detector.evaluate(query, context)
+
+    def identify_knowledge_gaps_sync(
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> KnowledgeGapEvaluation:
+        """Synchronously evaluate query or task for knowledge gaps."""
+        return self.gap_detector.evaluate(query, context)
 
     async def aevaluate_and_learn_if_needed(
         self,

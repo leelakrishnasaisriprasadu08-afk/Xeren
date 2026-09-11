@@ -5,6 +5,7 @@ import type {
   ProjectCoachMessage,
   ProjectSpecification,
 } from '../../types/project'
+import { XerenRelay } from '../XerenRelay/XerenRelay'
 import './ProjectWorkspaceModal.css'
 
 interface ProjectWorkspaceModalProps {
@@ -12,10 +13,11 @@ interface ProjectWorkspaceModalProps {
   onClose: () => void
   project: Project | null
   currentUserId?: string
+  initialTab?: ActiveTab
   onProjectUpdated?: (updatedProject: Project) => void
 }
 
-type ActiveTab = 'coach' | 'specs' | 'roles' | 'milestones'
+export type ActiveTab = 'coach' | 'relay' | 'specs' | 'roles' | 'milestones'
 
 const ROLE_OPTIONS: { role: ProjectRole; label: string; icon: string }[] = [
   { role: 'owner', label: 'Project Owner', icon: '👑' },
@@ -32,9 +34,10 @@ export const ProjectWorkspaceModal: React.FC<ProjectWorkspaceModalProps> = ({
   onClose,
   project,
   currentUserId = 'usr_dev_01',
+  initialTab = 'coach',
   onProjectUpdated,
 }) => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('coach')
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab)
   const [activeMemberId, setActiveMemberId] = useState<string>(currentUserId)
   const [messages, setMessages] = useState<ProjectCoachMessage[]>([])
   const [inputQuery, setInputQuery] = useState('')
@@ -52,6 +55,12 @@ export const ProjectWorkspaceModal: React.FC<ProjectWorkspaceModalProps> = ({
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   // Sync active project state
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [initialTab])
+
   useEffect(() => {
     if (project) {
       const specs = project.specifications
@@ -340,6 +349,14 @@ export const ProjectWorkspaceModal: React.FC<ProjectWorkspaceModalProps> = ({
             🤖 AI Coach Workstation
           </button>
           <button
+            id="tab-btn-relay"
+            className={`tab-btn ${activeTab === 'relay' ? 'active' : ''}`}
+            onClick={() => setActiveTab('relay')}
+            data-testid="tab-btn-relay"
+          >
+            ⚡ Xeren Relay
+          </button>
+          <button
             id="tab-btn-specs"
             className={`tab-btn ${activeTab === 'specs' ? 'active' : ''}`}
             onClick={() => setActiveTab('specs')}
@@ -477,6 +494,13 @@ export const ProjectWorkspaceModal: React.FC<ProjectWorkspaceModalProps> = ({
                 {isSending ? 'Thinking...' : 'Consult Coach →'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Tab: Xeren Relay (Autonomous Background Execution & Connected Apps) */}
+        {activeTab === 'relay' && (
+          <div className="workspace-tab-content relay-tab-content" id="project-relay-panel" data-testid="project-relay-panel">
+            <XerenRelay projectId={project.project_id} projectName={project.name} />
           </div>
         )}
 

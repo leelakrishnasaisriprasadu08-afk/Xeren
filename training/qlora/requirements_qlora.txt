@@ -1,0 +1,21 @@
+# Xeren QLoRA Fine-Tuning Requirements
+# Supports RTX A1000 (4GB/6GB VRAM) via 4-bit quantization
+# Install with: pip install -r requirements_qlora.txt
+
+# Core HuggingFace stack
+torch>=2.4.0
+transformers>=4.45.0
+tokenizers>=0.20.0
+accelerate>=0.34.0
+datasets>=3.0.0
+
+# QLoRA essentials
+peft>=0.13.0              # LoRA adapter injection
+bitsandbytes>=0.44.0      # 4-bit quantization (NF4)
+trl>=0.11.0               # SFTTrainer for supervised fine-tuning
+
+# Utilities
+pyyaml>=6.0.2
+tqdm>=4.66.0
+safetensors>=0.4.0
+sentencepiece>=0.2.0

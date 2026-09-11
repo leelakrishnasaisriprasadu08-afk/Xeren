@@ -54,6 +54,14 @@ class TaskPlan(BaseModel):
     estimated_complexity: str = Field(default="standard", description="Estimated plan complexity level")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Diagnostic and planning metadata")
 
+    def __contains__(self, key: Any) -> bool:
+        return key in self.__dict__ or hasattr(self, str(key))
+
+    def __getitem__(self, key: str) -> Any:
+        if hasattr(self, key):
+            return getattr(self, key)
+        raise KeyError(key)
+
 
 class PlanContext(BaseModel):
     """Structured context passed into Core Planner for plan generation."""
@@ -349,8 +357,8 @@ class LLMCoreModelAdapter(BaseCoreModelAdapter):
                 return self._fallback_adapter.infer_plan(plan_context)
             raise PlanValidationError(f"Model output failed schema validation: {err}", details={"errors": str(err)}) from err
         except Exception as err:
-            if self.enable_fallback and ("OutputParsingError" in type(err).__name__ or "parse" in str(err).lower()):
-                logger.warning("Model output parsing failed. Engaging safe recovery fallback: %s", err)
+            if self.enable_fallback:
+                logger.warning("Model inference failed. Engaging safe recovery fallback: %s", err)
                 return self._fallback_adapter.infer_plan(plan_context)
             raise ModelInferenceError(f"Model inference failed: {err}", details={"raw_error": str(err)}) from err
 
@@ -365,8 +373,8 @@ class LLMCoreModelAdapter(BaseCoreModelAdapter):
                 return await self._fallback_adapter.ainfer_plan(plan_context)
             raise PlanValidationError(f"Model output failed schema validation: {err}", details={"errors": str(err)}) from err
         except Exception as err:
-            if self.enable_fallback and ("OutputParsingError" in type(err).__name__ or "parse" in str(err).lower()):
-                logger.warning("Model output parsing failed. Engaging safe recovery fallback: %s", err)
+            if self.enable_fallback:
+                logger.warning("Model inference failed. Engaging safe recovery fallback: %s", err)
                 return await self._fallback_adapter.ainfer_plan(plan_context)
             raise ModelInferenceError(f"Model inference failed: {err}", details={"raw_error": str(err)}) from err
 

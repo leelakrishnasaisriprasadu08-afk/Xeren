@@ -1,7 +1,7 @@
 """Generic browser abstraction package for Xeren Autonomous Work Agent."""
 
+from xeren.agent.browser.contract import BaseBrowserAdapter
 from xeren.agent.browser.adapter import (
-    BaseBrowserAdapter,
     BrowserAction,
     BrowserActionType,
     BrowserObservation,

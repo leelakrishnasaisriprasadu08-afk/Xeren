@@ -94,6 +94,33 @@ class BrowserResult(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
+def _normalize_observation(raw: Any) -> Optional[BrowserObservation]:
+    """Normalize raw observation from either BaseBrowserAdapter contract into BrowserObservation."""
+    if raw is None:
+        return None
+    if hasattr(raw, "observation") and getattr(raw, "observation", None) is not None:
+        raw = getattr(raw, "observation")
+    if raw is None:
+        return None
+    if isinstance(raw, BrowserObservation):
+        return raw
+    elements = []
+    if hasattr(raw, "interactive_elements"):
+        for el in getattr(raw, "interactive_elements", []):
+            elements.append({"selector": getattr(el, "selector", ""), "text": getattr(el, "text", "")})
+    elif hasattr(raw, "elements"):
+        elements = getattr(raw, "elements", [])
+    content = getattr(raw, "text_content", "") or getattr(raw, "content", "")
+    return BrowserObservation(
+        url=getattr(raw, "url", ""),
+        title=getattr(raw, "title", ""),
+        content=content,
+        status_code=getattr(raw, "status_code", 200) or 200,
+        elements=elements,
+        metadata=getattr(raw, "metadata", {}) or {},
+    )
+
+
 class BrowserPlugin(BasePlugin):
     """Modular browser automation plugin integrating BaseBrowserAdapter with PluginManager."""
 
@@ -135,7 +162,7 @@ class BrowserPlugin(BasePlugin):
         logger.debug("Executing BrowserPlugin action: %s", action_name)
 
         try:
-            obs: Optional[BrowserObservation] = None
+            obs: Optional[Any] = None
             data: Optional[Any] = None
 
             if action_name == BrowserActionType.NAVIGATE.value:
@@ -174,10 +201,11 @@ class BrowserPlugin(BasePlugin):
             else:
                 raise ValueError(f"Unsupported browser action '{action_name}'.")
 
+            normalized_obs = _normalize_observation(obs)
             result = BrowserResult(
                 action=action_name,
                 success=True,
-                observation=obs,
+                observation=normalized_obs,
                 data=data,
             )
 

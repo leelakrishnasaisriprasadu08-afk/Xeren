@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+import time
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from xeren.core.data_holding import PermittedDataHoldingVault
 from xeren.core.dispatcher import XerenDispatcher
+from xeren.core.runtime import XerenCore
 from xeren.core.session import XerenSession
 from xeren.core.vault import UserVault
 from xeren.security.schemas import DataSensitivityTier
@@ -66,7 +71,9 @@ app.add_middleware(
 # Global runtime services
 vault = UserVault()
 session = XerenSession(vault=vault)
-dispatcher = XerenDispatcher(session=session)
+data_holding = PermittedDataHoldingVault(vault=vault)
+core = XerenCore(session=session, data_holding=data_holding)
+dispatcher = XerenDispatcher(session=session, plugin_manager=core.plugin_manager)
 workspace_mgr = MultiWorkspaceManager(security_gate=session.gate)
 strawberry_planner = StrawberryQueryPlanner()
 claim_verifier = ClaimVerifier()
@@ -80,6 +87,26 @@ account_mgr = AccountManager(vault=vault)
 class DispatchRequest(BaseModel):
     query: str
     context: Optional[Dict[str, Any]] = None
+
+
+class ChatRequest(BaseModel):
+    query: str
+    context: Optional[Dict[str, Any]] = None
+
+
+class PlanProceedRequest(BaseModel):
+    plan_id: Optional[str] = None
+
+
+class GrantAndHoldRequest(BaseModel):
+    directory_path: str
+    allow_write: bool = True
+    description: str = ""
+
+
+class DataHoldingQueryRequest(BaseModel):
+    query: str
+    limit: int = 5
 
 
 class UnlockRequest(BaseModel):
@@ -131,6 +158,169 @@ def dispatch_query(req: DispatchRequest):
         "data": resp.data,
         "error": resp.error,
     }
+
+
+# ======================================================================
+# INTERACTIVE CHAT, TASK PLANNING & REALTIME WEBSOCKET GATEWAY
+# ======================================================================
+
+@app.websocket("/api/v1/realtime")
+async def realtime_websocket_endpoint(websocket: WebSocket):
+    """
+    Realtime duplex communication channel connecting the frontend to Xeren.
+    Supports:
+    - Streaming text tokens/words (response.text.delta)
+    - Live Agent Activity milestones (agent.status) during plan execution
+    - Task planning first with 'proceed to the plan' gated autonomous execution
+    - User barge-in / interruption (response.cancel)
+    """
+    await websocket.accept()
+    logger.info("Realtime WebSocket connection established.")
+    is_cancelled = False
+
+    try:
+        # Initial greeting event
+        await websocket.send_json({
+            "type": "conversation.start",
+            "session_id": session.session_id,
+            "timestamp": int(time.time() * 1000),
+        })
+
+        while True:
+            raw_text = await websocket.receive_text()
+            try:
+                event = json.loads(raw_text)
+            except Exception:
+                continue
+
+            event_type = event.get("type")
+
+            if event_type == "response.cancel":
+                is_cancelled = True
+                continue
+
+            if event_type in ("user.text", "conversation.item.create"):
+                is_cancelled = False
+                query = event.get("text") or event.get("item", {}).get("content", [{}])[0].get("text", "")
+                if not query.strip():
+                    continue
+
+                message_id = f"msg_{int(time.time() * 1000)}"
+
+                # Acknowledge response creation
+                await websocket.send_json({
+                    "type": "response.created",
+                    "response": {"id": message_id},
+                    "timestamp": int(time.time() * 1000),
+                })
+
+                # Progress callback to stream agent status updates to frontend
+                async def _on_progress(progress_data: Dict[str, Any]):
+                    if not is_cancelled:
+                        await websocket.send_json({
+                            "type": "agent.status",
+                            "phase": progress_data.get("phase", "acting"),
+                            "activityTitle": progress_data.get("activityTitle", "Executing task"),
+                            "progressPercent": progress_data.get("progressPercent", 50),
+                            "timestamp": int(time.time() * 1000),
+                        })
+
+                # Execute chat / plan / proceed via XerenCore
+                chat_res = await core.achat(query, on_progress=_on_progress)
+                reply_text = chat_res.get("content", "")
+
+                # Stream response words/deltas
+                words = reply_text.split(" ")
+                for i, word in enumerate(words):
+                    if is_cancelled:
+                        break
+                    delta_text = ("" if i == 0 else " ") + word
+                    await websocket.send_json({
+                        "type": "response.text.delta",
+                        "delta": delta_text,
+                        "messageId": message_id,
+                        "timestamp": int(time.time() * 1000),
+                    })
+                    await asyncio.sleep(0.02)
+
+                if not is_cancelled:
+                    await websocket.send_json({
+                        "type": "response.text.complete",
+                        "text": reply_text,
+                        "messageId": message_id,
+                        "timestamp": int(time.time() * 1000),
+                    })
+                    await websocket.send_json({
+                        "type": "response.done",
+                        "messageId": message_id,
+                        "timestamp": int(time.time() * 1000),
+                    })
+
+    except WebSocketDisconnect:
+        logger.info("Realtime WebSocket disconnected.")
+    except Exception as e:
+        logger.exception("Error in realtime WebSocket connection: %s", e)
+
+
+@app.post("/api/chat")
+async def chat_endpoint(req: ChatRequest):
+    """Grounded interactive chat endpoint with zero hallucinations and plan staging."""
+    res = await core.achat(req.query, context=req.context)
+    return res
+
+
+@app.get("/api/plan/active")
+def get_active_plan():
+    """Fetch currently staged plan waiting for user confirmation."""
+    plan = session.get_staged_plan()
+    return {
+        "staged": plan is not None,
+        "status": session.staged_plan_status,
+        "plan": plan.model_dump() if hasattr(plan, "model_dump") else plan,
+    }
+
+
+@app.post("/api/plan/proceed")
+async def proceed_with_plan(req: Optional[PlanProceedRequest] = None):
+    """Explicitly trigger autonomous execution of staged plan."""
+    res = await core.aexecute_staged_plan()
+    return res
+
+
+# ======================================================================
+# FUTURISTIC PERMITTED DATA HOLDING ENDPOINTS
+# ======================================================================
+
+@app.get("/api/data-holding")
+def list_data_holding(source_type: Optional[str] = None):
+    """List items held from permitted device files, connected apps, and web captures."""
+    return {"items": data_holding.list_held_items(source_type=source_type)}
+
+
+@app.post("/api/data-holding/grant-and-hold")
+def grant_and_hold_directory(req: GrantAndHoldRequest):
+    """Grant persistent access to a directory and hold its files in the vault."""
+    vault.grant_directory(req.directory_path, allow_write=req.allow_write, description=req.description)
+    count = data_holding.sync_permitted_device_files()
+    return {
+        "success": True,
+        "directory": req.directory_path,
+        "files_held": count,
+    }
+
+
+@app.post("/api/data-holding/sync")
+def sync_data_holding():
+    """Scan and synchronize permitted device files into the data holding vault."""
+    count = data_holding.sync_permitted_device_files()
+    return {"success": True, "total_synced": count}
+
+
+@app.post("/api/data-holding/query")
+def query_data_holding(req: DataHoldingQueryRequest):
+    """Query permitted held data across device files, connected apps, and web captures."""
+    matches = data_holding.query_held_data(req.query, limit=req.limit)
+    return {"query": req.query, "matches": [m.to_dict() for m in matches]}
 
 
 @app.get("/api/security/tiers")

@@ -32,8 +32,8 @@
   max-width: 780px;
   max-height: 92vh;
   background: linear-gradient(135deg, rgba(14, 18, 30, 0.96), rgba(8, 10, 18, 0.98));
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.8), 0 0 45px rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.8), 0 0 45px rgba(16, 185, 129, 0.12);
   border-radius: 22px;
   display: flex;
   flex-direction: column;
@@ -52,15 +52,15 @@
 
 .project-header-pill {
   display: inline-block;
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #00f0ff;
+  color: #10b981;
   margin-bottom: 0.45rem;
 }
 
@@ -131,13 +131,13 @@
 }
 
 .project-type-card.solo-card:hover {
-  border-color: rgba(0, 240, 255, 0.5);
-  box-shadow: 0 12px 36px rgba(0, 240, 255, 0.16);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 12px 36px rgba(16, 185, 129, 0.16);
 }
 
 .project-type-card.group-card:hover {
-  border-color: rgba(168, 85, 247, 0.5);
-  box-shadow: 0 12px 36px rgba(168, 85, 247, 0.18);
+  border-color: rgba(4, 120, 87, 0.5);
+  box-shadow: 0 12px 36px rgba(4, 120, 87, 0.18);
 }
 
 .card-top-icon-wrap {
@@ -151,13 +151,13 @@
 }
 
 .card-top-icon-wrap.solo-icon {
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .card-top-icon-wrap.group-icon {
-  background: rgba(168, 85, 247, 0.12);
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: rgba(4, 120, 87, 0.12);
+  border: 1px solid rgba(4, 120, 87, 0.35);
 }
 
 .card-tag {
@@ -165,7 +165,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #00f0ff;
+  color: #10b981;
   margin-bottom: 0.4rem;
 }
 
@@ -206,7 +206,7 @@
 }
 
 .feat-check {
-  color: #00f0ff;
+  color: #10b981;
   font-weight: 800;
 }
 
@@ -215,9 +215,9 @@
 }
 
 .card-select-btn {
-  background: rgba(0, 240, 255, 0.12);
-  border: 1px solid rgba(0, 240, 255, 0.4);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10b981;
   padding: 0.75rem 1rem;
   border-radius: 10px;
   font-weight: 700;
@@ -228,21 +228,21 @@
 }
 
 .card-select-btn:hover {
-  background: #00f0ff;
+  background: #10b981;
   color: #05070e;
-  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.35);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
 }
 
 .card-select-btn.group-btn {
-  background: rgba(168, 85, 247, 0.15);
-  border-color: rgba(168, 85, 247, 0.4);
+  background: rgba(4, 120, 87, 0.15);
+  border-color: rgba(4, 120, 87, 0.4);
   color: #c084fc;
 }
 
 .card-select-btn.group-btn:hover {
-  background: #a855f7;
+  background: #047857;
   color: #ffffff;
-  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+  box-shadow: 0 4px 20px rgba(4, 120, 87, 0.4);
 }
 
 /* STEP 2: CONFIGURATION & INVITES */
@@ -265,7 +265,7 @@
 .back-type-btn {
   background: transparent;
   border: none;
-  color: #00f0ff;
+  color: #10b981;
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -306,9 +306,9 @@
 }
 
 .config-text-input:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
-  background: rgba(0, 240, 255, 0.03);
+  border-color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.03);
 }
 
 .config-textarea {
@@ -324,8 +324,8 @@
 }
 
 .config-textarea:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+  border-color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
 }
 
 /* Solo Mode Pickers */
@@ -353,9 +353,9 @@
 }
 
 .mode-pick-btn.active {
-  background: rgba(0, 240, 255, 0.12);
-  border-color: rgba(0, 240, 255, 0.4);
-  box-shadow: 0 0 16px rgba(0, 240, 255, 0.12);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.12);
 }
 
 .mode-name {
@@ -365,7 +365,7 @@
 }
 
 .mode-pick-btn.active .mode-name {
-  color: #00f0ff;
+  color: #10b981;
 }
 
 .mode-sub {
@@ -375,8 +375,8 @@
 
 /* Group Member Invitation Section */
 .group-invitation-container {
-  background: rgba(168, 85, 247, 0.05);
-  border: 1px solid rgba(168, 85, 247, 0.25);
+  background: rgba(4, 120, 87, 0.05);
+  border: 1px solid rgba(4, 120, 87, 0.25);
   border-radius: 16px;
   padding: 1.25rem;
   gap: 1rem;
@@ -431,8 +431,8 @@
 }
 
 .invite-tab-btn.active {
-  background: rgba(168, 85, 247, 0.2);
-  border-color: rgba(168, 85, 247, 0.4);
+  background: rgba(4, 120, 87, 0.2);
+  border-color: rgba(4, 120, 87, 0.4);
   color: #c084fc;
 }
 
@@ -486,7 +486,7 @@
 }
 
 .invite-action-btn {
-  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  background: linear-gradient(135deg, #047857, #7c3aed);
   color: #ffffff;
   font-weight: 700;
   font-size: 0.82rem;
@@ -500,11 +500,11 @@
 
 .invite-action-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.35);
+  box-shadow: 0 4px 18px rgba(4, 120, 87, 0.35);
 }
 
 .invite-action-btn.email-variant {
-  background: linear-gradient(135deg, #00f0ff, #0099ff);
+  background: linear-gradient(135deg, #10b981, #0099ff);
   color: #05070e;
 }
 
@@ -515,7 +515,7 @@
   padding: 0.55rem 0.85rem;
   border-radius: 8px;
   line-height: 1.4;
-  border-left: 3px solid #a855f7;
+  border-left: 3px solid #047857;
 }
 
 .invite-status-msg {
@@ -562,7 +562,7 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #00f0ff, #a855f7);
+  background: linear-gradient(135deg, #10b981, #047857);
   color: #05070e;
   font-weight: 800;
   font-size: 0.75rem;
@@ -573,9 +573,9 @@
 }
 
 .member-avatar-chip.invite-avatar {
-  background: rgba(168, 85, 247, 0.2);
+  background: rgba(4, 120, 87, 0.2);
   color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  border: 1px solid rgba(4, 120, 87, 0.35);
 }
 
 .member-info {
@@ -599,7 +599,7 @@
 
 .member-handle {
   font-size: 0.75rem;
-  color: #00f0ff;
+  color: #10b981;
   font-family: monospace;
 }
 
@@ -625,9 +625,9 @@
 .invite-status-badge {
   font-size: 0.62rem;
   font-weight: 700;
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
 }
@@ -688,7 +688,7 @@
 }
 
 .launch-project-btn {
-  background: linear-gradient(135deg, #00f0ff, #a855f7);
+  background: linear-gradient(135deg, #10b981, #047857);
   color: #ffffff;
   border: none;
   font-weight: 700;
@@ -701,7 +701,7 @@
 
 .launch-project-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(0, 240, 255, 0.35);
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.35);
 }
 
 .launch-project-btn:disabled {

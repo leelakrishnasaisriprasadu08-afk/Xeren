@@ -112,7 +112,7 @@ def create_chat_completion(request: ChatCompletionRequest):
 def start_server(
     checkpoint_path: str,
     tokenizer_dir: str,
-    config_preset: str = "nano",
+    config_preset: str = "mini",
     host: str = "127.0.0.1",
     port: int = 8000,
     device: str = "cpu",
@@ -123,8 +123,10 @@ def start_server(
     import torch
 
     tokenizer = XerenTokenizer.load(tokenizer_dir)
-    if config_preset == "nano":
-        config = XerenConfig.nano(vocab_size=tokenizer.vocab_size)
+    if config_preset == "mini_1b":
+        config = XerenConfig.mini_1b(vocab_size=tokenizer.vocab_size)
+    elif config_preset == "mini_120m":
+        config = XerenConfig.mini_120m(vocab_size=tokenizer.vocab_size)
     else:
         config = XerenConfig.mini(vocab_size=tokenizer.vocab_size)
 
@@ -145,7 +147,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--tokenizer", required=True)
-    parser.add_argument("--preset", default="nano", choices=["nano", "mini"])
+    parser.add_argument("--preset", default="mini_1b", choices=["mini", "mini_120m", "mini_1b"])
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
 

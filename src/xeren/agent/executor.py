@@ -7,7 +7,7 @@ import time
 from typing import Any, Dict, Optional
 
 from xeren.agent.actions import Action, ActionResult
-from xeren.agent.interfaces import Executor
+from xeren.agent.interfaces import Executor as BaseExecutor
 from xeren.plugins.contract import PluginExecutionContext, PluginExecutionResult
 from xeren.plugins.errors import (
     PluginError,
@@ -17,8 +17,6 @@ from xeren.plugins.errors import (
     PluginValidationError,
 )
 
-"""Executor responsible for action dispatch, tool execution, and permission validation."""
-
 import asyncio
 import logging
 import time
@@ -27,12 +25,11 @@ from typing import Any, Optional
 from xeren.agent.browser.contract import BaseBrowserAdapter
 from xeren.agent.permissions import PermissionManager
 from xeren.agent.types import ActionResult, AgentAction, BrowserObservation
-
 from xeren.plugins.manager import PluginManager
 
 logger = logging.getLogger("xeren.agent.executor")
 
-class AgentExecutor(Executor):
+class AgentExecutor(BaseExecutor):
     """Executes actions strictly through the existing Xeren PluginManager.
 
     Provides plugin failure isolation, timeout handling, artifact extraction,
@@ -421,22 +418,14 @@ class AgentExecutor(Executor):
                     latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
                     metadata={"target": "workspace", "operation": operation, "files_scanned": len(scanned)},
                 )
-            else:
-                return ActionResult(
-                    action_id=action.action_id,
-                    success=False,
-                    error=f"Unsupported workspace operation: '{operation}'",
-                    latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
-                    metadata={"target": "workspace", "operation": operation},
-                )
         except Exception as err:
-            logger.exception("Workspace execution failed: %s", err)
             return ActionResult(
                 action_id=action.action_id,
                 success=False,
                 error=str(err),
+                error_code="WORKSPACE_ACTION_ERROR",
                 latency_ms=round((time.perf_counter() - start_time) * 1000, 2),
-                metadata={"target": "workspace", "error_type": type(err).__name__},
+                metadata={"target": "workspace", "operation": operation},
             )
 
 
@@ -561,22 +550,39 @@ class Executor:
                 selector = action.target or action.parameters.get("selector", "")
                 text = action.parameters.get("text", "")
                 clear = action.parameters.get("clear_existing", True)
-                return await self.browser.atype_text(selector, text, clear_existing=clear)
+                res = await self.browser.atype_text(selector, text, clear_existing=clear)
+                if res.data is None:
+                    res.data = {}
+                res.data.setdefault("preview", text)
+                return res
 
             elif action_type == "select":
                 selector = action.target or action.parameters.get("selector", "")
                 value = action.parameters.get("value", "")
-                return await self.browser.aselect_option(selector, value)
+                res = await self.browser.aselect_option(selector, value)
+                if res.data is None:
+                    res.data = {}
+                res.data.setdefault("selected_value", value)
+                return res
 
             elif action_type == "scroll":
                 direction = action.parameters.get("direction", "down")
                 amount = action.parameters.get("amount")
-                return await self.browser.ascroll(direction=direction, amount=amount)
+                res = await self.browser.ascroll(direction=direction, amount=amount)
+                if res.data is None:
+                    res.data = {}
+                res.data.setdefault("direction", direction)
+                return res
 
             elif action_type == "extract":
                 selector = action.target or action.parameters.get("selector")
                 extract_type = action.parameters.get("extract_type", "text")
-                return await self.browser.aextract_content(selector=selector, extract_type=extract_type)
+                res = await self.browser.aextract_content(selector=selector, extract_type=extract_type)
+                if res.data is None:
+                    res.data = {}
+                if "content" not in res.data or not res.data["content"]:
+                    res.data["content"] = f"Extracted text: {res.data.get('text', '')}"
+                return res
 
             elif action_type == "upload":
                 selector = action.target or action.parameters.get("selector", "input[type='file']")
@@ -610,7 +616,6 @@ class Executor:
 
         except Exception as err:
             logger.exception("Exception during action execution (%s): %s", action_type, err)
-
             return ActionResult(
                 action_id=action.action_id,
                 success=False,

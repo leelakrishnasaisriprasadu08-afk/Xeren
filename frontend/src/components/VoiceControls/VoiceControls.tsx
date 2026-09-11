@@ -66,12 +66,12 @@ export const VoiceControls: React.FC<VoiceControlsProps> = ({
               height="28"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#38bdf8"
+              stroke="#34d399"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <rect x="6" y="6" width="12" height="12" rx="2" fill="#38bdf8" />
+              <rect x="6" y="6" width="12" height="12" rx="2" fill="#34d399" />
             </svg>
           ) : (
             <svg

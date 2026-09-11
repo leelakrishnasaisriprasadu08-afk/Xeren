@@ -17,7 +17,7 @@ interface MessageComposerProps {
   isSpeaking: boolean
   voiceError?: string | null
   activeMode?: CognitiveMode
-  onToggleMode?: () => void
+  onSelectMode?: (mode: CognitiveMode) => void
   onSendMessage: (text: string) => void
   onStartListening: () => void
   onStopListening: () => void
@@ -31,7 +31,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   isSpeaking,
   voiceError,
   activeMode = 'think',
-  onToggleMode,
+  onSelectMode,
   onSendMessage,
   onStartListening,
   onStopListening,
@@ -202,19 +202,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           </svg>
         </button>
 
-        {/* Cognitive Mode Indicator Pill */}
-        {onToggleMode && (
-          <button
-            type="button"
-            className={`composer-mode-pill mode-${activeMode}`}
-            onClick={onToggleMode}
-            title={`Active Mode: ${activeMode.toUpperCase()}. Click to switch.`}
-            data-testid="composer-mode-pill"
-          >
-            <span className="mode-dot" />
-            <span className="mode-label">{activeMode}</span>
-          </button>
-        )}
+
 
         {/* Text Input */}
         <input
@@ -258,8 +246,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             data-testid="mic-button"
           >
             {isListening ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5">
-                <rect x="6" y="6" width="12" height="12" rx="2" fill="#38bdf8" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5">
+                <rect x="6" y="6" width="12" height="12" rx="2" fill="#34d399" />
               </svg>
             ) : (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -285,6 +273,36 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Mode Selector Below Input */}
+      {onSelectMode && (
+        <div className="composer-mode-selector" aria-label="Select cognitive mode">
+          <button
+            type="button"
+            className={`mode-btn ${activeMode === 'think' ? 'active' : ''}`}
+            onClick={() => onSelectMode('think')}
+            title="Deep Chain-of-Thought Research"
+          >
+            Think
+          </button>
+          <button
+            type="button"
+            className={`mode-btn ${activeMode === 'reason' ? 'active' : ''}`}
+            onClick={() => onSelectMode('reason')}
+            title="Fast Autonomous Problem Solving"
+          >
+            Reason
+          </button>
+          <button
+            type="button"
+            className={`mode-btn ${activeMode === 'create' ? 'active' : ''}`}
+            onClick={() => onSelectMode('create')}
+            title="Code Synthesis & Web"
+          >
+            Create
+          </button>
+        </div>
+      )}
 
       {/* Voice or Transcription Error Banner */}
       {voiceError && (

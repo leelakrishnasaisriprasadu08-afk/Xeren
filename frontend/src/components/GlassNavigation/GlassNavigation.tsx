@@ -60,13 +60,13 @@ export const GlassNavigation: React.FC<GlassNavigationProps> = ({
             <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
               <path
                 d="M16 3L28 10V22L16 29L4 22V10L16 3Z"
-                stroke="#00f0ff"
+                stroke="#10b981"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx="16" cy="16" r="4" fill="#00f0ff" className="brand-nucleus" />
-              <path d="M12 16L16 12L20 16L16 20Z" fill="white" />
+              <circle cx="16" cy="16" r="4" fill="#10b981" className="brand-nucleus" />
+              <path d="M12 16L16 12L20 16L16 20Z" fill="#f8fafc" />
             </svg>
           </div>
           <div className="brand-text-group">

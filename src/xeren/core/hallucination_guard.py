@@ -87,6 +87,23 @@ class HallucinationGuard:
         self.credibility_scorer = credibility_scorer or CredibilityScorer()
         self.claim_verifier = claim_verifier or ClaimVerifier(credibility_scorer=self.credibility_scorer)
 
+    def set_search_engine(self, engine: BaseSearchEngine) -> None:
+        """Update active search engine."""
+        self.search_engine = engine
+
+    @property
+    def search_tool(self) -> Any:
+        class _SearchToolWrapper:
+            def __init__(self, guard: Any) -> None:
+                self._guard = guard
+            @property
+            def engine(self) -> Any:
+                return self._guard.search_engine
+            @engine.setter
+            def engine(self, val: Any) -> None:
+                self._guard.search_engine = val
+        return _SearchToolWrapper(self)
+
     def evaluate_confidence(
         self,
         query: str,
