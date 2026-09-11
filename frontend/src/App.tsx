@@ -528,6 +528,7 @@ export const App: React.FC<AppProps> = ({ initialView, initialTransportType }) =
     startListening,
     stopListening,
     sendMessage,
+    proceedWithStagedPlan,
     interrupt,
     clearHistory,
   } = useConversation({ initialTransportType: initialTransportType || defaultTransport })
@@ -698,6 +699,7 @@ export const App: React.FC<AppProps> = ({ initialView, initialTransportType }) =
             activeCommandCenterTab={activeCommandCenterTab}
             onCommandCenterTabChange={setActiveCommandCenterTab}
             onSendMessage={(text) => sendMessage(text, 'text')}
+            onProceedPlan={proceedWithStagedPlan}
             onStartListening={startListening}
             onStopListening={stopListening}
             onInterrupt={interrupt}

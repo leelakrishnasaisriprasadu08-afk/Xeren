@@ -117,6 +117,10 @@ export interface ResponseTextCompleteServerEvent extends ServerEventBase {
   text: string
   messageId?: string
   response_id?: string
+  plan?: Record<string, any> | null
+  plan_staged?: boolean
+  research?: Record<string, any> | null
+  held_data_applied?: any[] | null
 }
 
 export interface ResponseAudioStartServerEvent extends ServerEventBase {

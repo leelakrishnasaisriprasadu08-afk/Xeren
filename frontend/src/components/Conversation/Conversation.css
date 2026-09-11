@@ -145,3 +145,25 @@
     transform: translateY(0);
   }
 }
+
+.msg-action-copy-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  margin-left: auto;
+  opacity: 0.6;
+}
+
+.message-bubble:hover .msg-action-copy-btn {
+  opacity: 1;
+}
+
+.msg-action-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #34d399;
+}
