@@ -18,6 +18,7 @@ class PluginCapability(str, Enum):
     """Enumeration of standard capabilities exposed by Xeren plugins."""
 
     WEB_SEARCH = "web_search"
+    INTERNET_FETCH = "internet_fetch"
     QUERY_GENERATION = "query_generation"
     SOURCE_RANKING = "source_ranking"
     EVIDENCE_EXTRACTION = "evidence_extraction"

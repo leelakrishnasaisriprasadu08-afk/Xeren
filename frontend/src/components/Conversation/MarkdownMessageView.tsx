@@ -175,8 +175,17 @@ export const MarkdownMessageView: React.FC<MarkdownMessageViewProps> = ({
           )
         }
 
-        // Text block: split into paragraphs and lines
-        const lines = block.text.split('\n')
+        // Text block: clean raw math / LaTeX tokens into readable symbols, then split into paragraphs and lines
+        const cleanText = block.text
+          .replace(/\\mathbf\{([^}]+)\}/g, '$1')
+          .replace(/\\sqrt\{([^}]+)\}/g, '√$1')
+          .replace(/\\text\{([^}]+)\}/g, '$1')
+          .replace(/\\log/g, 'log')
+          .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1 / $2)')
+          .replace(/\$\$([\s\S]*?)\$\$/g, '$1')
+          .replace(/\$([^$\n]+)\$/g, '$1')
+
+        const lines = cleanText.split('\n')
         return (
           <React.Fragment key={`block-text-${idx}`}>
             {lines.map((line, lineIdx) => {

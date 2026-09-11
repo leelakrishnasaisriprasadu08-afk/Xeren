@@ -3,6 +3,7 @@
  */
 
 import type { ClientEvent, ConnectionState, ServerEvent } from '../types/realtime'
+import { solveAnything } from './cognitiveSolver'
 
 export interface IRealtimeTransport {
   readonly state: ConnectionState
@@ -96,7 +97,79 @@ export class WebSocketRealtimeTransport implements IRealtimeTransport {
   public send(event: ClientEvent): void {
     if (this.ws && this.currentState === 'connected') {
       this.ws.send(JSON.stringify(event))
+      return
     }
+
+    // Offline / Standalone Fallback: Ensure user typed messages always receive an active response
+    if (event.type === 'user.text' || event.type === 'conversation.item.create') {
+      const query = event.type === 'user.text' ? event.text : event.item?.content?.[0]?.text || ''
+      this.simulateOfflineResponse(query)
+    }
+  }
+
+  private async simulateOfflineResponse(query: string): Promise<void> {
+    const messageId = `msg-solver-${Date.now()}`
+    this.emit({
+      type: 'response.created',
+      response: { id: messageId },
+      timestamp: Date.now(),
+    })
+
+    let reply = ''
+    try {
+      // Call the Xeren FastAPI backend — 30s timeout so the model has time to think
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      const res = await fetch('http://127.0.0.1:8000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      if (res.ok) {
+        const data = await res.json()
+        // Parse all response fields from Xeren's StructuredAnswer / achat() format
+        reply =
+          data?.content ||
+          data?.answer ||
+          data?.verified_answer ||
+          data?.deliverable ||
+          (typeof data === 'string' ? data : '')
+      }
+    } catch (_) {
+      // Standalone / offline mode — fall through to cognitiveSolver
+    }
+
+    if (!reply) {
+      reply = solveAnything(query)
+    }
+
+    const words = reply.split(' ')
+    words.forEach((word, idx) => {
+      setTimeout(() => {
+        this.emit({
+          type: 'response.text.delta',
+          delta: (idx === 0 ? '' : ' ') + word,
+          messageId,
+          timestamp: Date.now(),
+        })
+      }, 35 * (idx + 1))
+    })
+
+    setTimeout(() => {
+      this.emit({
+        type: 'response.text.complete',
+        text: reply,
+        messageId,
+        timestamp: Date.now(),
+      })
+      this.emit({
+        type: 'response.done',
+        messageId,
+        timestamp: Date.now(),
+      })
+    }, 35 * (words.length + 2))
   }
 
   public on(handler: (event: ServerEvent) => void): () => void {
@@ -227,26 +300,19 @@ export class MockRealtimeTransport implements IRealtimeTransport {
     this.activeTimeouts = []
   }
 
-  private simulateResponse(query: string): void {
+  private async simulateResponse(query: string): Promise<void> {
     const messageId = `msg-${Date.now()}`
     const isTask =
       query.toLowerCase().includes('research') ||
       query.toLowerCase().includes('create') ||
       query.toLowerCase().includes('analyze') ||
-      query.toLowerCase().includes('build')
+      query.toLowerCase().includes('build') ||
+      query.toLowerCase().includes('make') ||
+      query.toLowerCase().includes('write') ||
+      query.toLowerCase().includes('generate') ||
+      query.toLowerCase().includes('design')
 
-    // Determine canned response
-    let responseText = `I am present. You asked about "${query}". I am ready to assist you.`
-    if (query.toLowerCase().includes('hello') || query.toLowerCase().includes('hi')) {
-      responseText = "Greetings. I am Xeren. What shall we achieve today?"
-    } else if (isTask) {
-      responseText = `I have orchestrated the task for "${query}". The plan was generated and verified.`
-    }
-
-    const words = responseText.split(' ')
-    let delay = 350
-
-    // If task, simulate Agent Activity milestones
+    // If it's a task, show agent activity phases first
     if (isTask) {
       const phases: Array<{ phase: any; title: string; delayOffset: number }> = [
         { phase: 'understanding', title: 'Understanding task objectives', delayOffset: 200 },
@@ -269,24 +335,49 @@ export class MockRealtimeTransport implements IRealtimeTransport {
         }, p.delayOffset)
         this.activeTimeouts.push(tId)
       })
-
-      delay = 3000
     }
 
-    // Audio start event
-    const audioStartTid = setTimeout(() => {
-      if (this.isCancelled) return
-      this.emit({
-        type: 'response.audio.start',
-        messageId,
-        timestamp: Date.now(),
+    // Try real Xeren backend first
+    let responseText = ''
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      const res = await fetch('http://127.0.0.1:8000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal: controller.signal,
       })
-    }, delay)
-    this.activeTimeouts.push(audioStartTid)
+      clearTimeout(timeoutId)
+      if (res.ok) {
+        const data = await res.json()
+        responseText =
+          data?.content ||
+          data?.answer ||
+          data?.verified_answer ||
+          data?.deliverable ||
+          (typeof data === 'string' ? data : '')
+      }
+    } catch (_) {
+      // Fall back to local cognitiveSolver
+    }
 
-    // Stream text deltas word by word
+    if (!responseText) {
+      responseText = solveAnything(query)
+    }
+
+    const words = responseText.split(' ')
+    const delay = isTask ? 3200 : 350
+    const stepInterval = Math.max(15, Math.min(60, Math.floor(1200 / Math.max(1, words.length))))
+
+    this.emit({
+      type: 'response.created',
+      response: { id: messageId },
+      timestamp: Date.now(),
+    })
+
     words.forEach((word, index) => {
-      const stepDelay = delay + index * 100
+      const stepDelay = delay + index * stepInterval
       const tId = setTimeout(() => {
         if (this.isCancelled) return
         this.emit({
@@ -296,7 +387,6 @@ export class MockRealtimeTransport implements IRealtimeTransport {
           timestamp: Date.now(),
         })
 
-        // On final word
         if (index === words.length - 1) {
           this.emit({
             type: 'response.text.complete',
@@ -304,7 +394,6 @@ export class MockRealtimeTransport implements IRealtimeTransport {
             messageId,
             timestamp: Date.now(),
           })
-
           this.emit({
             type: 'response.audio.end',
             messageId,

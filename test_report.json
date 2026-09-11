@@ -1,0 +1,52 @@
+[
+  {
+    "query": "what is your name?",
+    "status": "success",
+    "final_response": "Successfully completed task: what is your name?."
+  },
+  {
+    "query": "where are you from?",
+    "status": "success",
+    "final_response": "Successfully completed task: where are you from?."
+  },
+  {
+    "query": "what is the capital of india?",
+    "status": "success",
+    "final_response": "Successfully completed task: what is the capital of india?."
+  },
+  {
+    "query": "how many states are in india?",
+    "status": "success",
+    "final_response": "Successfully completed task: how many states are in india?."
+  },
+  {
+    "query": "write a python function to add two numbers",
+    "status": "success",
+    "final_response": "Successfully completed task: write a python function to add two numbers."
+  },
+  {
+    "query": "create a 3d website for digital gold",
+    "status": "success",
+    "final_response": "Successfully created full-stack project for 'create a 3d website for digital gold':\n\n\u2022 Generated Files (3): index.html, styles.css, script.js\n\u2022 Live Localhost Preview: http://localhost:8081/index.html\n\u2022 Security Status: Security scan passed cleanly with 0 high/critical risks across 3 file(s).\n\u2022 Validation: Valid (0 errors)"
+  },
+  {
+    "query": "scrape the latest news on AI",
+    "status": "success",
+    "final_response": "Successfully completed task: scrape the latest news on AI."
+  },
+  {
+    "query": "list the files in the workspace",
+    "status": "error",
+    "error": "Step 1 references unsupported plugin 'file_search'. Available plugins: ['api', 'automation', 'coding', 'conversation', 'data', 'experience', 'file', 'knowledge', 'research', 'verification', 'website']"
+  },
+  {
+    "query": "who created you?",
+    "status": "error",
+    "error": "Plugin 'conversation' does not support required capability 'query_generation'. Supported: ['custom', 'conversation', 'greeting', 'casual_chat', 'explanation', 'clarification', 'routing_signal']"
+  },
+  {
+    "query": "solve 2x + 5 = 15",
+    "status": "success",
+    "final_response": "Successfully completed task: solve 2x + 5 = 15."
+  }
+]

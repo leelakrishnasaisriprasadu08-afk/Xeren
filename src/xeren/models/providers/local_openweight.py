@@ -51,6 +51,8 @@ class LocalOpenWeightAdapter(BaseLLM):
         "vllm": "http://localhost:8000/v1",
         "local": "http://localhost:11434/v1",
         "local_openweight": "http://localhost:11434/v1",
+        "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "google": "https://generativelanguage.googleapis.com/v1beta/openai",
     }
 
     def __init__(

@@ -1333,17 +1333,28 @@ class XerenCore:
             context["learned_knowledge"] = learned_ctx.model_dump()
 
         if intent.category == RoutingCategory.GENERAL_KNOWLEDGE:
-            # Route to LLM direct generation (enriched with learned knowledge if researched)
-            if learned_ctx:
-                prompt = (
-                    f"Answer the following query accurately based on researched context:\n"
-                    f"Query: {query}\n\n"
-                    f"Learned Context:\n{learned_ctx.summary}\n"
-                    f"Takeaways: {', '.join(learned_ctx.key_takeaways)}\n\nAnswer:"
-                )
+            # Fast Grounded Knowledge & Alignment Dataset Check
+            try:
+                from xeren.core.knowledge_grounding import answer_grounded_query
+                fast_grounded = answer_grounded_query(query)
+            except Exception:
+                fast_grounded = None
+
+            if fast_grounded:
+                raw_answer = fast_grounded
+                evidence_sources.append("Xeren Grounded Alignment Dataset & Knowledge Base")
             else:
-                prompt = f"Answer the following query accurately:\n{query}"
-            raw_answer = await self._agenerate_text(prompt)
+                # Route to LLM direct generation (enriched with learned knowledge if researched)
+                if learned_ctx:
+                    prompt = (
+                        f"Answer the following query accurately based on researched context:\n"
+                        f"Query: {query}\n\n"
+                        f"Learned Context:\n{learned_ctx.summary}\n"
+                        f"Takeaways: {', '.join(learned_ctx.key_takeaways)}\n\nAnswer:"
+                    )
+                else:
+                    prompt = f"Answer the following query accurately:\n{query}"
+                raw_answer = await self._agenerate_text(prompt)
 
         elif intent.category == RoutingCategory.XEREN_PROJECT:
             # Route to Knowledge/RAG retrieval
@@ -1406,10 +1417,26 @@ class XerenCore:
         from xeren.models.types import ChatMessage
         try:
             res = self.llm.generate([ChatMessage.user(prompt)])
-            return getattr(res, "content", str(res))
+            text = getattr(res, "content", str(res))
+            if text and not text.startswith("Mock response to:") and not text.startswith("Response for:"):
+                return text
+            from xeren.core.knowledge_grounding import answer_grounded_query
+            grounded = answer_grounded_query(prompt)
+            return grounded if grounded else text
         except Exception as e:
             logger.warning("Synchronous LLM generation error: %s", e)
-            return f"Response for: {prompt}"
+            try:
+                from xeren.core.knowledge_grounding import answer_grounded_query
+                grounded = answer_grounded_query(prompt)
+                if grounded:
+                    return grounded
+                from xeren.core.dynamic_scraper import scrape_real_world_data
+                scraped_data = scrape_real_world_data(prompt)
+                if scraped_data:
+                    return scraped_data
+            except Exception:
+                pass
+            return "I am currently operating in offline mode. I couldn't find a local answer for your query, and my core reasoning engines are unreachable. Please verify my connection."
 
     async def _agenerate_text(self, prompt: str) -> str:
         """Helper to invoke asynchronous LLM with text prompt and extract reply string."""
@@ -1417,11 +1444,24 @@ class XerenCore:
         try:
             if hasattr(self.llm, "agenerate"):
                 res = await self.llm.agenerate([ChatMessage.user(prompt)])
-                return getattr(res, "content", str(res))
+                text = getattr(res, "content", str(res))
+                if text and not text.startswith("Mock response to:") and not text.startswith("Response for:"):
+                    return text
             return self._generate_text(prompt)
         except Exception as e:
             logger.warning("Asynchronous LLM generation error: %s", e)
-            return self._generate_text(prompt)
+            try:
+                from xeren.core.knowledge_grounding import answer_grounded_query
+                grounded = answer_grounded_query(prompt)
+                if grounded:
+                    return grounded
+                from xeren.core.dynamic_scraper import scrape_real_world_data
+                scraped_data = scrape_real_world_data(prompt)
+                if scraped_data:
+                    return scraped_data
+            except Exception:
+                pass
+            return "I am currently operating in offline mode. I couldn't find a local answer for your query, and my core reasoning engines are unreachable. Please verify my connection."
 
     # -------------------------------------------------------------------------
     # Interactive Chat & Gated Plan Execution Workflow
@@ -1441,15 +1481,33 @@ class XerenCore:
 
     def is_task_or_build_request(self, query: str, category: RoutingCategory) -> bool:
         """Determine if user query requests a stateful task, website build, coding, or automation."""
-        if category == RoutingCategory.ACTION_REQUEST:
-            return True
-        clean = query.lower()
+        clean = query.lower().strip()
+        
+        # Informational, identity, and conversational questions are NEVER tasks to plan
+        informational_starts = (
+            "who ", "what ", "where ", "when ", "why ", "how ", "tell me ", "explain ", 
+            "is there ", "are there ", "can you tell", "could you tell"
+        )
+        if any(clean.startswith(p) for p in informational_starts):
+            return False
+            
+        if any(k in clean for k in ("who created", "who built", "who made", "who developed", "about xeren")):
+            return False
+
+        # Only explicitly trigger planning for concrete build/automation keywords
         task_indicators = [
-            "build", "create", "make a website", "landing page", "generate code",
-            "develop", "automate", "fiverr", "upwork", "freelance", "deploy",
+            "make a website", "landing page", "generate code",
+            "build an app", "build a website", "build a system", "create a website",
+            "create an app", "develop", "automate", "fiverr", "upwork", "freelance", "deploy",
             "refactor", "run test", "write script", "scraping", "pipeline"
         ]
-        return any(ind in clean for ind in task_indicators)
+        
+        if any(ind in clean for ind in task_indicators):
+            return True
+            
+        # We avoid blindly trusting ACTION_REQUEST unless task indicators are present, 
+        # to prevent conversational/complex-reasoning queries from triggering the orchestration UI.
+        return False
 
     async def aexecute_staged_plan(
         self,

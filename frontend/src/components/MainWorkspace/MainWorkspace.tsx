@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import type { PresenceState } from '../../types/presence'
 import type { Message } from '../../types/conversation'
 import type { AgentMilestone, AgentProgressDetails } from '../../types/agent'
@@ -66,6 +66,55 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
 }) => {
   const hasMessages = messages.length > 0 || !!currentStreamingText
 
+  // Backend connection probe
+  const [backendOnline, setBackendOnline] = useState(false)
+  useEffect(() => {
+    let mounted = true
+    const probe = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/health', { signal: AbortSignal.timeout(2000) })
+        if (mounted) setBackendOnline(res.ok)
+      } catch {
+        if (mounted) setBackendOnline(false)
+      }
+    }
+    probe()
+    const interval = setInterval(probe, 10000)
+    return () => { mounted = false; clearInterval(interval) }
+  }, [])
+
+  const QUICK_ACTIONS = [
+    {
+      icon: '🔬',
+      title: 'Research anything',
+      desc: 'Xeren searches, verifies sources, and builds a knowledge report based on your topic.',
+      prompt: 'Research ',
+    },
+    {
+      icon: '🌐',
+      title: 'Build a website',
+      desc: 'Describe your idea — Xeren architects, codes, and previews a full-stack site for you.',
+      prompt: 'Build a website for ',
+    },
+    {
+      icon: '💻',
+      title: 'Write & run code',
+      desc: 'Python, TypeScript, SQL, React — give Xeren the task and it will code and test it.',
+      prompt: 'Write a Python script that ',
+    },
+    {
+      icon: '📋',
+      title: 'Plan & automate',
+      desc: 'Describe a multi-step goal. Xeren breaks it into a plan and executes it autonomously.',
+      prompt: 'Create a detailed plan to ',
+    },
+  ]
+
+  const PLUGINS = [
+    'ResearchPlugin', 'CodingPlugin', 'WebsitePlugin',
+    'KnowledgePlugin (RAG)', 'FilePlugin', 'AutomationPlugin',
+  ]
+
   const activeStagedPlan = messages
     .slice()
     .reverse()
@@ -103,16 +152,55 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
         <div className="bottom-layer-scroll-area">
           {!hasMessages ? (
             <div className="workspace-welcome-view">
+              {/* ─── Greeting ─────────────────────────────────────── */}
               <h2 className="workspace-greeting">
                 Hello, I'm <span className="xeren-highlight">Xeren</span>
               </h2>
-
               <p className="workspace-subtitle">
-                Your AI companion for research, creation and automation.
-                <br />
-                Ask me anything, or tell me what you want to build.
+                Your autonomous AI — tell me your idea and I'll research, plan, code, and build it.
               </p>
 
+              {/* ─── Identity Card ───────────────────────────────── */}
+              <div className="home-identity-card">
+                <div className="home-identity-avatar">⚡</div>
+                <div className="home-identity-info">
+                  <p className="home-identity-name">Xeren Autonomous Intelligence · v1.0-Mini</p>
+                  <p className="home-identity-institute">Vignan's Lara Institute of Technology &amp; Science, Guntur, India</p>
+                  <p className="home-identity-team">Built by: Leela Krishna · Pallavi · Dinesh Kumar · Manideep · Yaswanth · Guna Bhargav</p>
+                </div>
+                <div className={`home-backend-status${backendOnline ? ' online' : ''}`}>
+                  <span className="home-backend-dot" />
+                  {backendOnline ? 'Brain Online' : 'Offline Mode'}
+                </div>
+              </div>
+
+              {/* ─── Active Plugin Pills ──────────────────────────── */}
+              <div className="home-plugin-pills">
+                {PLUGINS.map((p) => (
+                  <span key={p} className="home-plugin-pill">
+                    <span className="home-plugin-pill-dot" />
+                    {p}
+                  </span>
+                ))}
+              </div>
+
+              {/* ─── Quick-start Idea Cards ───────────────────────── */}
+              <div className="home-action-grid">
+                {QUICK_ACTIONS.map((a) => (
+                  <button
+                    key={a.title}
+                    className="home-action-card"
+                    onClick={() => onSendMessage(a.prompt)}
+                    type="button"
+                  >
+                    <span className="home-action-icon">{a.icon}</span>
+                    <p className="home-action-title">{a.title}</p>
+                    <p className="home-action-desc">{a.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* ─── Capability Cards (existing) ─────────────────── */}
               <CapabilityCards onSelectPrompt={onSendMessage} />
             </div>
           ) : (

@@ -17,7 +17,10 @@ from xeren.rag.embeddings import (
     LocalOpenWeightEmbeddingAdapter,
     MockEmbeddingModel,
 )
+from xeren.rag.cag import CAGRetrievalEngine, CachedContextEntry, CachePolicy, CacheStats
 from xeren.rag.engine import RAGQueryEngine
+from xeren.rag.mag import MAGRetrievalEngine, MemoryQuery, MemoryRecord, MemoryTier, RetrievedMemory
+from xeren.rag.unified_engine import UnifiedAnswer, UnifiedContextPayload, UnifiedRetrievalEngine
 from xeren.rag.errors import (
     ChunkingError,
     DocumentLoadingError,
@@ -63,6 +66,18 @@ __all__ = [
     # Ingestion & Query Pipelines
     "IngestionPipeline",
     "RAGQueryEngine",
+    "CAGRetrievalEngine",
+    "CachedContextEntry",
+    "CachePolicy",
+    "CacheStats",
+    "MAGRetrievalEngine",
+    "MemoryQuery",
+    "MemoryRecord",
+    "MemoryTier",
+    "RetrievedMemory",
+    "UnifiedRetrievalEngine",
+    "UnifiedContextPayload",
+    "UnifiedAnswer",
     "GroundedGenerator",
     "GroundedAnswer",
     # Context & Citations

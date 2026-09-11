@@ -326,7 +326,7 @@ class LLMCoreModelAdapter(BaseCoreModelAdapter):
     def __init__(
         self,
         llm: BaseLLM,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 45.0,
         enable_fallback: bool = True,
     ) -> None:
         self.llm = llm
@@ -339,8 +339,9 @@ class LLMCoreModelAdapter(BaseCoreModelAdapter):
         caps_desc = ", ".join(plan_context.available_capabilities) if plan_context.available_capabilities else "standard"
         system_msg = (
             "You are the Xeren Core Planner. Decompose the user goal into a strict JSON TaskPlan.\n"
-            f"Available plugins: {plugins_desc}\n"
-            f"Available capabilities: {caps_desc}\n"
+            f"Available plugins (ONLY use these exact names for 'plugin_name'): {plugins_desc}\n"
+            f"Available capabilities (ONLY use these exact names for 'capability'): {caps_desc}\n"
+            "CRITICAL: Do NOT use a capability name as a plugin_name.\n"
             "Respond strictly with valid JSON conforming to the TaskPlan schema without commentary."
         )
         user_msg = f"Goal: {plan_context.goal}\nContext: {json.dumps(plan_context.task_context, default=str)}"
@@ -630,7 +631,7 @@ class CorePlannerAdapter(Planner, BaseCorePlanner):
         llm: Optional[BaseLLM] = None,
         plugin_manager: Optional[PluginManager] = None,
         max_retries: int = 2,
-        timeout_seconds: float = 10.0,
+        timeout_seconds: float = 45.0,
         enable_fallback: bool = True,
     ) -> None:
         super().__init__(llm=llm)
