@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { SpecterOrb } from '../SpecterOrb/SpecterOrb'
 import './LandingPage.css'
 
@@ -11,6 +11,7 @@ export interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({
   onEnterWorkspace,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null)
   const [isMuted, setIsMuted] = useState(true)
   const [activeModal, setActiveModal] = useState<'architecture' | 'docs' | null>(null)
   const [activeSection, setActiveSection] = useState<string>('features')
@@ -45,6 +46,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       return
     }
 
+    const container = containerRef.current
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -58,7 +60,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         })
       },
       {
-        threshold: 0.15,
+        root: container || null,
+        threshold: 0.1,
         rootMargin: '0px 0px -40px 0px',
       }
     )
@@ -66,8 +69,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     const revealItems = document.querySelectorAll('.scroll-reveal-item')
     revealItems.forEach((el) => observer.observe(el))
 
+    // Direct scroll listener on container for smooth active nav tracking
+    const handleScroll = () => {
+      if (!container) return
+      const sections = ['features', 'architecture', 'pipeline', 'benchmarks', 'docs', 'use-cases']
+      const scrollTop = container.scrollTop
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const sec = document.getElementById(sections[i])
+        if (sec && scrollTop >= sec.offsetTop - 180) {
+          setActiveSection(sections[i])
+          break
+        }
+      }
+    }
+
+    container?.addEventListener('scroll', handleScroll, { passive: true })
+
     return () => {
       observer.disconnect()
+      container?.removeEventListener('scroll', handleScroll)
     }
   }, [])
 
@@ -78,8 +98,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const scrollToSection = (id: string) => {
     setActiveSection(id)
     const el = document.getElementById(id)
-    if (el && typeof el.scrollIntoView === 'function') {
-      el.scrollIntoView({ behavior: 'smooth' })
+    const container = containerRef.current
+    if (el) {
+      if (typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (container) {
+        container.scrollTo({ top: el.offsetTop - 70, behavior: 'smooth' })
+      }
     }
   }
 
@@ -93,7 +118,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   }
 
   return (
-    <div className="landing-page-root emerald-theme" data-testid="landing-page">
+    <div
+      ref={containerRef}
+      className="landing-page-root emerald-theme"
+      data-testid="landing-page"
+    >
       {/* ── Background Atmosphere: Subtle Dot Grid + Radial Teals + Grain ── */}
       <div className="emerald-horizon-bg" aria-hidden="true">
         <div className="horizon-glow-radial" />

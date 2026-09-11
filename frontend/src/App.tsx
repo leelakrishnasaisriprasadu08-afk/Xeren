@@ -841,7 +841,7 @@ export const App: React.FC<AppProps> = ({ initialView, initialTransportType }) =
       idleTimeout={750}
       fadeDuration={900}
       blendMode="screen"
-      className="global-glow-cursor-app"
+      className={`global-glow-cursor-app ${currentView === 'landing' ? 'landing-view-active' : ''}`}
       data-testid="global-glow-cursor"
     >
       {mainView}
