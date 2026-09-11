@@ -392,7 +392,24 @@ class DeterministicCoreModelAdapter(BaseCoreModelAdapter):
         goal_lower = plan_context.goal.lower()
         steps: List[Dict[str, Any]] = []
 
-        if "multi" in goal_lower or ("research" in goal_lower and "code" in goal_lower):
+        if "multi" in goal_lower or (("research" in goal_lower or "scrape" in goal_lower) and any(w in goal_lower for w in ["site", "website", "3d", "showroom"])):
+            steps = [
+                {
+                    "description": f"Scrape and research open-source resources for: {plan_context.goal}",
+                    "action_type": "research",
+                    "plugin_name": "research",
+                    "capability": PluginCapability.WEB_SEARCH.value,
+                    "parameters": {"query": plan_context.goal, "depth": "standard"},
+                },
+                {
+                    "description": f"Generate interactive 3D website incorporating assets for: {plan_context.goal}",
+                    "action_type": "website",
+                    "plugin_name": "website",
+                    "capability": PluginCapability.WEBSITE_GENERATION.value,
+                    "parameters": {"requirement": plan_context.goal, "operation": "generate"},
+                },
+            ]
+        elif "multi" in goal_lower or ("research" in goal_lower and "code" in goal_lower):
             steps = [
                 {
                     "description": f"Research background for: {plan_context.goal}",
@@ -409,7 +426,7 @@ class DeterministicCoreModelAdapter(BaseCoreModelAdapter):
                     "parameters": {"operation": "generate", "task": plan_context.goal},
                 },
             ]
-        elif "research" in goal_lower or "search" in goal_lower:
+        elif "research" in goal_lower or "search" in goal_lower or "scrape" in goal_lower:
             steps = [
                 {
                     "description": f"Research topic: {plan_context.goal}",
@@ -462,7 +479,7 @@ class DeterministicCoreModelAdapter(BaseCoreModelAdapter):
                     },
                 }
             ]
-        elif "website" in goal_lower or "landing page" in goal_lower:
+        elif any(w in goal_lower for w in ["website", "site", "landing page", "showroom", "web app", "webpage", "3d model", "3d object", "three.js", "threejs", "3-d"]):
             steps = [
                 {
                     "description": f"Generate website for: {plan_context.goal}",
