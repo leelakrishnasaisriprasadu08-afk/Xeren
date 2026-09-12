@@ -17,6 +17,7 @@ class SearchProvider(str, Enum):
     BRAVE = "brave"
     SEARXNG = "searxng"
     GENERIC = "generic"
+    DUCKDUCKGO = "duckduckgo"
 
 
 class SearchProviderError(PluginError):
@@ -112,7 +113,7 @@ class SearchConfig(BaseModel):
             elif searxng_url:
                 env_provider = SearchProvider.SEARXNG.value
             else:
-                env_provider = SearchProvider.MOCK.value
+                env_provider = SearchProvider.DUCKDUCKGO.value
 
         api_key = None
         base_url = None

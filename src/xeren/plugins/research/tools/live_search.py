@@ -574,29 +574,102 @@ class GenericHttpSearchEngine(BaseLiveSearchEngine):
         return normalized
 
 
+class DuckDuckGoSearchEngine(BaseSearchEngine):
+    """Zero-key, 100% free open live web search engine using DDGS and Wikipedia fallback."""
+
+    def search(
+        self,
+        query: str,
+        max_results: int = 5,
+        domains: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> List[RawSearchResult]:
+        results: List[RawSearchResult] = []
+        try:
+            from ddgs import DDGS
+            ddg_items = list(DDGS().text(query, max_results=max_results))
+            for item in ddg_items:
+                if isinstance(item, dict) and item.get("body"):
+                    url = str(item.get("href", ""))
+                    title = str(item.get("title", url))
+                    body = str(item.get("body", ""))
+                    if url and body:
+                        results.append(
+                            RawSearchResult(
+                                url=url,
+                                title=title,
+                                snippet=body,
+                                score=0.9,
+                            )
+                        )
+        except Exception as e:
+            logger.debug("DDGS search error: %s", e)
+
+        # Fallback/complement with Wikipedia if few results
+        if len(results) < 2:
+            try:
+                import json
+                import re
+                import urllib.parse
+                import urllib.request
+
+                wiki_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(query)}&utf8=&format=json"
+                req = urllib.request.Request(wiki_url, headers={"User-Agent": "XerenAgent/1.0"})
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    for w_item in data.get("query", {}).get("search", [])[:3]:
+                        title = w_item.get("title", "")
+                        clean_snip = re.sub(r"<[^>]+>", "", w_item.get("snippet", "")).strip()
+                        if clean_snip:
+                            results.append(
+                                RawSearchResult(
+                                    url=f"https://en.wikipedia.org/wiki/{urllib.parse.quote(title)}",
+                                    title=f"{title} (Wikipedia)",
+                                    snippet=clean_snip,
+                                    score=0.85,
+                                )
+                            )
+            except Exception as e:
+                logger.debug("Wikipedia search fallback error: %s", e)
+
+        return results
+
+    async def asearch(
+        self,
+        query: str,
+        max_results: int = 5,
+        domains: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> List[RawSearchResult]:
+        return await asyncio.to_thread(self.search, query, max_results, domains, **kwargs)
+
+
 def create_search_engine(config: Optional[SearchConfig] = None) -> BaseSearchEngine:
     """Factory function creating the appropriate search engine based on configuration.
 
-    Defaults to MockSearchEngine if no live provider or API key is configured.
+    Defaults to free open DuckDuckGoSearchEngine (zero API key) if no specific provider is configured.
     """
     resolved_config = config or SearchConfig.from_env()
     provider = resolved_config.provider.lower()
 
-    if provider == SearchProvider.TAVILY.value:
+    if provider == SearchProvider.TAVILY.value and resolved_config.api_key:
         return TavilySearchEngine(resolved_config)
-    elif provider == SearchProvider.BRAVE.value:
+    elif provider == SearchProvider.BRAVE.value and resolved_config.api_key:
         return BraveSearchEngine(resolved_config)
     elif provider == SearchProvider.SEARXNG.value:
         return SearxngSearchEngine(resolved_config)
     elif provider == SearchProvider.GENERIC.value:
         return GenericHttpSearchEngine(resolved_config)
-    else:
-        # Default deterministic mock provider
+    elif provider == "mock":
         return MockSearchEngine()
+    else:
+        # Default: Free zero-key live web search engine
+        return DuckDuckGoSearchEngine()
 
 
 __all__ = [
     "BaseLiveSearchEngine",
+    "DuckDuckGoSearchEngine",
     "TavilySearchEngine",
     "BraveSearchEngine",
     "SearxngSearchEngine",

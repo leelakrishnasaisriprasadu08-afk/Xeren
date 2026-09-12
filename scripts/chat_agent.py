@@ -11,6 +11,7 @@ Usage:
 import argparse
 import asyncio
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -79,7 +80,7 @@ async def main():
             break
 
         if user_input.lower() == "clear":
-            os.system("cls" if os.name == "nt" else "clear")
+            subprocess.run("cls" if os.name == "nt" else "clear", shell=True)
             continue
 
         if user_input.lower() == "verbose":

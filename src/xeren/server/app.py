@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import asyncio
 import json
 import logging
@@ -92,6 +95,8 @@ class DispatchRequest(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     context: Optional[Dict[str, Any]] = None
+    images: Optional[List[Dict[str, Any]]] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
 
 
 class PlanProceedRequest(BaseModel):
@@ -202,8 +207,22 @@ async def realtime_websocket_endpoint(websocket: WebSocket):
             if event_type in ("user.text", "conversation.item.create"):
                 is_cancelled = False
                 query = event.get("text") or event.get("item", {}).get("content", [{}])[0].get("text", "")
-                if not query.strip():
+                images = event.get("images") or []
+                attachments = event.get("attachments") or []
+
+                if not query.strip() and images:
+                    query = "Please examine the attached image(s) and provide a detailed analysis, answer questions, or extract any code/text."
+                elif not query.strip() and attachments:
+                    file_names = ", ".join(a.get("name", "file") for a in attachments)
+                    query = f"Please inspect the attached file(s): {file_names}."
+                elif not query.strip():
                     continue
+
+                req_context: Dict[str, Any] = {}
+                if images:
+                    req_context["images"] = images
+                if attachments:
+                    req_context["attachments"] = attachments
 
                 message_id = f"msg_{int(time.time() * 1000)}"
 
@@ -226,23 +245,18 @@ async def realtime_websocket_endpoint(websocket: WebSocket):
                         })
 
                 # Execute chat / plan / proceed via XerenCore
-                chat_res = await core.achat(query, on_progress=_on_progress)
-                reply_text = chat_res.get("content", "")
-
-                # Stream response words/deltas
-                words = reply_text.split(" ")
-                for i, word in enumerate(words):
+                reply_text = ""
+                async for chunk in core.astream_chat(query, context=req_context, on_progress=_on_progress):
                     if is_cancelled:
                         break
-                    delta_text = ("" if i == 0 else " ") + word
+                    reply_text += chunk
                     await websocket.send_json({
                         "type": "response.text.delta",
-                        "delta": delta_text,
+                        "delta": chunk,
                         "messageId": message_id,
                         "timestamp": int(time.time() * 1000),
                     })
-                    await asyncio.sleep(0.02)
-
+                
                 if not is_cancelled:
                     await websocket.send_json({
                         "type": "response.text.complete",
@@ -265,7 +279,12 @@ async def realtime_websocket_endpoint(websocket: WebSocket):
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
     """Grounded interactive chat endpoint with zero hallucinations and plan staging."""
-    res = await core.achat(req.query, context=req.context)
+    ctx = dict(req.context or {})
+    if req.images:
+        ctx["images"] = req.images
+    if req.attachments:
+        ctx["attachments"] = req.attachments
+    res = await core.achat(req.query, context=ctx)
     return res
 
 

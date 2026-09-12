@@ -10,9 +10,12 @@ export function solveAnything(rawQuery: string): string {
   const lower = query.toLowerCase();
 
   // 1. GREETINGS & SMALL TALK
-  if (
+  const isGreeting =
+    /^(h+l+o+|h+l+w+|h+e+l+o+|h+e+l+l+o+|h+i+|h+e+y+|yo+|sup|namaste|hola|vanakkam|pranam|gm|gn)(\s+.*)?$/i.test(lower) ||
     lower === 'hi' ||
     lower === 'hello' ||
+    lower === 'hlo' ||
+    lower === 'helo' ||
     lower === 'hey' ||
     lower === 'hey there' ||
     lower === 'good morning' ||
@@ -20,19 +23,24 @@ export function solveAnything(rawQuery: string): string {
     lower === 'good evening' ||
     lower === 'how are you' ||
     lower === 'whats up' ||
-    lower === "what's up"
-  ) {
+    lower === "what's up" ||
+    lower.startsWith('hlo') ||
+    lower.startsWith('hello') ||
+    lower.startsWith('hi ') ||
+    lower.startsWith('hey ');
+
+  if (isGreeting) {
     return `### Hello! I am Xeren ⚡
 
-I am your autonomous conversational AI assistant and engineering companion.
+I am your autonomous AI assistant and engineering companion.
 
 **Here is what I can help you with:**
-- 💬 **Conversational Q&A**: General knowledge, geography, facts, science, and history.
-- 🧮 **Mathematics & Logic**: Linear equations (\`2x + 5 = 15\`), step-by-step arithmetic, and calculus.
-- 💻 **Coding & Algorithms**: Python, TypeScript, React, SQL, and algorithm design (when you ask for code!).
-- 🏗️ **Systems & Architecture**: Full-stack engineering, RAG, and multi-agent workflows.
+- 💬 **Conversational Q&A & Research**: General knowledge, reasoning, science, and concepts.
+- 💻 **Engineering & Code Generation**: Python, TypeScript, React, SQL, and full-stack architecture.
+- 🧮 **Calculations & Problem Solving**: Step-by-step arithmetic, logic, and algorithms.
+- 🏗️ **Autonomous Workflows**: Task planning, verification, and end-to-end execution.
 
-How can I help you today? Feel free to ask me any question!`;
+How can I help you today? Feel free to ask me anything or describe what you want to build!`;
   }
 
   // 2. XEREN IDENTITY & CREATORS
@@ -593,20 +601,12 @@ if __name__ == "__main__":
 Let me know if you want to expand this with specific dependencies, error handling, or tests!`;
   }
 
-  // 14. UNIVERSAL CONVERSATIONAL AI RESPONDER (No code boilerplate for general conversation!)
-  return `### 💡 Insights & Analysis for: "${query}"
+  // 14. UNIVERSAL CONVERSATIONAL AI RESPONDER
+  return `### ⚡ Xeren Assistance for: "${query}"
 
-I understand you are asking about **"${query}"**.
+I am ready to assist you with **"${query}"**.
 
-Here is a clear, structured breakdown:
+Whether you need detailed technical explanations, system architecture, code implementation, or problem solving, I can help you right away.
 
-1. **Context & Overview**:
-   This topic relates to general knowledge, systems reasoning, and technical concepts. I am equipped to assist you with comprehensive explanations, step-by-step problem analysis, or interactive simulations.
-
-2. **Key Points to Consider**:
-   - For factual or geographic queries (like states in India or Andhra Pradesh), I provide verified regional details.
-   - For mathematical questions, I provide exact step-by-step solutions and calculations.
-   - For programming, web development, or algorithms, ask me to write the code and I will generate complete, production-grade solutions.
-
-If you have a specific angle you want to explore or would like me to delve deeper into any detail, feel free to ask!`;
+Could you tell me a bit more about your specific goal or what you would like to accomplish?`;
 }

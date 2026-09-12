@@ -33,7 +33,7 @@ async def main():
             texts=texts,
             source="manual_cag_setup"
         )
-        print(f"Successfully ingested data! Result: {res.status}")
+        print(f"Successfully ingested data! Operation: {res.operation.value}, Chunks: {len(res.inserted_chunk_ids)}")
     except Exception as e:
         print(f"Error during ingestion: {e}")
         

@@ -127,7 +127,7 @@ def test_unified_generate_response_scrubs_secrets(setup_unified_environment) -> 
 
     # Configure a mock LLM that attempts to output an exposed database URI and API key
     class LeakyMockLLM(MockLLM):
-        def chat(self, messages, **kwargs):
+        def generate(self, messages, config=None, **kwargs):
             from xeren.models.types import ChatMessage, LLMResponse
             leak_text = "Here is your connection string: postgresql://admin:supersecretpassword@localhost:5432/prod_db with api_key='sk-123456789012345678901234567890'"
             return LLMResponse(

@@ -505,7 +505,7 @@ export const SelfImprovementHubModal: React.FC<SelfImprovementHubModalProps> = (
                       <span className="step-num">Step 3: Multi-Model Consensus</span>
                       <div className="step-title">Trap Mitigation</div>
                       <p className="step-desc">
-                        Cross-references web search findings across models (Claude, Gemini, Strawberry) to separate proven patterns from fatal execution traps.
+                        Cross-references web search findings across Xeren multi-stage engines (Xeren Core, Xeren Fast, Strawberry) to separate proven patterns from fatal execution traps.
                       </p>
                     </div>
 

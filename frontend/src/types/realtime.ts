@@ -41,6 +41,8 @@ export interface ConversationItemCreateClientEvent extends ClientEventBase {
 export interface UserTextClientEvent extends ClientEventBase {
   type: 'user.text'
   text: string
+  attachments?: any[]
+  images?: Array<{ name: string; dataUrl: string; mimeType: string }>
 }
 
 export interface UserAudioStartClientEvent extends ClientEventBase {
@@ -142,6 +144,7 @@ export interface ResponseAudioEndServerEvent extends ServerEventBase {
 
 export interface ResponseDoneServerEvent extends ServerEventBase {
   type: 'response.done'
+  messageId?: string
 }
 
 export interface AgentStatusServerEvent extends ServerEventBase {

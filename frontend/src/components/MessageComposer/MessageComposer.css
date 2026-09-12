@@ -203,6 +203,21 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #e2e8f0;
+  transition: all 0.15s ease;
+}
+
+.attachment-chip.is-image {
+  padding: 2px 8px 2px 3px;
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.attachment-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .attachment-chip.tier-liberal {
@@ -219,6 +234,12 @@
   border-color: rgba(239, 68, 68, 0.5);
   background: rgba(239, 68, 68, 0.15);
   color: #fca5a5;
+}
+
+.attachment-size-badge {
+  font-size: 0.65rem;
+  color: var(--text-tertiary, #94a3b8);
+  font-variant-numeric: tabular-nums;
 }
 
 .attachment-tier-badge {
@@ -257,6 +278,35 @@
 .composer-action-btn.active {
   color: #10b981;
   background: rgba(16, 185, 129, 0.15);
+}
+
+/* Drag-and-drop state for composer box */
+.composer-box.drag-over {
+  border: 2px dashed #10b981 !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.3) !important;
+  position: relative;
+}
+
+.composer-drag-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(10, 20, 36, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #34d399;
+  font-weight: 600;
+  font-size: 0.92rem;
+  pointer-events: none;
+  z-index: 10;
+  animation: fadeIn 0.15s ease;
+}
+
+.drag-overlay-icon {
+  font-size: 1.25rem;
 }
 
 /* Mode pill inside composer */

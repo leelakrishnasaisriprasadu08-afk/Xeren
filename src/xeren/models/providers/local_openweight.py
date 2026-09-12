@@ -89,7 +89,8 @@ class LocalOpenWeightAdapter(BaseLLM):
     def _format_messages_payload(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         formatted = []
         for msg in messages:
-            item: Dict[str, Any] = {"role": msg.role.value, "content": msg.content or ""}
+            content_val = msg.content if msg.content is not None else ""
+            item: Dict[str, Any] = {"role": msg.role.value, "content": content_val}
             if msg.name:
                 item["name"] = msg.name
             if msg.tool_call_id:

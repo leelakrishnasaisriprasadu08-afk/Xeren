@@ -36,6 +36,16 @@ export interface MessageMetadata {
   [key: string]: unknown
 }
 
+export interface MessageAttachment {
+  id: string
+  name: string
+  size: number
+  type: string
+  tier?: 'Liberal' | 'Sensitive' | 'More Sensitive'
+  dataUrl?: string
+  isImage?: boolean
+}
+
 export interface Message {
   id: string
   role: MessageRole
@@ -46,6 +56,7 @@ export interface Message {
   modality?: 'text' | 'voice'
   interrupted?: boolean
   metadata?: MessageMetadata
+  attachments?: MessageAttachment[]
 }
 
 export interface ConversationState {

@@ -345,6 +345,8 @@ class LLMCoreModelAdapter(BaseCoreModelAdapter):
             "Respond strictly with valid JSON conforming to the TaskPlan schema without commentary."
         )
         user_msg = f"Goal: {plan_context.goal}\nContext: {json.dumps(plan_context.task_context, default=str)}"
+        if plan_context.metadata and "last_error" in plan_context.metadata:
+            user_msg += f"\n\nPREVIOUS GENERATION ERROR:\n{plan_context.metadata['last_error']}\n\nYou must fix this error in your next JSON generation. Make sure to include all mandatory parameters (e.g. 'operation')."
         return [ChatMessage.system(system_msg), ChatMessage.user(user_msg)]
 
     def infer_plan(self, plan_context: PlanContext) -> Dict[str, Any]:
@@ -677,6 +679,8 @@ class CorePlannerAdapter(Planner, BaseCorePlanner):
         last_error: Optional[Exception] = None
 
         for attempt in range(self.max_retries + 1):
+            if last_error is not None:
+                plan_context.metadata["last_error"] = str(last_error)
             try:
                 raw_plan = self.model_adapter.infer_plan(plan_context)
                 if not isinstance(raw_plan, dict):
@@ -705,6 +709,8 @@ class CorePlannerAdapter(Planner, BaseCorePlanner):
         last_error: Optional[Exception] = None
 
         for attempt in range(self.max_retries + 1):
+            if last_error is not None:
+                plan_context.metadata["last_error"] = str(last_error)
             try:
                 coro = self.model_adapter.ainfer_plan(plan_context)
                 raw_plan = await asyncio.wait_for(coro, timeout=self.timeout_seconds)
@@ -724,7 +730,7 @@ class CorePlannerAdapter(Planner, BaseCorePlanner):
                         f"Model plan generation timed out after {self.max_retries + 1} attempts.",
                         details={"timeout_seconds": self.timeout_seconds, "attempts": self.max_retries + 1},
                     ) from err
-            except (UnsupportedPluginError, UnsupportedCapabilityError, MissingArgumentError, UnsafePlanError):
+            except (UnsupportedPluginError, UnsupportedCapabilityError, UnsafePlanError):
                 # Don't retry deterministic safety or capability errors
                 raise
             except (PlanValidationError, ModelInferenceError, Exception) as err:
