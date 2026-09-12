@@ -74,7 +74,7 @@ class XerenNativeLLM(BaseLLM):
             "XEREN_CHECKPOINT",
             "training/checkpoints/xeren_mini_final",
         )
-        self._max_new_tokens = 512
+        self._max_new_tokens = 1024
         self._loaded = False
 
     def _load_model(self):
@@ -166,12 +166,14 @@ class XerenNativeLLM(BaseLLM):
         if getattr(self, "_model_type", "scratch") == "hf":
             inputs = self._tokenizer(prompt, return_tensors="pt").to(self._device)
             with torch.no_grad():
+                effective_temp = temperature if temperature > 0 else 0.7
                 outputs = self._model.generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
-                    temperature=temperature if temperature > 0 else 0.2,
-                    do_sample=temperature > 0,
+                    temperature=effective_temp,
+                    do_sample=True,
                     top_p=top_p,
+                    repetition_penalty=1.1,
                     pad_token_id=self._tokenizer.eos_token_id,
                 )
             new_ids = outputs[0][inputs["input_ids"].shape[1]:]

@@ -27,8 +27,15 @@ export class WebSocketRealtimeTransport implements IRealtimeTransport {
   private maxReconnectAttempts: number = 5
   private reconnectTimeoutId: any = null
 
-  constructor(url: string = 'ws://localhost:8000/api/v1/realtime') {
-    this.url = url
+  constructor(url?: string) {
+    if (url) {
+      this.url = url
+    } else if (typeof window !== 'undefined') {
+      const host = window.location.hostname || '127.0.0.1'
+      this.url = `ws://${host}:8000/api/v1/realtime`
+    } else {
+      this.url = 'ws://127.0.0.1:8000/api/v1/realtime'
+    }
   }
 
   public get state(): ConnectionState {
@@ -103,11 +110,13 @@ export class WebSocketRealtimeTransport implements IRealtimeTransport {
     // Offline / Standalone Fallback: Ensure user typed messages always receive an active response
     if (event.type === 'user.text' || event.type === 'conversation.item.create') {
       const query = event.type === 'user.text' ? event.text : event.item?.content?.[0]?.text || ''
-      this.simulateOfflineResponse(query)
+      const images = (event as any).images || []
+      const attachments = (event as any).attachments || []
+      this.simulateOfflineResponse(query, images, attachments)
     }
   }
 
-  private async simulateOfflineResponse(query: string): Promise<void> {
+  private async simulateOfflineResponse(query: string, images: any[] = [], attachments: any[] = []): Promise<void> {
     const messageId = `msg-solver-${Date.now()}`
     this.emit({
       type: 'response.created',
@@ -120,10 +129,11 @@ export class WebSocketRealtimeTransport implements IRealtimeTransport {
       // Call the Xeren FastAPI backend — 30s timeout so the model has time to think
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
-      const res = await fetch('http://127.0.0.1:8000/api/chat', {
+      const apiHost = typeof window !== 'undefined' ? window.location.hostname || '127.0.0.1' : '127.0.0.1'
+      const res = await fetch(`http://${apiHost}:8000/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, images, attachments }),
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
@@ -142,7 +152,11 @@ export class WebSocketRealtimeTransport implements IRealtimeTransport {
     }
 
     if (!reply) {
-      reply = solveAnything(query)
+      if (images && images.length > 0) {
+        reply = `### 👁️ Image Received & Inspected\n\nI have received ${images.length} image(s). When online, my vision engine analyzes visual diagrams, screenshots, UI mockups, charts, and code automatically.\n\nHow would you like me to process this image?`
+      } else {
+        reply = solveAnything(query)
+      }
     }
 
     const words = reply.split(' ')
@@ -199,12 +213,16 @@ export class WebSocketRealtimeTransport implements IRealtimeTransport {
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       this.setState('error')
+      // Continue retrying every 5 seconds in background so when backend comes up, it auto-connects
+      this.reconnectTimeoutId = setTimeout(() => {
+        this.connect().catch(() => {})
+      }, 5000)
       return
     }
 
     this.setState('reconnecting')
     this.reconnectAttempts++
-    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000)
+    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 5000)
 
     this.reconnectTimeoutId = setTimeout(() => {
       this.connect().catch(() => {})

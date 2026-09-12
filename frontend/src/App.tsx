@@ -96,7 +96,7 @@ export const App: React.FC<AppProps> = ({ initialView, initialTransportType }) =
         'Strict role-based action gating',
         'Real-time sync latency < 50ms',
       ],
-      target_apis: ['OpenAI API', 'Anthropic Claude API', 'Gemini Pro API', 'MongoDB Atlas'],
+      target_apis: ['Xeren Neural Engine', 'Xeren Vision Pipeline', 'Xeren Realtime Bus', 'MongoDB Atlas'],
       deliverables: [
         'Parallel collaborative workstations',
         'AI Coach integration',
@@ -114,8 +114,8 @@ export const App: React.FC<AppProps> = ({ initialView, initialTransportType }) =
       },
       {
         milestone_id: 'ms_grp_02',
-        title: 'Multi-Model Reasoning Benchmarks',
-        description: 'Benchmark Claude 3.5 Sonnet vs Gemini 2.0 Flash for sub-agents',
+        title: 'Xeren Sovereign Reasoning Benchmarks',
+        description: 'Benchmark Xeren Core 120B vs Xeren Fast Reasoner for sub-agents',
         assigned_role: 'ai_specialist',
         assigned_member_handle: '@sarah_ai',
         status: 'in_progress',
@@ -698,13 +698,14 @@ export const App: React.FC<AppProps> = ({ initialView, initialTransportType }) =
             onSelectMode={setActiveMode}
             activeCommandCenterTab={activeCommandCenterTab}
             onCommandCenterTabChange={setActiveCommandCenterTab}
-            onSendMessage={(text) => sendMessage(text, 'text')}
+            onSendMessage={(text, attachments) => sendMessage(text, 'text', attachments)}
             onProceedPlan={proceedWithStagedPlan}
             onStartListening={startListening}
             onStopListening={stopListening}
             onInterrupt={interrupt}
             isVoiceOutputEnabled={isVoiceOutputEnabled}
             onToggleVoiceOutput={setIsVoiceOutputEnabled}
+            isOnline={connectionState === 'connected'}
           />
 
           {/* 4. FLOATING COMMAND HUB (Bottom-Right Action Trigger + Chart of Subsystem Buttons) */}

@@ -153,20 +153,10 @@ class MockBrowserAdapter(BaseBrowserAdapter):
         """Register download payload."""
         self.downloads[key] = payload
 
-    async def ainitialize(self) -> ActionResult:
+    async def ainitialize(self) -> None:
         """Simulate browser launch and session startup."""
-        start = time.perf_counter()
-        action_id = str(uuid.uuid4())
         self.is_initialized = True
         self.is_closed = False
-        obs = await self.aobserve()
-        return ActionResult(
-            action_id=action_id,
-            success=True,
-            data={"status": "initialized", "url": self.current_url},
-            observation=obs,
-            latency_ms=round((time.perf_counter() - start) * 1000, 2),
-        )
 
     async def anavigate(
         self,
@@ -232,14 +222,6 @@ class MockBrowserAdapter(BaseBrowserAdapter):
                 recoverable=False,
                 latency_ms=round((time.perf_counter() - start) * 1000, 2),
             )
-
-    def navigate(self, url: str) -> BrowserObservation:
-        """Synchronous wrapper for navigation."""
-        self.current_url = url
-        self.navigation_history.append(url)
-        page = self.pages.get(url, {"title": f"Page at {url}", "text": "", "content": "", "elements": []})
-        self.current_title = page.get("title", "Page")
-        return self.observe()
 
     async def aobserve(self) -> BrowserObservation:
         """Simulate extracting DOM state and interactive elements."""
@@ -356,12 +338,6 @@ class MockBrowserAdapter(BaseBrowserAdapter):
             latency_ms=round((time.perf_counter() - start) * 1000, 2),
         )
 
-    def click(self, selector: str) -> BrowserObservation:
-        """Synchronous simulated click."""
-        self.clicked_selectors.append(selector)
-        self.clicked_elements.append(selector)
-        return self.observe()
-
     async def atype_text(
         self,
         selector: str,
@@ -414,6 +390,7 @@ class MockBrowserAdapter(BaseBrowserAdapter):
         self,
         selector: str,
         value: str,
+        timeout_ms: Optional[int] = None,
     ) -> ActionResult:
         """Simulate dropdown selection."""
         start = time.perf_counter()
@@ -488,15 +465,6 @@ class MockBrowserAdapter(BaseBrowserAdapter):
             observation=obs,
             latency_ms=round((time.perf_counter() - start) * 1000, 2),
         )
-
-    def scroll(self, direction: str = "down", amount: int = 500) -> BrowserObservation:
-        """Synchronous simulated scroll."""
-        if direction == "down":
-            self.scroll_pos["y"] += amount
-        elif direction == "up":
-            self.scroll_pos["y"] = max(0, self.scroll_pos["y"] - amount)
-        self.scroll_history.append({"direction": direction, "amount": amount})
-        return self.observe()
 
     async def aextract_content(
         self,

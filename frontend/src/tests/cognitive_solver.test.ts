@@ -84,4 +84,15 @@ describe('Cognitive Problem Solver & Conversational Engine', () => {
     expect(res).toContain('containerization platform')
     expect(res).not.toContain('def execute_task')
   })
+
+  it('greets naturally on "hlo" and informal greetings without robotic canned templates', () => {
+    const res = solveAnything('hlo')
+    expect(res).toContain('Hello! I am Xeren ⚡')
+    expect(res).not.toContain('Insights & Analysis for: "hlo"')
+    expect(res).not.toContain('states in India')
+
+    const res2 = solveAnything('helo xeren')
+    expect(res2).toContain('Hello! I am Xeren ⚡')
+    expect(res2).not.toContain('Insights & Analysis')
+  })
 })

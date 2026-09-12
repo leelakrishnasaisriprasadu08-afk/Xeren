@@ -176,6 +176,8 @@ export class VoiceOutputService {
   private currentUtterance: SpeechSynthesisUtterance | null = null
   private animationFrameId: number | null = null
 
+  private safetyTimeoutId: any = null
+
   public isSupported(): boolean {
     return typeof window !== 'undefined' && 'speechSynthesis' in window
   }
@@ -188,11 +190,41 @@ export class VoiceOutputService {
       return
     }
 
+    // Strip Markdown symbols, headers, links, and raw URLs so TTS doesn't hang
+    let cleanText = text
+      .replace(/```[\s\S]*?```/g, '') // code blocks
+      .replace(/https?:\/\/\S+/gi, '') // URLs
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // link text
+      .replace(/[#*`_~>[\]]/g, '') // markdown punctuation
+      .replace(/Verified Sources & Evidence:[\s\S]*/gi, '') // citation footers
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    if (!cleanText) {
+      callbacks?.onEnd?.()
+      return
+    }
+
+    // Provide a concise conversational spoken summary rather than reading 500+ words
+    if (cleanText.length > 280) {
+      const sentences = cleanText.split(/(?<=[.?!])\s+/)
+      cleanText = sentences.slice(0, 2).join(' ')
+      if (!cleanText) cleanText = text.slice(0, 200)
+    }
+
     this.isSpeakingState = true
     callbacks?.onStart?.()
 
-    const utterance = new SpeechSynthesisUtterance(text)
+    // Resume speech synthesis if paused by browser
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume()
+    }
+
+    const utterance = new SpeechSynthesisUtterance(cleanText)
     this.currentUtterance = utterance
+    // Prevent Chromium garbage collection bug
+    ;(window as any).__activeSpeechUtterance = utterance
+
     utterance.rate = 1.05
     utterance.pitch = 1.0
 
@@ -210,7 +242,6 @@ export class VoiceOutputService {
     const simulateAmplitude = () => {
       if (!this.isSpeakingState) return
       phase += 0.2
-      // Rhythmic speech wave between 0.2 and 0.85
       const wave = (Math.sin(phase) + Math.cos(phase * 1.7) + 2) / 4
       const amplitude = Math.max(0.15, Math.min(0.9, wave))
       callbacks?.onAmplitudeChange?.(amplitude)
@@ -218,47 +249,74 @@ export class VoiceOutputService {
     }
     simulateAmplitude()
 
-    utterance.onend = () => {
+    const cleanup = () => {
       this.isSpeakingState = false
+      if (this.safetyTimeoutId) {
+        clearTimeout(this.safetyTimeoutId)
+        this.safetyTimeoutId = null
+      }
       if (this.animationFrameId !== null) {
         cancelAnimationFrame(this.animationFrameId)
         this.animationFrameId = null
       }
       callbacks?.onAmplitudeChange?.(0)
-      callbacks?.onEnd?.()
       this.currentUtterance = null
+      delete (window as any).__activeSpeechUtterance
+    }
+
+    utterance.onend = () => {
+      cleanup()
+      callbacks?.onEnd?.()
     }
 
     utterance.onerror = (event: any) => {
-      this.isSpeakingState = false
-      if (this.animationFrameId !== null) {
-        cancelAnimationFrame(this.animationFrameId)
-        this.animationFrameId = null
-      }
-      callbacks?.onAmplitudeChange?.(0)
+      cleanup()
       if (event.error === 'interrupted' || event.error === 'canceled') {
         callbacks?.onInterrupted?.()
       } else {
         callbacks?.onError?.(new Error(`Speech synthesis error: ${event.error}`))
       }
-      this.currentUtterance = null
     }
 
-    window.speechSynthesis.speak(utterance)
+    // Safety watchdog timeout so presence state NEVER hangs in 'speaking' forever
+    const maxDurationMs = Math.min(15000, Math.max(3500, cleanText.length * 90))
+    this.safetyTimeoutId = setTimeout(() => {
+      if (this.isSpeakingState) {
+        this.stop()
+        callbacks?.onEnd?.()
+      }
+    }, maxDurationMs)
+
+    try {
+      window.speechSynthesis.speak(utterance)
+    } catch {
+      cleanup()
+      callbacks?.onEnd?.()
+    }
   }
 
   public stop(): void {
+    if (this.safetyTimeoutId) {
+      clearTimeout(this.safetyTimeoutId)
+      this.safetyTimeoutId = null
+    }
+
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId)
       this.animationFrameId = null
     }
 
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel()
+      try {
+        window.speechSynthesis.cancel()
+      } catch {}
     }
 
     this.isSpeakingState = false
     this.currentUtterance = null
+    if (typeof window !== 'undefined') {
+      delete (window as any).__activeSpeechUtterance
+    }
   }
 
   public get isSpeaking(): boolean {

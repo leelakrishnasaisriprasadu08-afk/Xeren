@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { AgentMilestone, AgentProgressDetails } from '../types/agent'
-import type { Message } from '../types/conversation'
+import type { Message, MessageAttachment } from '../types/conversation'
 import type { PresenceState } from '../types/presence'
 import type { ServerEvent } from '../types/realtime'
 import type { TransportType } from './useRealtimeConnection'
@@ -109,11 +109,12 @@ export function useConversation(options: UseConversationOptions = {}) {
     }
   }, [voiceOutput, realtime, currentStreamingId, voiceInput.isListening])
 
-  // Submit a message (either typed or spoken)
+  // Submit a message (either typed, spoken, or with attachments)
   const sendMessage = useCallback(
-    (text: string, modality: 'text' | 'voice' = 'text') => {
+    (text: string, modality: 'text' | 'voice' = 'text', attachments?: MessageAttachment[]) => {
       const trimmed = text.trim()
-      if (!trimmed) return
+      const hasAttachments = attachments && attachments.length > 0
+      if (!trimmed && !hasAttachments) return
 
       // If Xeren is currently speaking or streaming, interrupt first
       if (presenceState === 'speaking' || presenceState === 'acting' || currentStreamingId) {
@@ -123,19 +124,26 @@ export function useConversation(options: UseConversationOptions = {}) {
       const userMsg: Message = {
         id: `msg_user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         role: 'user',
-        content: trimmed,
+        content: trimmed || (hasAttachments ? `[Shared ${attachments.length} attachment(s)]` : ''),
         timestamp: Date.now(),
         status: 'complete',
         modality,
+        attachments,
       }
 
       setMessages((prev) => [...prev, userMsg])
       setPresenceState('thinking')
 
+      const images = (attachments || [])
+        .filter((a) => a.isImage && a.dataUrl)
+        .map((a) => ({ name: a.name, dataUrl: a.dataUrl!, mimeType: a.type || 'image/png' }))
+
       // Send client event
       realtime.send({
         type: 'user.text',
-        text: trimmed,
+        text: trimmed || (hasAttachments ? `Shared ${attachments.length} attachment(s)` : ''),
+        attachments,
+        images,
         timestamp: Date.now(),
       })
     },

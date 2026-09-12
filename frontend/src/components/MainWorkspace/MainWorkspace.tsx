@@ -29,13 +29,14 @@ export interface MainWorkspaceProps {
   onSelectMode?: (mode: CognitiveMode) => void
   activeCommandCenterTab?: 'freelance' | 'security' | 'research' | 'channels'
   onCommandCenterTabChange?: (tab: 'freelance' | 'security' | 'research' | 'channels') => void
-  onSendMessage: (text: string) => void
+  onSendMessage: (text: string, attachments?: any[]) => void
   onProceedPlan?: (planText?: string) => void
   onRevisePlan?: (planId?: string) => void
   onCancelPlan?: (planId?: string) => void
   onStartListening: () => void
   onStopListening: () => void
   onInterrupt: () => void
+  isOnline?: boolean
 }
 
 export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
@@ -63,6 +64,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
   onStartListening,
   onStopListening,
   onInterrupt,
+  isOnline = false,
 }) => {
   const hasMessages = messages.length > 0 || !!currentStreamingText
 
@@ -83,32 +85,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
     return () => { mounted = false; clearInterval(interval) }
   }, [])
 
-  const QUICK_ACTIONS = [
-    {
-      icon: '🔬',
-      title: 'Research anything',
-      desc: 'Xeren searches, verifies sources, and builds a knowledge report based on your topic.',
-      prompt: 'Research ',
-    },
-    {
-      icon: '🌐',
-      title: 'Build a website',
-      desc: 'Describe your idea — Xeren architects, codes, and previews a full-stack site for you.',
-      prompt: 'Build a website for ',
-    },
-    {
-      icon: '💻',
-      title: 'Write & run code',
-      desc: 'Python, TypeScript, SQL, React — give Xeren the task and it will code and test it.',
-      prompt: 'Write a Python script that ',
-    },
-    {
-      icon: '📋',
-      title: 'Plan & automate',
-      desc: 'Describe a multi-step goal. Xeren breaks it into a plan and executes it autonomously.',
-      prompt: 'Create a detailed plan to ',
-    },
-  ]
+
 
   const PLUGINS = [
     'ResearchPlugin', 'CodingPlugin', 'WebsitePlugin',
@@ -184,21 +161,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
                 ))}
               </div>
 
-              {/* ─── Quick-start Idea Cards ───────────────────────── */}
-              <div className="home-action-grid">
-                {QUICK_ACTIONS.map((a) => (
-                  <button
-                    key={a.title}
-                    className="home-action-card"
-                    onClick={() => onSendMessage(a.prompt)}
-                    type="button"
-                  >
-                    <span className="home-action-icon">{a.icon}</span>
-                    <p className="home-action-title">{a.title}</p>
-                    <p className="home-action-desc">{a.desc}</p>
-                  </button>
-                ))}
-              </div>
+
 
               {/* ─── Capability Cards (existing) ─────────────────── */}
               <CapabilityCards onSelectPrompt={onSendMessage} />
@@ -257,6 +220,7 @@ export const MainWorkspace: React.FC<MainWorkspaceProps> = ({
             onStartListening={onStartListening}
             onStopListening={onStopListening}
             onInterrupt={onInterrupt}
+            isOnline={isOnline}
           />
 
           <SuggestionChips onSelectSuggestion={onSendMessage} />

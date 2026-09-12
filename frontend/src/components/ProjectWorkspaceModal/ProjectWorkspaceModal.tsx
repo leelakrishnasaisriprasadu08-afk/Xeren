@@ -562,7 +562,7 @@ export const ProjectWorkspaceModal: React.FC<ProjectWorkspaceModalProps> = ({
                   rows={4}
                   value={targetApisText}
                   onChange={(e) => setTargetApisText(e.target.value)}
-                  placeholder="OpenAI API, Anthropic Claude API, Gemini Pro API, MongoDB Atlas"
+                  placeholder="Xeren Neural API, Xeren Vision API, Xeren Realtime Bus, MongoDB Atlas"
                 />
               </div>
             </div>

@@ -259,8 +259,11 @@ class UnifiedRetrievalEngine:
         messages.append(ChatMessage.user(user_text))
 
         # Generate LLM response
-        llm_resp = llm.chat(messages)
-        raw_content = llm_resp.content or ""
+        if hasattr(llm, "generate"):
+            llm_resp = llm.generate(messages)
+        else:
+            llm_resp = getattr(llm, "chat")(messages)
+        raw_content = getattr(llm_resp, "content", str(llm_resp)) or ""
 
         # Security scrub: remove any leaked API keys, tokens, or connection strings
         clean_content, was_scrubbed = self.output_guard.scrub(raw_content)

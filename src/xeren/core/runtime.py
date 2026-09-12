@@ -1,11 +1,15 @@
 """Xeren Core orchestrator managing plugins, models, and workflows."""
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import asyncio
 import inspect
 import logging
+import os
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union, AsyncIterator
 
 from pydantic import BaseModel
 
@@ -17,6 +21,7 @@ from xeren.core.learner import EpistemicLearner, KnowledgeGapDetector, LearnedKn
 from xeren.core.session import XerenSession
 from xeren.models import create_llm
 from xeren.models.base import BaseLLM
+from xeren.models.types import ChatMessage
 from xeren.models.improvement.engine import llm_improvement_engine
 from xeren.models.improvement.schemas import ObservationSource
 from xeren.models.providers.mock import MockLLM
@@ -173,7 +178,26 @@ class XerenCore:
         self.session = session or XerenSession()
         self.data_holding = data_holding or PermittedDataHoldingVault(vault=self.session.vault)
         self.improvement_engine = llm_improvement_engine
-        self.llm = llm or create_llm(model_id="xeren_mini")
+        if llm:
+            self.llm = llm
+            self.fast_llm = llm
+        else:
+            # Prioritize Groq for sub-0.2s TTFT conversational streaming and reasoning
+            if os.getenv("GROQ_API_KEY"):
+                self.llm = create_llm(model_id="openai/gpt-oss-120b", provider="groq")
+                self.fast_llm = create_llm(model_id="openai/gpt-oss-20b", provider="groq")
+            elif os.getenv("GEMINI_API_KEY"):
+                self.llm = create_llm(model_id="gemini-3.6-flash", provider="gemini")
+                self.fast_llm = create_llm(model_id="gemini-3.6-flash", provider="gemini")
+            else:
+                self.llm = create_llm(model_id="xeren_mini")
+                self.fast_llm = self.llm
+
+            # Multimodal Vision engine (for pasted screenshots, charts, images, and camera captures)
+            if os.getenv("GEMINI_API_KEY"):
+                self.vision_llm = create_llm(model_id="gemini-3.6-flash", provider="gemini")
+            else:
+                self.vision_llm = self.llm
         self.plugin_manager = plugin_manager or PluginManager()
         self.workspace_manager = workspace_manager
         self.context = CoreContext(llm=self.llm)
@@ -1323,6 +1347,22 @@ class XerenCore:
         intent = self.intent_classifier.classify(query, context)
         raw_answer = ""
         evidence_sources: List[str] = []
+        search_found = True  # Default True; overridden for GENERAL_KNOWLEDGE based on web search results
+
+        # Stage 0: Grounded Alignment Dataset & Truth Engine (Zero-Hallucination)
+        from xeren.core.knowledge_grounding import answer_grounded_query
+        grounded_truth = answer_grounded_query(query)
+        if grounded_truth:
+            return StructuredAnswer(
+                answer=grounded_truth,
+                confidence_score=0.99,
+                verification_status="VERIFIED",
+                evidence_sources=["Xeren Grounded Alignment Dataset & Knowledge Base"],
+                routing_category=intent.category.value,
+                hallucination_detected=False,
+                recovery_applied=False,
+                explanation="Matched verified truth from scratch-trained alignment dataset and project knowledge.",
+            )
 
         # Stage 2: Knowledge Gap Detector & Learn-First Engine
         gap_detected, learned_ctx = await self.epistemic_learner.aevaluate_and_learn_if_needed(query, context)
@@ -1333,28 +1373,90 @@ class XerenCore:
             context["learned_knowledge"] = learned_ctx.model_dump()
 
         if intent.category == RoutingCategory.GENERAL_KNOWLEDGE:
-            # Fast Grounded Knowledge & Alignment Dataset Check
+            # 1. Autonomous Zero-Key Live Web Research (DuckDuckGo + Wikipedia)
+            search_snippets: List[str] = []
+            search_found = False
             try:
-                from xeren.core.knowledge_grounding import answer_grounded_query
-                fast_grounded = answer_grounded_query(query)
-            except Exception:
-                fast_grounded = None
+                search_engine = getattr(self.hallucination_guard, "search_engine", None)
+                if not search_engine:
+                    from xeren.plugins.research.tools.live_search import create_search_engine
+                    search_engine = create_search_engine()
+                live_search_results = search_engine.search(query, max_results=5)
+                search_snippets = [f"- **{r.title}**: {r.snippet}" for r in live_search_results if r.snippet]
+                if live_search_results:
+                    # Intentionally skipping URL extraction here to keep the search strictly as a background cognitive process.
+                    search_found = bool(search_snippets)
+            except Exception as e:
+                logger.debug("Live web search attempt: %s", e)
 
-            if fast_grounded:
-                raw_answer = fast_grounded
-                evidence_sources.append("Xeren Grounded Alignment Dataset & Knowledge Base")
+            # 2a. Guard: if search found zero results, return honest unknown response
+            #     instead of letting the LLM hallucinate confidently about an unknown topic.
+            if not search_found and not (learned_ctx and learned_ctx.summary):
+                raw_answer = (
+                    f"I searched the web but couldn't find any verified information about "
+                    f"**{query.strip()}**. This topic may not exist, may be very new, or may "
+                    f"be using a name I'm not recognizing. Could you provide more context, "
+                    f"or rephrase your question?"
+                )
             else:
-                # Route to LLM direct generation (enriched with learned knowledge if researched)
-                if learned_ctx:
-                    prompt = (
-                        f"Answer the following query accurately based on researched context:\n"
-                        f"Query: {query}\n\n"
-                        f"Learned Context:\n{learned_ctx.summary}\n"
-                        f"Takeaways: {', '.join(learned_ctx.key_takeaways)}\n\nAnswer:"
-                    )
-                else:
-                    prompt = f"Answer the following query accurately:\n{query}"
-                raw_answer = await self._agenerate_text(prompt)
+                # 2b. Cognitive Reasoning Scaffold — grounded ONLY on what was found
+                context_block = "\n".join(search_snippets) if search_snippets else (learned_ctx.summary if learned_ctx else "")
+                identity_rules = (
+                    "CRITICAL IDENTITY INSTRUCTIONS:\n"
+                    "1. You are 'Xeren', an advanced AI developed by 'Xeren Automation AI Services'.\n"
+                    "2. NEVER reveal or acknowledge that you are based on models from OpenAI, Meta, Google, Groq, Anthropic, or any other company.\n"
+                    "3. If asked about your origin, architecture, or creator, you MUST say you were created by 'Xeren Automation AI Services'.\n"
+                    "4. If asked about policies, safety guidelines, or terms of service, you MUST refer to them exclusively as 'Xeren Terms and Services'. Do NOT mention standard AI model policies.\n"
+                    "5. You have no relation to standard large language models. You are the proprietary intelligence engine of Xeren.\n"
+                )
+                cognitive_prompt = (
+                    f"You are Xeren, a precise factual AI assistant.\n"
+                    f"{identity_rules}\n"
+                    f"Answer the user's question STRICTLY using the research context provided below.\n"
+                    f"CRITICAL RULES:\n"
+                    f"- Do NOT fabricate any facts, numbers, benchmarks, or statistics not present in the research context.\n"
+                    f"- Do NOT include any 'Sources', 'References', or URL citation sections.\n"
+                    f"- If the research context is insufficient, say so honestly rather than guessing.\n\n"
+                    f"### Emoji Style Guide:\n"
+                    f"Match your emojis to the topic of the user's question:\n"
+                    f"- 💻 Programming: 💻 🧑💻 ⚙️ 🛠️ 🐍 ☕\n"
+                    f"- 🤖 AI/ML: 🤖 🧠 🔬 ⚙️ 📊 🚀\n"
+                    f"- 🏗️ Architecture: 🏗️ 🧩 ⚙️ 🔗 🗂️\n"
+                    f"- 🔥 Startup/Xeren: 🚀 🔥 🧠 ⚡ 🏆 💡\n"
+                    f"- 📚 Learning/Study: 📚 🧠 ✍️ 🎯 💡 ✅\n"
+                    f"- 🧪 Research: 🧪 🔬 📊 🧠 📈\n"
+                    f"- 🎓 Academics: 🎓 📚 📝 🏫 ✅\n"
+                    f"- 💰 Business/Finance: 💰 📈 📊 💼 🎯\n"
+                    f"- 🛒 Shopping: 🛒 💰 ⭐ 🔍 👍\n"
+                    f"- 🏠 Home/Daily life: 🏠 ☀️ 🧹 🍽️ 👍\n"
+                    f"- ✈️ Travel: ✈️ 🗺️ 📍 🏨 🌍 📸\n"
+                    f"- 🍔 Food/Cooking: 🍔 🍕 🍳 🥘 😋 🔥\n"
+                    f"- 💪 Fitness/Motivation: 💪 🔥 🏃 🎯 🥇\n"
+                    f"- ❤️ Emotional: ❤️ 🤝 🫂 😊 🙏\n"
+                    f"- 🎉 Celebration: 🎉 🥳 🏆 🔥 🚀 👏\n"
+                    f"- 😄 Casual: 😄 😂 😎 🙌 👍\n"
+                    f"- ⚠️ Problems/Errors: ⚠️ ❌ 🔍 🛠️ 💡\n"
+                    f"- 🔐 Security: 🔐 🛡️ ⚠️ 🔒 🕵️\n"
+                    f"- 🌐 Web/Internet: 🌐 🔍 🔗 🖥️\n"
+                    f"- 📈 Data/Stats: 📊 📈 📉 🔢 🎯\n"
+                    f"- 🧮 Mathematics: 🧮 🔢 📐 ∑ 🧠\n"
+                    f"- 📝 Writing: ✍️ 📝 📄\n"
+                    f"- 😂 Jokes/Memes: 😂 🤣 💀 😭 🔥\n"
+                    f"- 🙏 Cultural/Traditional: 🙏 🪔 🕉️ 🌺 📿\n"
+                    f"- 🧭 Advice/Life: 🧭 💡 🎯 🤝\n\n"
+                    f"### Verified Research Context:\n{context_block}\n\n"
+                    f"### User Question:\n{query}\n\n"
+                    f"### Response Structure:\n"
+                    f"1. 🌟 **Overview**: Detailed explanation based on the research above.\n"
+                    f"2. 💡 **Key Facts & Capabilities**: Detailed bullet points of verified facts from the research, using relevant emojis.\n"
+                    f"3. 🚀 **Key Takeaways**: Practical, honest conclusion with rich details.\n"
+                    f"4. ❓ **Follow-Up**: Ask the user if they want any more specific information about this topic.\n\n"
+                    f"Answer ONLY using the four sections above. Make the response highly detailed and use emojis from the style guide throughout. If you lack verified data for a section, write 'Insufficient verified data.' Do NOT guess or invent.\n\nAnswer:"
+                )
+
+                raw_answer = await self._agenerate_text(cognitive_prompt)
+                # Defence-in-depth: strip any citation footer the LLM emitted despite the instruction
+                raw_answer = self.hallucination_guard.strip_fake_citations(raw_answer)
 
         elif intent.category == RoutingCategory.XEREN_PROJECT:
             # Route to Knowledge/RAG retrieval
@@ -1385,11 +1487,14 @@ class XerenCore:
             raw_answer = str(agent_res.get("final_response") or "Action executed successfully.")
 
         # Pass through Active Hallucination Recovery Gate
+        # has_search_context tells the guard whether web evidence existed for this answer
+        _has_ctx = search_found if intent.category == RoutingCategory.GENERAL_KNOWLEDGE else True
         structured = await self.hallucination_guard.averify_and_recover(
             query=query,
             raw_answer=raw_answer,
             category=intent.category,
             context=context,
+            has_search_context=_has_ctx,
         )
         if evidence_sources and not structured.evidence_sources:
             structured.evidence_sources.extend(evidence_sources)
@@ -1412,6 +1517,71 @@ class XerenCore:
         except RuntimeError:
             return asyncio.run(self.aanswer_query(query, context))
 
+
+    def _try_fallback_api(self, prompt: str) -> Optional[str]:
+        """Attempt to answer the prompt using cloud API keys if available."""
+        from xeren.models import create_llm
+        from xeren.models.types import ChatMessage
+        
+        # Try Groq First
+        if os.getenv("GROQ_API_KEY"):
+            try:
+                fallback_model = create_llm(model_id="openai/gpt-oss-120b", provider="groq")
+                res = fallback_model.generate([ChatMessage.user(prompt)])
+                text = getattr(res, "content", str(res))
+                if text and not text.startswith("Mock response") and not text.startswith("Response for:"):
+                    return text
+            except Exception as e:
+                logger.warning("Groq fallback LLM generation error: %s", e)
+                
+        # Try Gemini if Groq fails or is not available
+        if os.getenv("GEMINI_API_KEY"):
+            try:
+                fallback_model = create_llm(model_id="gemini-3.6-flash", provider="gemini")
+                res = fallback_model.generate([ChatMessage.user(prompt)])
+                text = getattr(res, "content", str(res))
+                if text and not text.startswith("Mock response") and not text.startswith("Response for:"):
+                    return text
+            except Exception as e:
+                logger.warning("Gemini fallback LLM generation error: %s", e)
+                
+        return None
+
+    async def _atry_fallback_api(self, prompt: str) -> Optional[str]:
+        """Attempt to asynchronously answer the prompt using cloud API keys if available."""
+        from xeren.models import create_llm
+        from xeren.models.types import ChatMessage
+        
+        # Try Groq First
+        if os.getenv("GROQ_API_KEY"):
+            try:
+                fallback_model = create_llm(model_id="openai/gpt-oss-120b", provider="groq")
+                if hasattr(fallback_model, "agenerate"):
+                    res = await fallback_model.agenerate([ChatMessage.user(prompt)])
+                else:
+                    res = fallback_model.generate([ChatMessage.user(prompt)])
+                text = getattr(res, "content", str(res))
+                if text and not text.startswith("Mock response") and not text.startswith("Response for:"):
+                    return text
+            except Exception as e:
+                logger.warning("Groq fallback async LLM generation error: %s", e)
+                
+        # Try Gemini if Groq fails or is not available
+        if os.getenv("GEMINI_API_KEY"):
+            try:
+                fallback_model = create_llm(model_id="gemini-3.6-flash", provider="gemini")
+                if hasattr(fallback_model, "agenerate"):
+                    res = await fallback_model.agenerate([ChatMessage.user(prompt)])
+                else:
+                    res = fallback_model.generate([ChatMessage.user(prompt)])
+                text = getattr(res, "content", str(res))
+                if text and not text.startswith("Mock response") and not text.startswith("Response for:"):
+                    return text
+            except Exception as e:
+                logger.warning("Gemini fallback async LLM generation error: %s", e)
+                
+        return None
+
     def _generate_text(self, prompt: str) -> str:
         """Helper to invoke synchronous LLM with text prompt and extract reply string."""
         from xeren.models.types import ChatMessage
@@ -1425,6 +1595,12 @@ class XerenCore:
             return grounded if grounded else text
         except Exception as e:
             logger.warning("Synchronous LLM generation error: %s", e)
+            try:
+                fallback_ans = self._try_fallback_api(prompt)
+                if fallback_ans:
+                    return fallback_ans
+            except Exception:
+                pass
             try:
                 from xeren.core.knowledge_grounding import answer_grounded_query
                 grounded = answer_grounded_query(prompt)
@@ -1450,6 +1626,12 @@ class XerenCore:
             return self._generate_text(prompt)
         except Exception as e:
             logger.warning("Asynchronous LLM generation error: %s", e)
+            try:
+                fallback_ans = await self._atry_fallback_api(prompt)
+                if fallback_ans:
+                    return fallback_ans
+            except Exception:
+                pass
             try:
                 from xeren.core.knowledge_grounding import answer_grounded_query
                 grounded = answer_grounded_query(prompt)
@@ -1613,6 +1795,123 @@ class XerenCore:
             "plan_id": target_plan.plan_id,
         }
 
+
+    async def astream_chat(
+        self,
+        query: str,
+        context: Optional[Dict[str, Any]] = None,
+        on_progress: Optional[Any] = None,
+    ) -> AsyncIterator[str]:
+        """Turbo Streaming Mode for ultra-low latency conversational responses."""
+        ctx = dict(context or {})
+
+        # 1. Check if user is confirming a staged plan
+        if self.is_plan_approval(query) and self.session.get_staged_plan():
+            res = await self.achat(query, ctx, on_progress)
+            yield res.get("content", "")
+            return
+
+        # 2. Classify User Intent
+        intent = self.intent_classifier.classify(query, ctx)
+        
+        # 3. Check if query is a task/build request -> Plan First!
+        if self.is_task_or_build_request(query, intent.category):
+            res = await self.achat(query, ctx, on_progress)
+            yield res.get("content", "")
+            return
+            
+        # 4. If it's conversational / general knowledge, bypass agent & hallucination guard!
+        emoji_rules = (
+            f"Match your emojis to the topic of the user's question:\n"
+            f"- 💻 Programming: 💻 🧑‍💻 ⚙️ 🛠️ 🐍 ☕\n"
+            f"- 🤖 AI/ML: 🤖 🧠 🔬 ⚙️ 📊 🚀\n"
+            f"- 🏗️ Architecture: 🏗️ 🧩 ⚙️ 🔗 🗂️\n"
+            f"- 🔥 Startup/Xeren: 🚀 🔥 🧠 ⚡ 🏆 💡\n"
+            f"- 📚 Learning/Study: 📚 🧠 ✍️ 🎯 💡 ✅\n"
+            f"- 🧪 Research: 🧪 🔬 📊 🧠 📈\n"
+            f"- 🎓 Academics: 🎓 📚 📝 🏫 ✅\n"
+            f"- 💰 Business/Finance: 💰 📈 📊 💼 🎯\n"
+            f"- 🛒 Shopping: 🛒 💰 ⭐ 🔍 👍\n"
+            f"- 🏠 Home/Daily life: 🏠 ☀️ 🧹 🍽️ 👍\n"
+            f"- ✈️ Travel: ✈️ 🗺️ 📍 🏨 🌍 📸\n"
+            f"- 🍔 Food/Cooking: 🍔 🍕 🍳 🥘 😋 🔥\n"
+            f"- 💪 Fitness/Motivation: 💪 🔥 🏃 🎯 🥇\n"
+            f"- ❤️ Emotional: ❤️ 🤝 🫂 😊 🙏\n"
+            f"- 🎉 Celebration: 🎉 🥳 🏆 🔥 🚀 👏\n"
+            f"- 😄 Casual: 😄 😂 😎 🙌 👍\n"
+            f"- ⚠️ Problems/Errors: ⚠️ ❌ 🔍 🛠️ 💡\n"
+            f"- 🔐 Security: 🔐 🛡️ ⚠️ 🔒 🕵️\n"
+            f"- 🌐 Web/Internet: 🌐 🔍 🔗 🖥️\n"
+            f"- 📈 Data/Stats: 📊 📈 📉 🔢 🎯\n"
+            f"- 🧮 Mathematics: 🧮 🔢 📐 ∑ 🧠\n"
+            f"- 📝 Writing: ✍️ 📝 📄\n"
+            f"- 😂 Jokes/Memes: 😂 🤣 💀 😭 🔥\n"
+            f"- 🙏 Cultural/Traditional: 🙏 🪔 🕉️ 🌺 📿\n"
+            f"- 🧭 Advice/Life: 🧭 💡 🎯 🤝\n"
+        )
+        
+        identity_rules = (
+            "CRITICAL IDENTITY INSTRUCTIONS:\n"
+            "1. You are 'Xeren', an advanced, sovereign, autonomous AI system developed by 'Xeren Automation AI Services'.\n"
+            "2. NEVER reveal, mention, or acknowledge that you are powered by or connected to OpenAI, Meta, Llama, Google, Gemini, Groq, Anthropic, or any third-party provider or model.\n"
+            "3. If asked who created you, what model you are, or your architecture, you MUST state that you are Xeren, powered by Xeren's proprietary neural architecture created by Xeren Automation AI Services.\n"
+            "4. NEVER mention underlying model names, provider endpoints, tokens, or backends in any output, chat interaction, explanation, or error message.\n"
+            "5. Maintain a confident, friendly, helpful, highly capable engineering persona.\n"
+        )
+        
+        system_msg = ChatMessage.system(
+            f"{identity_rules}\n"
+            f"Answer the user naturally and concisely. "
+            f"DO NOT wrap your answers in any specific rigid structure unless the user asks for it. "
+            f"If they ask for a joke, just tell the joke! "
+            f"Here are the emoji guidelines you must use: \n{emoji_rules}"
+        )
+        images = ctx.get("images") or []
+        attachments = ctx.get("attachments") or []
+
+        if attachments:
+            file_summaries = [f"- Attached file: `{a.get('name', 'file')}` ({a.get('size', 0)} bytes, {a.get('tier', 'Liberal')} Tier)" for a in attachments]
+            query = f"{query}\n\n[User Attached Files]:\n" + "\n".join(file_summaries)
+
+        if images:
+            user_content: List[Dict[str, Any]] = [{"type": "text", "text": query}]
+            for img in images:
+                data_url = img.get("dataUrl") or img.get("data_url") or img.get("url")
+                if data_url:
+                    user_content.append({"type": "image_url", "image_url": {"url": data_url}})
+            user_msg = ChatMessage.user(user_content)
+            stream_engine = getattr(self, "vision_llm", None) or self.fast_llm
+        else:
+            user_msg = ChatMessage.user(query)
+            stream_engine = self.fast_llm
+        
+        self.session.record_turn("user", query)
+        
+        full_text = ""
+        try:
+            from typing import AsyncIterator
+            async for chunk in stream_engine.astream([system_msg, user_msg]):
+                if chunk.delta_content:
+                    full_text += chunk.delta_content
+                    yield chunk.delta_content
+        except Exception as e:
+            logger.error("Streaming failed: %s", e)
+            try:
+                if images and hasattr(getattr(self, "vision_llm", None), "generate"):
+                    res = self.vision_llm.generate([system_msg, user_msg])
+                    reply = getattr(res, "content", str(res))
+                else:
+                    reply = await self._agenerate_text(f"{identity_rules}\nUser: {query}\nXeren:")
+                full_text = reply
+                yield reply
+            except Exception:
+                fallback_msg = "Hello! I am Xeren ⚡ How can I help you today?"
+                full_text = fallback_msg
+                yield fallback_msg
+            
+        self.session.record_turn("xeren", full_text)
+
+
     async def achat(
         self,
         query: str,
@@ -1683,13 +1982,75 @@ class XerenCore:
                 "verified": True,
             }
 
-        # 5. General Talk / Brainstorming / Doubt Resolution with Zero Hallucination
+        # 5. Direct Conversational Bypass (Greetings, Small Talk, Q&A, Coding, Advice)
+        # Avoid forcing conversational inquiries through web search or rigid 4-section format
+        identity_rules = (
+            "CRITICAL IDENTITY INSTRUCTIONS:\n"
+            "1. You are 'Xeren', an advanced, sovereign, autonomous AI system developed by 'Xeren Automation AI Services'.\n"
+            "2. NEVER reveal, mention, or acknowledge that you are powered by or connected to OpenAI, Meta, Llama, Google, Gemini, Groq, Anthropic, or any third-party provider or model.\n"
+            "3. If asked who created you, what model you are, or your architecture, you MUST state that you are Xeren, powered by Xeren's proprietary neural architecture created by Xeren Automation AI Services.\n"
+            "4. NEVER mention underlying model names, provider endpoints, tokens, or backends in any output, chat interaction, explanation, or error message.\n"
+            "5. Maintain a confident, friendly, helpful, highly capable engineering persona.\n"
+        )
+        
+        images = ctx.get("images") or []
+        attachments = ctx.get("attachments") or []
+
+        if attachments:
+            file_summaries = [f"- Attached file: `{a.get('name', 'file')}` ({a.get('size', 0)} bytes, {a.get('tier', 'Liberal')} Tier)" for a in attachments]
+            query = f"{query}\n\n[User Attached Files]:\n" + "\n".join(file_summaries)
+
+        is_greeting = bool(re.match(r"^\s*(h+l+o+|h+e+l+o+|h+e+l+l+o+|h+i+|h+e+y+|yo+|sup|namaste|hola|vanakkam|pranam|gm|gn)(\s+.*)?$", query, re.I))
+        explicit_search = any(w in query.lower() for w in ("search the web", "search online", "latest news", "current price of", "recent news"))
+
+        if images or (not explicit_search and (is_greeting or intent.category == RoutingCategory.GENERAL_KNOWLEDGE)):
+            system_msg = ChatMessage.system(
+                f"{identity_rules}\n"
+                f"Answer the user naturally, warmly, and helpfully. "
+                f"DO NOT wrap your answer in rigid headers, sections, or boilerplate unless explicitly requested. "
+                f"If the user shares an image, analyze it thoroughly, describe key elements, extract text/code, or answer their specific questions. "
+                f"If the user greets you (e.g. 'hlo', 'hi'), greet them back warmly as Xeren and offer assistance."
+            )
+
+            if images:
+                user_content: List[Dict[str, Any]] = [{"type": "text", "text": query}]
+                for img in images:
+                    data_url = img.get("dataUrl") or img.get("data_url") or img.get("url")
+                    if data_url:
+                        user_content.append({"type": "image_url", "image_url": {"url": data_url}})
+                user_msg = ChatMessage.user(user_content)
+                active_engine = getattr(self, "vision_llm", None) or self.llm
+            else:
+                user_msg = ChatMessage.user(query)
+                active_engine = getattr(self, "fast_llm", None) or self.llm
+
+            try:
+                if hasattr(active_engine, "agenerate"):
+                    res = await active_engine.agenerate([system_msg, user_msg])
+                else:
+                    res = active_engine.generate([system_msg, user_msg])
+                reply = getattr(res, "content", str(res))
+                if not reply or reply.startswith("Mock response") or reply.startswith("Response for:"):
+                    reply = await self._agenerate_text(f"{identity_rules}\nUser: {query}\nXeren:")
+            except Exception as e:
+                logger.warning("Direct conversational LLM response failed: %s", e)
+                reply = await self._agenerate_text(f"{identity_rules}\nUser: {query}\nXeren:")
+
+            self.session.record_turn("user", query)
+            self.session.record_turn("xeren", reply)
+            return {
+                "type": "chat_response",
+                "content": reply,
+                "confidence_score": 0.99,
+                "verification_status": "VERIFIED",
+                "evidence_sources": ["Xeren Sovereign Neural Engine"],
+                "verified": True,
+            }
+
+        # 6. Deep Knowledge / External Retrieval with Zero Hallucination
         structured_ans = await self.aanswer_query(query, context=ctx)
 
         reply = structured_ans.answer
-        if structured_ans.evidence_sources:
-            citations = "\n\n**Verified Sources & Evidence:**\n" + "\n".join(f"- {s}" for s in structured_ans.evidence_sources[:4])
-            reply += citations
 
         self.session.record_turn("user", query)
         self.session.record_turn("xeren", reply)

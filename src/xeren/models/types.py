@@ -1,7 +1,7 @@
 """Core typed data structures for LLM messages, outputs, streaming, and usage."""
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -29,26 +29,26 @@ class ToolCall(BaseModel):
 class ChatMessage(BaseModel):
     """A single chat message in a conversational context."""
     role: Role
-    content: Optional[str] = None
+    content: Optional[Union[str, List[Dict[str, Any]]]] = None
     name: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
     tool_call_id: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
-    def system(cls, content: str, **kwargs: Any) -> "ChatMessage":
+    def system(cls, content: Union[str, List[Dict[str, Any]]], **kwargs: Any) -> "ChatMessage":
         """Create a system message."""
         return cls(role=Role.SYSTEM, content=content, **kwargs)
 
     @classmethod
-    def user(cls, content: str, **kwargs: Any) -> "ChatMessage":
+    def user(cls, content: Union[str, List[Dict[str, Any]]], **kwargs: Any) -> "ChatMessage":
         """Create a user message."""
         return cls(role=Role.USER, content=content, **kwargs)
 
     @classmethod
     def assistant(
         cls,
-        content: Optional[str] = None,
+        content: Optional[Union[str, List[Dict[str, Any]]]] = None,
         tool_calls: Optional[List[ToolCall]] = None,
         **kwargs: Any,
     ) -> "ChatMessage":

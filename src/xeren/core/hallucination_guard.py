@@ -73,6 +73,29 @@ class HallucinationGuard:
 
     HALLUCINATION_TRIGGERS = [
         re.compile(r"\b(version \d+\.\d+\.\d+|release date in 202[6-9]|secret feature)\b", re.I),
+        re.compile(r"\b(created by (tencent|alipay|alibaba|baidu|bytedance|openai|anthropic|google|microsoft|xeren))\b", re.I),
+        re.compile(r"\b(developed by (tencent|alipay|alibaba|baidu|bytedance|openai|anthropic|google|microsoft|xeren))\b", re.I),
+        re.compile(r"\b(built by (tencent|alipay|alibaba|baidu|bytedance|openai|anthropic|google|microsoft|xeren))\b", re.I),
+        # Detect LLM-generated fake citation sections embedded in the answer body
+        re.compile(r"(verified sources|sources\s*&\s*evidence|references:|citations:|further reading:)", re.I),
+        re.compile(r"https?://[^\s]{10,}", re.I),  # Inline URLs fabricated by LLM
+        # Detect fabricated benchmark statistics (e.g., '98.7% exact match', '50 tokens per second')
+        re.compile(r"\b\d+\.\d+%\s*(exact match|accuracy|benchmark|precision|recall|f1)", re.I),
+        re.compile(r"~?\d+\s*tokens?\s*(per|/)\s*second", re.I),
+        re.compile(r"\bGPT-\d+\s*architecture\b", re.I),
+        re.compile(r"\b(specialized variant|variant of the GPT|fork of GPT)\b", re.I),
+    ]
+
+    # Patterns used to strip citation footer blocks from LLM-generated answers
+    _CITATION_STRIP_PATTERNS: List[re.Pattern] = [
+        re.compile(
+            r"(\n|^)#+\s*(verified sources?|sources?\s*&\s*evidence|references?|citations?|further reading)[\s\S]*$",
+            re.I | re.MULTILINE,
+        ),
+        re.compile(
+            r"(\n|^)\*{0,2}(verified sources?|sources?\s*&\s*evidence|references?|citations?)[:\s][\s\S]*$",
+            re.I | re.MULTILINE,
+        ),
     ]
 
     def __init__(
@@ -90,6 +113,30 @@ class HallucinationGuard:
     def set_search_engine(self, engine: BaseSearchEngine) -> None:
         """Update active search engine."""
         self.search_engine = engine
+
+    @staticmethod
+    def strip_fake_citations(answer: str) -> str:
+        """
+        Remove any LLM-generated citation / 'Verified Sources & Evidence' footer blocks
+        from the answer text before returning it to the user.
+        These blocks are always hallucinated — real source attribution is handled by
+        the system via evidence_sources, not by the LLM itself.
+        """
+        # Remove Markdown heading-style citation sections (### Verified Sources ...)
+        cleaned = re.sub(
+            r"(\n|^)(#{1,4}\s*)?(verified sources?|sources?\s*&\s*evidence|references?|citations?|further reading)[:\s][\s\S]*$",
+            "",
+            answer,
+            flags=re.I | re.MULTILINE,
+        )
+        # Remove bold-style citation sections (**Verified Sources & Evidence:**)
+        cleaned = re.sub(
+            r"(\n|^)\*{1,2}(verified sources?|sources?\s*&\s*evidence|references?|citations?)[*:\s][\s\S]*$",
+            "",
+            cleaned,
+            flags=re.I | re.MULTILINE,
+        )
+        return cleaned.rstrip()
 
     @property
     def search_tool(self) -> Any:
@@ -109,9 +156,14 @@ class HallucinationGuard:
         query: str,
         answer: str,
         category: RoutingCategory = RoutingCategory.GENERAL_KNOWLEDGE,
+        has_search_context: bool = True,
     ) -> Tuple[float, bool, str]:
         """
         Evaluate factual confidence score [0.0, 1.0] and detect hallucination risks.
+
+        Args:
+            has_search_context: Set False when the answer was generated without any
+                web search results — this lowers the base score to force recovery.
 
         Returns:
             (confidence_score, is_hallucination_suspect, explanation)
@@ -119,7 +171,8 @@ class HallucinationGuard:
         if not answer or not answer.strip():
             return 0.0, True, "Empty answer produced."
 
-        score = 0.88
+        # Base score: lower when no web evidence was available (ungrounded answer)
+        score = 0.88 if has_search_context else 0.60
         reasons: List[str] = []
 
         # 1. Uncertainty phrases reduce confidence
@@ -161,11 +214,18 @@ class HallucinationGuard:
         raw_answer: str,
         category: RoutingCategory = RoutingCategory.GENERAL_KNOWLEDGE,
         context: Optional[Dict[str, Any]] = None,
+        has_search_context: bool = True,
     ) -> StructuredAnswer:
         """
         Evaluate candidate answer and autonomously recover via Web Search if confidence is low.
+
+        Args:
+            has_search_context: False when the answer was generated without web search results,
+                causing the base confidence to start lower (0.60 vs 0.88).
         """
-        initial_score, is_suspect, explanation = self.evaluate_confidence(query, raw_answer, category)
+        initial_score, is_suspect, explanation = self.evaluate_confidence(
+            query, raw_answer, category, has_search_context=has_search_context
+        )
 
         if not is_suspect:
             logger.info("Answer passed hallucination guard (confidence=%.2f)", initial_score)
@@ -222,24 +282,24 @@ class HallucinationGuard:
         raw_answer: str,
         category: RoutingCategory = RoutingCategory.GENERAL_KNOWLEDGE,
         context: Optional[Dict[str, Any]] = None,
+        has_search_context: bool = True,
     ) -> StructuredAnswer:
         """Synchronous wrapper for averify_and_recover."""
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                # If already in an active event loop, execute synchronously or create task
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     return pool.submit(
                         asyncio.run,
-                        self.averify_and_recover(query, raw_answer, category, context),
+                        self.averify_and_recover(query, raw_answer, category, context, has_search_context),
                     ).result()
             return loop.run_until_complete(
-                self.averify_and_recover(query, raw_answer, category, context)
+                self.averify_and_recover(query, raw_answer, category, context, has_search_context)
             )
         except RuntimeError:
             return asyncio.run(
-                self.averify_and_recover(query, raw_answer, category, context)
+                self.averify_and_recover(query, raw_answer, category, context, has_search_context)
             )
 
     async def _execute_web_recovery(
@@ -263,9 +323,8 @@ class HallucinationGuard:
 
             # 3. Format evidence for ClaimVerifier
             evidence_items = []
-            sources = []
+            sources = []  # Keep empty to hide URLs from user
             for res in results:
-                sources.append(res.url)
                 evidence_items.append({
                     "url": res.url,
                     "excerpt": f"{res.title}: {res.snippet}",
@@ -275,15 +334,16 @@ class HallucinationGuard:
             # 4. Cross-verify claim against evidence
             claim_verif: VerifiedClaim = self.claim_verifier.verify_claim(raw_answer, evidence_items)
 
-            # 5. Synthesize grounded answer
-            citations_text = "\n".join([f"- [{res.title}]({res.url}): {res.snippet[:120]}..." for res in results[:3]])
-            recovered = (
-                f"{raw_answer.strip()}\n\n"
-                f"**Verified Sources & Evidence:**\n"
-                f"{citations_text}"
-            )
-            calibrated_score = max(0.85, claim_verif.confidence)
+            # 5. Synthesize grounded answer from real search snippets.
+            # Strip any LLM-fabricated citation blocks from the original answer first.
+            base_answer = self.strip_fake_citations(raw_answer.strip())
 
+            # We intentionally do NOT append the raw search snippets to the final text anymore.
+            # The search data was already used cognitively in the background to generate the base_answer,
+            # and the user requested that evidence formatting remain invisible.
+            recovered = base_answer
+
+            calibrated_score = max(0.85, claim_verif.confidence)
             return recovered, calibrated_score, sources, True
 
         except Exception as e:
