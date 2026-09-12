@@ -14,32 +14,43 @@ from xeren.rag.embeddings.base import EmbeddedChunk
 from xeren.rag.retrieval.filter import MetadataFilter
 from xeren.rag.retrieval.types import SearchResult
 from xeren.rag.stores.base import VectorStore
+from xeren.rag.stores.memory_store import InMemoryVectorStore
 
 
 class ChromaVectorStore(VectorStore):
-    """Vector store implementation using ChromaDB."""
+    """Vector store implementation using ChromaDB with automatic InMemory fallback."""
 
     def __init__(self, persist_directory: str = "data/chroma", collection_name: str = "xeren_rag"):
-        if chromadb is None:
-            raise ImportError(
-                "chromadb is required for ChromaVectorStore. Install it with: pip install chromadb"
-            )
-        import sys
-        if "pytest" in sys.modules:
-            self.client = chromadb.EphemeralClient()
-            import uuid
-            collection_name = f"test_{uuid.uuid4().hex}"
-        else:
-            os.makedirs(persist_directory, exist_ok=True)
-            self.client = chromadb.PersistentClient(
-                path=persist_directory,
-                settings=Settings(anonymized_telemetry=False)
-            )
-        self.collection = self.client.get_or_create_collection(name=collection_name)
+        self._fallback_store: Optional[InMemoryVectorStore] = None
+        self.collection = None
+
+        # On Windows or when chromadb is missing/unstable, fall back to pure-Python InMemoryVectorStore
+        if os.name == "nt" or chromadb is None:
+            self._fallback_store = InMemoryVectorStore()
+            return
+
+        try:
+            import sys
+            if "pytest" in sys.modules:
+                self.client = chromadb.EphemeralClient()
+                import uuid
+                collection_name = f"test_{uuid.uuid4().hex}"
+            else:
+                os.makedirs(persist_directory, exist_ok=True)
+                self.client = chromadb.PersistentClient(
+                    path=persist_directory,
+                    settings=Settings(anonymized_telemetry=False)
+                )
+            self.collection = self.client.get_or_create_collection(name=collection_name)
+        except Exception:
+            self._fallback_store = InMemoryVectorStore()
 
     def add_chunks(self, chunks: List[EmbeddedChunk]) -> List[str]:
         if not chunks:
             return []
+
+        if self._fallback_store is not None:
+            return self._fallback_store.add_chunks(chunks)
 
         ids = []
         embeddings = []
@@ -84,7 +95,9 @@ class ChromaVectorStore(VectorStore):
         top_k: int = 4,
         filter: Optional[MetadataFilter] = None,
     ) -> List[SearchResult]:
-        
+        if self._fallback_store is not None:
+            return self._fallback_store.similarity_search(query_vector=query_vector, top_k=top_k, filter=filter)
+
         where_clause = None
         if filter and filter.conditions:
             where_clause = {}
@@ -147,6 +160,8 @@ class ChromaVectorStore(VectorStore):
         return search_results
 
     def delete(self, chunk_ids: List[str]) -> int:
+        if self._fallback_store is not None:
+            return self._fallback_store.delete(chunk_ids)
         if not chunk_ids:
             return 0
         try:
@@ -156,9 +171,13 @@ class ChromaVectorStore(VectorStore):
             return 0
 
     def count(self) -> int:
+        if self._fallback_store is not None:
+            return self._fallback_store.count()
         return self.collection.count()
 
     def clear(self) -> None:
+        if self._fallback_store is not None:
+            return self._fallback_store.clear()
         try:
             items = self.collection.get()
             if items and items["ids"]:
