@@ -34,10 +34,10 @@ from xeren.models.training_config import TrainingConfig
 def test_real_training_smoke_test(tmp_path: Path) -> None:
     """Execute a genuine, deterministic training smoke test verifying every stage of the pipeline."""
     # 1. Dataset loading from committed files
-    train_path = Path("data/train.jsonl")
-    val_path = Path("data/val.jsonl")
-    assert train_path.is_file(), "data/train.jsonl must exist"
-    assert val_path.is_file(), "data/val.jsonl must exist"
+    train_path = Path("training/data/train.jsonl") if Path("training/data/train.jsonl").is_file() else Path("data/train.jsonl")
+    val_path = Path("training/data/val.jsonl") if Path("training/data/val.jsonl").is_file() else Path("data/val.jsonl")
+    assert train_path.is_file(), "train.jsonl must exist in training/data/ or data/"
+    assert val_path.is_file(), "val.jsonl must exist in training/data/ or data/"
 
     train_ds = load_jsonl_dataset(train_path, split="train", enforce_verified=True)
     val_ds = load_jsonl_dataset(val_path, split="val", enforce_verified=True)
@@ -167,7 +167,7 @@ def test_real_training_smoke_test(tmp_path: Path) -> None:
 
 def test_training_safety_rules() -> None:
     """Verify safety gates: rejection of contradictions, unverified records, and split leakage."""
-    train_path = Path("data/train.jsonl")
+    train_path = Path("training/data/train.jsonl") if Path("training/data/train.jsonl").is_file() else Path("data/train.jsonl")
     train_ds = load_jsonl_dataset(train_path, split="train", enforce_verified=True)
 
     # 1. Negative trajectory isolation

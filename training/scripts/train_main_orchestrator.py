@@ -59,9 +59,10 @@ logger = logging.getLogger("xeren.main_orchestrator_trainer")
 # ---------------------------------------------------------------------------
 BASE_CKPT   = Path("training/checkpoints/stage1_matured/checkpoint_final.pt")
 TOKENIZER   = Path("training/checkpoints/tokenizer_32k")
-TRAIN_FILE  = Path("training/data/main_orchestrator/main_train.jsonl")
-VAL_FILE    = Path("training/data/main_orchestrator/main_val.jsonl")
+TRAIN_FILE  = Path("training/data/set1_control_hub/orchestrator/train.jsonl")
+VAL_FILE    = Path("training/data/set1_control_hub/orchestrator/val.jsonl")
 OUTPUT_DIR  = Path("training/checkpoints/xeren_main_v2")
+
 
 # ---------------------------------------------------------------------------
 # Hyperparameters (RTX 5000, 16GB VRAM)
@@ -311,8 +312,10 @@ def train(args):
         train_ds = OrchestratorDataset(train_texts, tokenizer, dry_seq_len)
         val_ds   = OrchestratorDataset(val_texts,   tokenizer, dry_seq_len)
     else:
-        train_texts = load_jsonl(TRAIN_FILE)
-        val_texts   = load_jsonl(VAL_FILE)
+        train_path = Path(args.train_file) if args.train_file else TRAIN_FILE
+        val_path   = Path(args.val_file)   if args.val_file   else VAL_FILE
+        train_texts = load_jsonl(train_path)
+        val_texts   = load_jsonl(val_path)
         train_ds = OrchestratorDataset(train_texts, tokenizer, CONFIG["max_seq_len"])
         val_ds   = OrchestratorDataset(val_texts,   tokenizer, CONFIG["max_seq_len"])
 
@@ -328,7 +331,10 @@ def train(args):
         weight_decay=CONFIG["weight_decay"],
         betas=(0.9, 0.95),
     )
-    total_steps = max(1, (len(train_loader) // grad_accum) * CONFIG["num_epochs"])
+    num_epochs = args.epochs if args.epochs else CONFIG["num_epochs"]
+    total_steps = max(1, (len(train_loader) // grad_accum) * num_epochs)
+    if args.max_steps:
+        total_steps = min(total_steps, args.max_steps)
     scheduler   = cosine_schedule(optimizer, 0 if args.dry_run else CONFIG["warmup_steps"], total_steps, CONFIG["min_lr_ratio"])
     scaler      = torch.amp.GradScaler(enabled=CONFIG["use_amp"] and device.type == "cuda")
 
@@ -348,13 +354,16 @@ def train(args):
 
     # 7. Training loop
     logger.info("=== Xeren Main Model Orchestrator Training ===")
-    logger.info("  Epochs: %d  |  Steps: %d  |  Device: %s", CONFIG["num_epochs"], total_steps, device)
+    logger.info("  Epochs: %d  |  Total Target Steps: %d  |  Device: %s", num_epochs, total_steps, device)
     logger.info("  Train: %d samples  |  Val: %d samples", len(train_ds), len(val_ds))
     logger.info("  Base: PURE XerenTransformer (no Llama, no external model)")
 
     model.train()
-    for epoch in range(start_epoch, CONFIG["num_epochs"]):
-        logger.info("--- Epoch %d/%d ---", epoch + 1, CONFIG["num_epochs"])
+    stop_training = False
+    for epoch in range(start_epoch, num_epochs):
+        if stop_training:
+            break
+        logger.info("--- Epoch %d/%d ---", epoch + 1, num_epochs)
         optimizer.zero_grad()
         epoch_loss = 0.0
 
@@ -399,15 +408,32 @@ def train(args):
                     _save(model, optimizer, scheduler, epoch, global_step, OUTPUT_DIR / "checkpoint_latest.pt")
                     logger.info("  Checkpoint saved at step %d", global_step)
 
+                if args.max_steps and global_step >= args.max_steps:
+                    logger.info("Reached maximum steps limit (%d). Concluding training loop.", args.max_steps)
+                    stop_training = True
+                    break
+
         # End of epoch
         val_loss, val_ppl = evaluate(model, val_loader, device, CONFIG["use_amp"])
         logger.info("Epoch %d done | val_loss=%.4f | val_ppl=%.2f", epoch + 1, val_loss, val_ppl)
-        _save(model, optimizer, scheduler, epoch, global_step, OUTPUT_DIR / f"checkpoint_epoch{epoch+1}.pt")
+        if args.keep_epochs:
+            _save(model, optimizer, scheduler, epoch, global_step, OUTPUT_DIR / f"checkpoint_epoch{epoch+1}.pt")
 
     # Final save
-    _save(model, optimizer, scheduler, CONFIG["num_epochs"], global_step, OUTPUT_DIR / "checkpoint_final.pt")
+    _save(model, optimizer, scheduler, num_epochs, global_step, OUTPUT_DIR / "checkpoint_final.pt")
     logger.info("=== Training Complete ===")
     logger.info("Final checkpoint: %s", OUTPUT_DIR / "checkpoint_final.pt")
+
+    # Clean intermediate snapshots to conserve disk space
+    if not args.keep_epochs:
+        logger.info("Preserving disk space: cleaning intermediate epoch snapshots...")
+        for old_epoch in OUTPUT_DIR.glob("checkpoint_epoch*.pt"):
+            try:
+                old_epoch.unlink()
+                logger.info("Removed: %s", old_epoch.name)
+            except Exception:
+                pass
+
     logger.info("Run identity test: python training/scripts/train_main_orchestrator.py --probe-only")
 
 
@@ -429,9 +455,14 @@ def _save(model, optimizer, scheduler, epoch, step, path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Xeren Main Model (standalone orchestrator)")
-    parser.add_argument("--resume",      action="store_true", help="Resume from latest checkpoint")
-    parser.add_argument("--dry-run",     action="store_true", help="Quick test run with synthetic data")
-    parser.add_argument("--probe-only",  action="store_true", help="Run identity probe on existing checkpoint")
+    parser.add_argument("--resume",       action="store_true", help="Resume from latest checkpoint")
+    parser.add_argument("--dry-run",      action="store_true", help="Quick test run with synthetic data")
+    parser.add_argument("--probe-only",   action="store_true", help="Run identity probe on existing checkpoint")
+    parser.add_argument("--train-file",   type=str, default=None, help="Path to train jsonl")
+    parser.add_argument("--val-file",     type=str, default=None, help="Path to val jsonl")
+    parser.add_argument("--epochs",       type=int, default=None, help="Number of epochs to train")
+    parser.add_argument("--max-steps",    type=int, default=None, help="Max steps limit")
+    parser.add_argument("--keep-epochs",  action="store_true", help="Keep epoch checkpoints (uses multi-GB disk)")
     args = parser.parse_args()
 
     if args.probe_only:
