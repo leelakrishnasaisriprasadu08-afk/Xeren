@@ -181,17 +181,38 @@ class XerenCore:
         if llm:
             self.llm = llm
             self.fast_llm = llm
+            from xeren.models.pool import HighAvailabilityModelPool, ProviderLane
+            self.model_pool = HighAvailabilityModelPool(lanes=[ProviderLane("injected", llm, priority=1)])
         else:
-            # Prioritize Groq for sub-0.2s TTFT conversational streaming and reasoning
+            # Build High-Availability Multi-Provider Pool with auto-failover
+            from xeren.models.pool import HighAvailabilityModelPool
+            self.model_pool = HighAvailabilityModelPool()
+
+            # Lane 1: Groq for sub-0.2s TTFT conversational streaming and reasoning
             if os.getenv("GROQ_API_KEY"):
-                self.llm = create_llm(model_id="openai/gpt-oss-120b", provider="groq")
-                self.fast_llm = create_llm(model_id="openai/gpt-oss-20b", provider="groq")
-            elif os.getenv("GEMINI_API_KEY"):
-                self.llm = create_llm(model_id="gemini-3.6-flash", provider="gemini")
-                self.fast_llm = create_llm(model_id="gemini-3.6-flash", provider="gemini")
+                groq_llm = create_llm(model_id="openai/gpt-oss-120b", provider="groq")
+                self.model_pool.add_lane("groq_primary", groq_llm, priority=1)
+
+            # Lane 2: Gemini enterprise multimodal fallback
+            if os.getenv("GEMINI_API_KEY"):
+                gemini_llm = create_llm(model_id="gemini-3.6-flash", provider="gemini")
+                self.model_pool.add_lane("gemini_failover", gemini_llm, priority=2)
+
+            # Lane 3: OpenAI high-throughput fallback
+            if os.getenv("OPENAI_API_KEY"):
+                openai_llm = create_llm(model_id="gpt-4o", provider="openai")
+                self.model_pool.add_lane("openai_failover", openai_llm, priority=3)
+
+            # Lane 4: Sovereign local offline model (guaranteed zero network failure)
+            sovereign_llm = create_llm(model_id="xeren_mini")
+            self.model_pool.add_lane("sovereign_native", sovereign_llm, priority=10)
+
+            if len(self.model_pool.lanes) > 1:
+                self.llm = self.model_pool
+                self.fast_llm = self.model_pool
             else:
-                self.llm = create_llm(model_id="xeren_mini")
-                self.fast_llm = self.llm
+                self.llm = sovereign_llm
+                self.fast_llm = sovereign_llm
 
             # Multimodal Vision engine (for pasted screenshots, charts, images, and camera captures)
             if os.getenv("GEMINI_API_KEY"):
@@ -306,6 +327,9 @@ class XerenCore:
     def set_llm(self, llm: BaseLLM) -> None:
         """Replace the active Core LLM (e.g. when injecting the trained Xeren model)."""
         self.llm = llm
+        self.fast_llm = llm
+        from xeren.models.pool import HighAvailabilityModelPool, ProviderLane
+        self.model_pool = HighAvailabilityModelPool(lanes=[ProviderLane("injected", llm, priority=1)])
         self.context.llm = llm
         # Update LLM across registered plugins that support it
         research = self.plugin_manager.get("research")

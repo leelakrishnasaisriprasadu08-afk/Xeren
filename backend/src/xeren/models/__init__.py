@@ -11,6 +11,7 @@ from xeren.models.checkpoint import (
     CheckpointMetadata,
 )
 from xeren.models.config import LocalModelConfig, ModelConfig
+from xeren.models.pool import HighAvailabilityModelPool, ProviderLane
 from xeren.models.presets import (
     MODEL_PRESETS,
     get_model_preset,
@@ -204,6 +205,8 @@ __all__ = [
     # Providers
     "MockLLM",
     "LocalOpenWeightAdapter",
+    "HighAvailabilityModelPool",
+    "ProviderLane",
     # Errors
     "LLMError",
     "ModelNotFoundError",

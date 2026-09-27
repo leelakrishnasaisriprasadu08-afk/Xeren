@@ -71,6 +71,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from xeren.core.governor import AdaptiveUsageGovernor, TrafficVerdict
+
 # Global runtime services
 vault = UserVault()
 session = XerenSession(vault=vault)
@@ -84,6 +86,13 @@ voice_mgr = VoiceSessionManager(dispatcher=dispatcher)
 channels_mgr = ChannelsManager(vault=vault)
 mcp_mgr = MCPManager(load_defaults=True)
 account_mgr = AccountManager(vault=vault)
+usage_governor = AdaptiveUsageGovernor(
+    default_user_capacity=60.0,
+    default_user_refill_rate=10.0,
+    max_concurrent_requests=10000,
+    max_queue_depth=50000,
+    cluster_high_load_threshold=0.85,
+)
 
 
 # Request/Response models
@@ -218,13 +227,39 @@ async def realtime_websocket_endpoint(websocket: WebSocket):
                 elif not query.strip():
                     continue
 
+                client_id = session.user_id or "ws_client"
+                admission = await usage_governor.evaluate(user_id=client_id, cost=1.0)
+
+                message_id = f"msg_{int(time.time() * 1000)}"
+
+                if admission.verdict == TrafficVerdict.SHED_LOAD:
+                    # Provide immediate non-breaking feedback to websocket client
+                    await websocket.send_json({
+                        "type": "response.created",
+                        "response": {"id": message_id},
+                        "timestamp": int(time.time() * 1000),
+                    })
+                    await websocket.send_json({
+                        "type": "response.text.delta",
+                        "delta": "⚡ [System Traffic Smoothing]: High traffic surge active. Pacing transactions to preserve continuity. Please retry in a few moments.",
+                        "messageId": message_id,
+                        "timestamp": int(time.time() * 1000),
+                    })
+                    await websocket.send_json({
+                        "type": "response.done",
+                        "messageId": message_id,
+                        "timestamp": int(time.time() * 1000),
+                    })
+                    continue
+
+                if admission.verdict == TrafficVerdict.SMOOTHED_DELAY and admission.delay_seconds > 0:
+                    await asyncio.sleep(min(0.5, admission.delay_seconds))
+
                 req_context: Dict[str, Any] = {}
                 if images:
                     req_context["images"] = images
                 if attachments:
                     req_context["attachments"] = attachments
-
-                message_id = f"msg_{int(time.time() * 1000)}"
 
                 # Acknowledge response creation
                 await websocket.send_json({
@@ -278,14 +313,79 @@ async def realtime_websocket_endpoint(websocket: WebSocket):
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
-    """Grounded interactive chat endpoint with zero hallucinations and plan staging."""
+    """Grounded interactive chat endpoint with zero hallucinations, adaptive rate limiting, and plan staging."""
     ctx = dict(req.context or {})
     if req.images:
         ctx["images"] = req.images
     if req.attachments:
         ctx["attachments"] = req.attachments
-    res = await core.achat(req.query, context=ctx)
-    return res
+
+    # 1. Traffic Admission Check via AdaptiveUsageGovernor
+    client_id = ctx.get("user_id") or session.user_id or "default_user"
+    admission = await usage_governor.evaluate(user_id=client_id, cost=1.0)
+
+    # 2. Critical Backpressure (Load Shedding)
+    if admission.verdict == TrafficVerdict.SHED_LOAD:
+        # Before rejecting, attempt instant CAG cache response
+        if getattr(core, "cag_engine", None):
+            cached = core.cag_engine.get(req.query)
+            if cached and cached.grounded_context:
+                return {
+                    "type": "answer",
+                    "content": cached.grounded_context.combined_context_text,
+                    "verified": True,
+                    "served_by": "cag_zero_compute_cache",
+                    "rate_limit": admission.to_headers(),
+                }
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "traffic_surge_shedding",
+                "message": admission.reason,
+                "retry_after_seconds": admission.retry_after_seconds,
+            },
+            headers=admission.to_headers(),
+        )
+
+    # 3. Micro-Queue Smoothing (AMBER state)
+    if admission.verdict == TrafficVerdict.SMOOTHED_DELAY and admission.delay_seconds > 0:
+        await asyncio.sleep(min(0.5, admission.delay_seconds))
+
+    # 4. Safe Concurrency Acquisition
+    await usage_governor.acquire_concurrency()
+    try:
+        # Check if in degraded cache mode and cache hit is available
+        if admission.verdict == TrafficVerdict.DEGRADED_SERVE_CACHE and getattr(core, "cag_engine", None):
+            cached = core.cag_engine.get(req.query)
+            if cached and cached.grounded_context:
+                return {
+                    "type": "answer",
+                    "content": cached.grounded_context.combined_context_text,
+                    "verified": True,
+                    "served_by": "cag_degraded_cache",
+                    "rate_limit": admission.to_headers(),
+                }
+
+        res = await core.achat(req.query, context=ctx)
+        if isinstance(res, dict):
+            res["traffic_status"] = admission.verdict.value
+            res["rate_limit"] = {
+                "remaining": int(admission.remaining_tokens),
+                "load_factor": round(admission.load_factor, 2),
+            }
+        return res
+    finally:
+        usage_governor.release_concurrency()
+
+
+@app.get("/api/governor/telemetry")
+def get_governor_telemetry():
+    """Real-time cluster traffic, rate-limit, and transaction smoothing metrics."""
+    pool = getattr(core, "model_pool", None)
+    return {
+        "governor": usage_governor.get_telemetry(),
+        "ha_pool": pool.get_pool_status() if pool and hasattr(pool, "get_pool_status") else None,
+    }
 
 
 @app.get("/api/plan/active")

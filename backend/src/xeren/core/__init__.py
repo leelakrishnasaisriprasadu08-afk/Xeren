@@ -23,10 +23,14 @@ from xeren.core.planner import (
 from xeren.core.intent import IntentClassifier, IntentResult, RoutingCategory
 from xeren.core.hallucination_guard import HallucinationGuard, StructuredAnswer
 from xeren.core.learner import EpistemicLearner, KnowledgeGapDetector, LearnedKnowledge
+from xeren.core.governor import AdaptiveUsageGovernor, AdmissionResult, TrafficVerdict
 from xeren.core.runtime import XerenCore
 
 __all__ = [
     "XerenCore",
+    "AdaptiveUsageGovernor",
+    "TrafficVerdict",
+    "AdmissionResult",
     "CoreContext",
     "IntentClassifier",
     "IntentResult",
