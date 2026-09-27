@@ -62,7 +62,16 @@ class SpecialistSpec:
         return Path(self.checkpoint_dir)
 
     def matches(self, capability: str) -> bool:
-        return any(c in capability.lower() for c in self.capabilities)
+        cap_clean = capability.lower().strip()
+        stem = cap_clean[:-3] if cap_clean.endswith("ing") else cap_clean
+        for c in self.capabilities:
+            if c in cap_clean or cap_clean in c:
+                return True
+            if stem and (stem in c or c.startswith(stem) or (len(stem) >= 3 and c.startswith(stem[:3]))):
+                return True
+            if len(c) >= 4 and len(cap_clean) >= 4 and cap_clean[:4] == c[:4]:
+                return True
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +104,7 @@ class SpecialistRegistry:
             id=SpecialistID.REASONING,
             name="M2 — Reasoning",
             description="Solves complex logical, causal, and multi-step reasoning tasks.",
-            capabilities=["reason", "logic", "why", "cause", "deduce", "infer", "if-then", "math"],
+            capabilities=["reason", "reasoning", "logic", "why", "cause", "deduce", "infer", "if-then", "math"],
             checkpoint_dir="training/checkpoints/mos/m2_reasoning",
             priority=3,
         ),
@@ -103,7 +112,7 @@ class SpecialistRegistry:
             id=SpecialistID.KNOWLEDGE,
             name="M3 — Knowledge",
             description="Connects concepts and applies learned factual knowledge.",
-            capabilities=["know", "fact", "define", "explain", "what is", "tell me about"],
+            capabilities=["know", "knowledge", "fact", "define", "explain", "what is", "tell me about"],
             checkpoint_dir="training/checkpoints/mos/m3_knowledge",
             priority=4,
         ),
@@ -111,7 +120,7 @@ class SpecialistRegistry:
             id=SpecialistID.RESEARCH,
             name="M4 — Research",
             description="Finds, retrieves, and synthesizes new information from sources.",
-            capabilities=["research", "find", "search", "latest", "news", "source", "web"],
+            capabilities=["research", "researching", "find", "search", "latest", "news", "source", "web"],
             checkpoint_dir="training/checkpoints/mos/m4_research",
             priority=4,
         ),
@@ -119,7 +128,7 @@ class SpecialistRegistry:
             id=SpecialistID.ANALYSIS,
             name="M5 — Analysis",
             description="Breaks complex information into patterns and insights.",
-            capabilities=["analyze", "pattern", "data", "compare", "statistics", "breakdown"],
+            capabilities=["analysis", "analyze", "analyzing", "pattern", "data", "compare", "statistics", "breakdown"],
             checkpoint_dir="training/checkpoints/mos/m5_analysis",
             priority=4,
         ),
@@ -127,7 +136,7 @@ class SpecialistRegistry:
             id=SpecialistID.PLANNING,
             name="M6 — Planning",
             description="Determines possible strategies and action sequences.",
-            capabilities=["plan", "strategy", "steps", "roadmap", "schedule", "how to", "workflow"],
+            capabilities=["plan", "planning", "strategy", "steps", "roadmap", "schedule", "how to", "workflow"],
             checkpoint_dir="training/checkpoints/mos/m6_planning",
             priority=3,
         ),
@@ -135,7 +144,7 @@ class SpecialistRegistry:
             id=SpecialistID.CODING,
             name="M7 — Coding / Creation",
             description="Produces technical code and creative solutions.",
-            capabilities=["code", "program", "build", "create", "implement", "python", "script", "develop"],
+            capabilities=["code", "coding", "program", "programming", "build", "create", "implement", "python", "script", "develop"],
             checkpoint_dir="training/checkpoints/mos/m7_coding",
             priority=3,
         ),

@@ -1,233 +1,201 @@
 """
-Build Training Dataset for Xeren ToolCaller
-===========================================
-Generates structured dispatch trajectories for ToolCaller:
-- User query / DispatchRequest
-- Multi-specialist selection and routing
-- Tool calling parameters (function name, arguments, expected output)
-- Structured JSON output format: DispatchResponse / function calls
+Build Training Dataset for Xeren ToolCaller (Work Assigner & Output Verifier)
+=============================================================================
+Inspired by JEPA / Discriminator / Fast Evaluator architectures:
+1. ZERO Conversational Filler: No pleasantries or natural language chit-chat.
+2. Phase 1 - Work Assigner Trajectories:
+   - Target specialist routing, strict actions, structured arguments, and verification expectations.
+   - High-precision assignment confidence [0.0 - 1.0] and execution strategy.
+3. Phase 2 - Output Verifier Trajectories:
+   - Evaluates deliverables against expectations.
+   - Outputs boolean flags (passed, expectations_met, has_error, syntax_valid, needs_retry)
+     and verification confidence scores.
 """
 
 import json
-import random
 from pathlib import Path
+import random
 from typing import Dict, List
 
-OUTPUT_DIR = Path("training/data/tool_caller")
+OUTPUT_DIR = Path("training/data/set1_control_hub/tool_caller")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 SYSTEM_PROMPT = (
-    "You are Xeren ToolCaller, the deterministic routing and tool dispatch model of the Xeren MoS system.\n"
-    "Given a user query or orchestrator task, analyze the required capabilities and output a precise JSON "
-    "dispatch specification containing the target specialist(s) and structured parameters."
+    "You are Xeren ToolCaller, the deterministic Work Assigner and Output Verifier of the Xeren MoS system.\n"
+    "You do not engage in natural language conversation. You operate strictly in two modes:\n"
+    "1. ASSIGN: Receive task requirements and output a structured WorkAssignmentPlan (targets, expectations, confidence).\n"
+    "2. VERIFY: Evaluate specialist outputs against expectations, returning boolean flags (passed, expectations_met, syntax_valid, needs_retry) and confidence scores."
 )
 
-TEMPLATES = [
-    # M7 Coding
+ASSIGN_TEMPLATES = [
     (
         "Implement a binary search algorithm in Python with unit tests",
-        ["coding"],
         {
-            "selected_specialists": ["M7_coding"],
-            "strategy": "sequential",
-            "calls": [
+            "phase": "assign",
+            "is_executable": True,
+            "confidence": 0.985,
+            "execution_strategy": "sequential",
+            "assignments": [
                 {
-                    "specialist": "M7_coding",
+                    "specialist_id": "M7_coding",
                     "action": "implement_code",
-                    "arguments": {
-                        "language": "python",
-                        "task": "binary search with unit tests",
-                        "include_type_hints": True
-                    }
+                    "arguments": {"language": "python", "task": "binary search with unit tests"},
+                    "expectation": {"format": "code", "syntax_check": True, "non_empty": True}
                 }
             ]
         }
     ),
     (
-        "Refactor this slow database query to use indexing and explain the execution plan",
-        ["coding", "analysis", "optimization"],
+        "Analyze this database query plan and rewrite with optimal index usage",
         {
-            "selected_specialists": ["M5_analysis", "M7_coding", "M11_optimization"],
-            "strategy": "parallel",
-            "calls": [
+            "phase": "assign",
+            "is_executable": True,
+            "confidence": 0.970,
+            "execution_strategy": "parallel",
+            "assignments": [
                 {
-                    "specialist": "M5_analysis",
+                    "specialist_id": "M5_analysis",
                     "action": "analyze_query_plan",
-                    "arguments": {"focus": "indexes and table scans"}
+                    "arguments": {"focus": "index and table scans"},
+                    "expectation": {"format": "json", "required_keys": ["bottlenecks"], "syntax_check": True}
                 },
                 {
-                    "specialist": "M7_coding",
+                    "specialist_id": "M7_coding",
                     "action": "rewrite_query",
-                    "arguments": {"style": "optimized SQL"}
-                },
-                {
-                    "specialist": "M11_optimization",
-                    "action": "benchmark_optimization",
-                    "arguments": {"metric": "latency"}
+                    "arguments": {"optimization": "indexed_join"},
+                    "expectation": {"format": "code", "syntax_check": True, "non_empty": True}
                 }
             ]
         }
     ),
-    # M2 Reasoning + M10 Verification
     (
-        "Solve this logic puzzle and mathematically verify if the solution is unique",
-        ["reasoning", "verification"],
+        "Solve this game theory problem and mathematically verify uniqueness of Nash equilibrium",
         {
-            "selected_specialists": ["M2_reasoning", "M10_verification"],
-            "strategy": "sequential",
-            "calls": [
+            "phase": "assign",
+            "is_executable": True,
+            "confidence": 0.990,
+            "execution_strategy": "sequential",
+            "assignments": [
                 {
-                    "specialist": "M2_reasoning",
-                    "action": "step_by_step_deduction",
-                    "arguments": {"show_work": True}
+                    "specialist_id": "M2_reasoning",
+                    "action": "deduce_equilibrium",
+                    "arguments": {"type": "game_theory"},
+                    "expectation": {"format": "text", "non_empty": True}
                 },
                 {
-                    "specialist": "M10_verification",
-                    "action": "formal_verification",
-                    "arguments": {"check_uniqueness": True}
+                    "specialist_id": "M10_verification",
+                    "action": "verify_uniqueness",
+                    "arguments": {"proof_type": "formal"},
+                    "expectation": {"format": "json", "required_keys": ["is_unique"], "syntax_check": True}
                 }
             ]
         }
-    ),
-    # M4 Research + M3 Knowledge
+    )
+]
+
+VERIFY_TEMPLATES = [
+    # Compliant Python code -> Pass
     (
-        "What are the latest discoveries regarding room-temperature superconductivity from 2024 to 2026?",
-        ["research", "knowledge"],
+        "Verify deliverable for task 'M7_coding': def binary_search(arr, x): ...",
         {
-            "selected_specialists": ["M4_research", "M3_knowledge"],
-            "strategy": "parallel",
-            "calls": [
-                {
-                    "specialist": "M4_research",
-                    "action": "search_literature",
-                    "arguments": {"query": "room temperature superconductivity papers 2024-2026", "depth": "academic"}
-                },
-                {
-                    "specialist": "M3_knowledge",
-                    "action": "retrieve_physics_principles",
-                    "arguments": {"topic": "BCS theory and high-Tc mechanisms"}
-                }
-            ]
+            "phase": "verify",
+            "specialist_id": "M7_coding",
+            "passed": True,
+            "expectations_met": True,
+            "confidence": 0.994,
+            "has_error": False,
+            "syntax_valid": True,
+            "needs_retry": False,
+            "score": 1.0,
+            "error_type": None
         }
     ),
-    # M6 Planning + M8 Simulation
+    # Syntax error in Python -> Fail with retry
     (
-        "Plan a high-availability multi-region Kubernetes deployment and simulate network partition failure modes",
-        ["planning", "simulation"],
+        "Verify deliverable for task 'M7_coding': def broken_syntax(x\n    return x",
         {
-            "selected_specialists": ["M6_planning", "M8_simulation"],
-            "strategy": "sequential",
-            "calls": [
-                {
-                    "specialist": "M6_planning",
-                    "action": "architectural_blueprint",
-                    "arguments": {"architecture": "multi-region k8s"}
-                },
-                {
-                    "specialist": "M8_simulation",
-                    "action": "chaos_simulation",
-                    "arguments": {"scenario": "split-brain / network partition"}
-                }
-            ]
+            "phase": "verify",
+            "specialist_id": "M7_coding",
+            "passed": False,
+            "expectations_met": False,
+            "confidence": 0.988,
+            "has_error": True,
+            "syntax_valid": False,
+            "needs_retry": True,
+            "score": 0.2,
+            "error_type": "SYNTAX_ERROR",
+            "retry_adjustments": {"fix_syntax": "missing closing parenthesis on def line"}
         }
     ),
-    # M1 Understanding + M9 Critic
+    # Broken JSON output -> Fail
     (
-        "Review this product requirements document for ambiguities, contradictions, and missing edge cases",
-        ["understanding", "critic"],
+        "Verify deliverable for task 'M5_analysis': plain text output without expected json keys",
         {
-            "selected_specialists": ["M1_understanding", "M9_critic"],
-            "strategy": "sequential",
-            "calls": [
-                {
-                    "specialist": "M1_understanding",
-                    "action": "extract_requirements_and_intent",
-                    "arguments": {"target": "PRD"}
-                },
-                {
-                    "specialist": "M9_critic",
-                    "action": "audit_and_find_weaknesses",
-                    "arguments": {"focus": ["ambiguities", "edge cases", "contradictions"]}
-                }
-            ]
+            "phase": "verify",
+            "specialist_id": "M5_analysis",
+            "passed": False,
+            "expectations_met": False,
+            "confidence": 0.975,
+            "has_error": True,
+            "syntax_valid": False,
+            "needs_retry": True,
+            "score": 0.1,
+            "error_type": "INVALID_JSON"
         }
     ),
-    # M12 Experience / Learning
+    # Valid analysis json -> Pass
     (
-        "Look up past execution traces for similar database migration failures and summarize root causes",
-        ["experience", "analysis"],
+        "Verify deliverable for task 'M5_analysis': {\"bottlenecks\": [\"table_scan\"], \"cost\": 120}",
         {
-            "selected_specialists": ["M12_experience", "M5_analysis"],
-            "strategy": "sequential",
-            "calls": [
-                {
-                    "specialist": "M12_experience",
-                    "action": "recall_episodic_memory",
-                    "arguments": {"domain": "database_migrations", "outcome": "failure"}
-                },
-                {
-                    "specialist": "M5_analysis",
-                    "action": "root_cause_clustering",
-                    "arguments": {"aggregate": True}
-                }
-            ]
+            "phase": "verify",
+            "specialist_id": "M5_analysis",
+            "passed": True,
+            "expectations_met": True,
+            "confidence": 0.992,
+            "has_error": False,
+            "syntax_valid": True,
+            "needs_retry": False,
+            "score": 1.0,
+            "error_type": None
         }
-    ),
+    )
 ]
 
 
-def expand_dataset(num_train: int = 1350, num_val: int = 130):
+def generate_dual_dataset(num_train: int = 900, num_val: int = 150):
     random.seed(42)
-    all_samples = []
+    samples = []
 
-    domains = [
-        ("Python API microservice with rate limiting", ["coding", "verification"], "M7_coding", "M10_verification"),
-        ("Optimize transformer attention KV cache memory consumption", ["coding", "optimization"], "M7_coding", "M11_optimization"),
-        ("Audit smart contract code for reentrancy vulnerabilities", ["critic", "verification", "coding"], "M9_critic", "M10_verification"),
-        ("Break down user retention drop after v2.0 release", ["analysis", "understanding"], "M5_analysis", "M1_understanding"),
-        ("Formulate step-by-step game theory strategy for auction", ["reasoning", "planning"], "M2_reasoning", "M6_planning"),
-        ("Fact check recent claims about quantum supremacy benchmark", ["research", "verification"], "M4_research", "M10_verification"),
-        ("Simulate high-concurrency order placement spike on e-commerce backend", ["simulation", "analysis"], "M8_simulation", "M5_analysis"),
-        ("Synthesize historical precedents of monetary policy shifts", ["knowledge", "research"], "M3_knowledge", "M4_research"),
-    ]
-
-    for base_query, caps, spec1, spec2 in domains:
-        for variation in range(150):
-            q = f"Task #{variation+1}: {base_query}. Ensure high rigor."
-            payload = {
-                "selected_specialists": [spec1, spec2],
-                "strategy": "parallel" if "research" in caps or "analysis" in caps else "sequential",
-                "calls": [
-                    {"specialist": spec1, "action": f"handle_{caps[0]}", "arguments": {"query": q}},
-                    {"specialist": spec2, "action": f"handle_{caps[1]}", "arguments": {"query": q}},
-                ]
-            }
-            sample = {
+    # 1. Expand Assignment Trajectories
+    for q, payload in ASSIGN_TEMPLATES:
+        for i in range(150):
+            prompt = f"[MODE: ASSIGN] User Task #{i+1}: {q}"
+            samples.append({
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": q},
+                    {"role": "user", "content": prompt},
                     {"role": "assistant", "content": json.dumps(payload, indent=2)}
                 ]
-            }
-            all_samples.append(sample)
+            })
 
-    for q, caps, payload in TEMPLATES:
-        for _ in range(40):
-            sample = {
+    # 2. Expand Verification Trajectories
+    for input_text, verdict in VERIFY_TEMPLATES:
+        for i in range(150):
+            prompt = f"[MODE: VERIFY] Specimen #{i+1}: {input_text}"
+            samples.append({
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": q},
-                    {"role": "assistant", "content": json.dumps(payload, indent=2)}
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": json.dumps(verdict, indent=2)}
                 ]
-            }
-            all_samples.append(sample)
+            })
 
-    random.shuffle(all_samples)
-    train_samples = all_samples[:num_train]
-    val_samples = all_samples[num_train:num_train + num_val]
+    random.shuffle(samples)
+    train_samples = samples[:num_train]
+    val_samples = samples[num_train:num_train + num_val]
 
-    train_path = OUTPUT_DIR / "tool_caller_train.jsonl"
-    val_path = OUTPUT_DIR / "tool_caller_val.jsonl"
+    train_path = OUTPUT_DIR / "train.jsonl"
+    val_path = OUTPUT_DIR / "val.jsonl"
 
     with open(train_path, "w", encoding="utf-8") as f:
         for s in train_samples:
@@ -237,10 +205,10 @@ def expand_dataset(num_train: int = 1350, num_val: int = 130):
         for s in val_samples:
             f.write(json.dumps(s) + "\n")
 
-    print(f"ToolCaller dataset generated:")
-    print(f"  Train: {len(train_samples)} samples -> {train_path}")
-    print(f"  Val:   {len(val_samples)} samples -> {val_path}")
+    print(f"ToolCaller Dual Assigner & Verifier dataset generated:")
+    print(f"  Train: {len(train_samples)} samples ({(train_path.stat().st_size / 1e6):.2f} MB) -> {train_path}")
+    print(f"  Val:   {len(val_samples)} samples ({(val_path.stat().st_size / 1e6):.2f} MB) -> {val_path}")
 
 
 if __name__ == "__main__":
-    expand_dataset()
+    generate_dual_dataset()
