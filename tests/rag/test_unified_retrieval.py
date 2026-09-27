@@ -154,3 +154,123 @@ def test_unified_generate_response_scrubs_secrets(setup_unified_environment) -> 
     mag = env["mag"]
     recent_memories = mag.get_memory_context("database connection", session_id="session_test")
     assert "User asked: What is the database connection info?" in recent_memories
+
+
+@pytest.mark.asyncio
+async def test_unified_async_retrieval_and_health(setup_unified_environment) -> None:
+    env = setup_unified_environment
+    engine: UnifiedRetrievalEngine = env["engine"]
+
+    query = "Asynchronous security policy query"
+
+    # 1. Async retrieve context (cache miss first)
+    payload_1 = await engine.aretrieve_context(query=query, session_id="async_session", use_cache=True)
+    assert payload_1.is_cache_hit is False
+    assert "Password length must be at least 16" in payload_1.formatted_prompt_context
+
+    # 2. Async retrieve context (cache hit)
+    payload_2 = await engine.aretrieve_context(query=query, session_id="async_session", use_cache=True)
+    assert payload_2.is_cache_hit is True
+    assert payload_2.formatted_prompt_context == payload_1.formatted_prompt_context
+
+    # 3. Check health telemetry
+    health = engine.health()
+    assert health["status"] == "operational"
+    assert health["cag"]["hits"] >= 1
+    assert health["vault_connected"] is True
+    assert health["rag_connected"] is True
+
+    # 4. Async generate response
+    from xeren.models.providers.mock import MockLLM
+    from xeren.models.config import ModelConfig
+    cfg = ModelConfig(model_id="mock", provider="mock")
+    llm = MockLLM(config=cfg)
+
+    answer = await engine.agenerate_response(
+        query=query,
+        llm=llm,
+        session_id="async_session",
+    )
+    assert answer is not None
+    assert answer.query == query
+
+
+@pytest.mark.asyncio
+async def test_cag_persistence_and_async(tmp_path) -> None:
+    cag = CAGRetrievalEngine()
+    cache_file = tmp_path / "cag_snapshot.jsonl"
+
+    # Async put and get
+    await cag.aput(query="what is xeren", context_text="Xeren is an autonomous AI system.")
+    entry = await cag.aget(query="what is xeren")
+    assert entry is not None
+    assert entry.context_text == "Xeren is an autonomous AI system."
+
+    # Snapshot serialization & restoration
+    saved = cag.save_snapshot(cache_file)
+    assert saved == 1
+    assert cache_file.exists()
+
+    fresh_cag = CAGRetrievalEngine()
+    assert len(fresh_cag) == 0
+    loaded = fresh_cag.load_snapshot(cache_file)
+    assert loaded == 1
+    restored_entry = await fresh_cag.aget(query="what is xeren")
+    assert restored_entry is not None
+    assert restored_entry.context_text == "Xeren is an autonomous AI system."
+
+
+@pytest.mark.asyncio
+async def test_mag_persistence_and_pruning(tmp_path) -> None:
+    from xeren.rag.mag.types import MemoryTier
+    mag = MAGRetrievalEngine()
+    storage_file = tmp_path / "mag_records.jsonl"
+
+    # Async remember
+    await mag.aremember("User prefers dark mode and TypeScript", tier=MemoryTier.SEMANTIC, importance=0.9)
+    await mag.aremember("Episodic record with low importance", tier=MemoryTier.EPISODIC, importance=0.001)
+
+    assert len(mag) == 2
+
+    # Prune deeply decayed memories
+    pruned = mag.prune_decayed_memories(min_score=0.01)
+    assert pruned == 1
+    assert len(mag) == 1
+
+    # Persist and restore
+    saved = mag.save_to_disk(storage_file)
+    assert saved == 1
+
+    fresh_mag = MAGRetrievalEngine()
+    loaded = fresh_mag.load_from_disk(storage_file)
+    assert loaded == 1
+    ctx = await fresh_mag.aget_memory_context("TypeScript preferences")
+    assert "User prefers dark mode and TypeScript" in ctx
+
+
+@pytest.mark.asyncio
+async def test_core_runtime_grounded_rag_cag_mag() -> None:
+    from xeren.core.runtime import XerenCore
+    from xeren.models.providers.mock import MockLLM
+    from xeren.models.config import ModelConfig
+
+    cfg = ModelConfig(model_id="mock", provider="mock")
+    llm = MockLLM(config=cfg)
+    core = XerenCore(llm=llm)
+
+    assert core.unified_engine is not None
+    assert core.cag_engine is not None
+    assert core.mag_engine is not None
+
+    # Test conversational streaming with automatic grounding and MAG memory
+    chunks = []
+    async for chunk in core.astream_chat("Hello, what are your capabilities?"):
+        chunks.append(chunk)
+
+    assembled = "".join(chunks)
+    assert len(assembled) > 0
+
+    # Verify MAG captured the turn
+    recent_memory = core.mag_engine.get_memory_context("capabilities", session_id=core.session.session_id)
+    assert "capabilities" in recent_memory or len(core.mag_engine) >= 1
+

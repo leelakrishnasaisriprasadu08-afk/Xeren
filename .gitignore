@@ -25,6 +25,10 @@ frontend/dist/
 # Database files (runtime data)
 *.db
 *.sqlite3
+data/memory/
+data/qdrant/
+data/chroma/
+data/cache/
 
 # Automation outputs (runtime generated content)
 backend/automation_framework/automation_outputs/

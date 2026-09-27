@@ -203,6 +203,7 @@ class MAGRetrievalEngine:
         session_id: Optional[str] = None,
         limit: int = 5,
         tiers: Optional[List[MemoryTier]] = None,
+        min_score: float = 0.05,
     ) -> str:
         """Construct a formatted grounding block of retrieved cognitive memories for prompt insertion."""
         q = MemoryQuery(
@@ -210,6 +211,7 @@ class MAGRetrievalEngine:
             session_id=session_id,
             limit=limit,
             tiers=tiers,
+            min_score=min_score,
         )
         retrieved = self.retrieve(q)
         if not retrieved:
@@ -310,6 +312,124 @@ class MAGRetrievalEngine:
 
         return min(1.0, overlap_ratio + tag_bonus)
 
+    async def aremember(
+        self,
+        content: str,
+        tier: MemoryTier = MemoryTier.EPISODIC,
+        importance: float = 0.5,
+        session_id: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> MemoryRecord:
+        """Asynchronously store a cognitive memory record."""
+        return self.remember(
+            content=content,
+            tier=tier,
+            importance=importance,
+            session_id=session_id,
+            tags=tags,
+            metadata=metadata,
+        )
+
+    async def aretrieve(self, query: MemoryQuery) -> List[RetrievedMemory]:
+        """Asynchronously retrieve cognitive memories."""
+        return self.retrieve(query)
+
+    async def aget_memory_context(
+        self,
+        query_text: str,
+        session_id: Optional[str] = None,
+        tiers: Optional[List[MemoryTier]] = None,
+        limit: int = 5,
+        min_score: float = 0.05,
+    ) -> str:
+        """Asynchronously format memory context block."""
+        return self.get_memory_context(
+            query_text=query_text,
+            session_id=session_id,
+            tiers=tiers,
+            limit=limit,
+            min_score=min_score,
+        )
+
+    def save_to_disk(self, path: Any) -> int:
+        """Persist memory records to disk in JSONL format."""
+        import json
+        from pathlib import Path
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        count = 0
+        with open(target, "w", encoding="utf-8") as f:
+            for rec in self._records.values():
+                payload = {
+                    "memory_id": rec.memory_id,
+                    "tier": rec.tier.value,
+                    "content": rec.content,
+                    "importance": rec.importance,
+                    "session_id": rec.session_id,
+                    "created_at": rec.created_at,
+                    "last_accessed_at": rec.last_accessed_at,
+                    "access_count": rec.access_count,
+                    "tags": rec.tags,
+                    "metadata": rec.metadata,
+                }
+                f.write(json.dumps(payload) + "\n")
+                count += 1
+        logger.debug("Persisted %d MAG records to %s", count, target)
+        return count
+
+    def load_from_disk(self, path: Any) -> int:
+        """Load memory records from disk into memory."""
+        import json
+        from pathlib import Path
+        target = Path(path)
+        if not target.exists():
+            return 0
+        loaded = 0
+        with open(target, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        data = json.loads(line)
+                        tier = MemoryTier(data["tier"])
+                        rec = MemoryRecord(
+                            memory_id=data["memory_id"],
+                            tier=tier,
+                            content=data["content"],
+                            importance=data["importance"],
+                            session_id=data.get("session_id"),
+                            created_at=data.get("created_at", self._time()),
+                            last_accessed_at=data.get("last_accessed_at", self._time()),
+                            access_count=data.get("access_count", 0),
+                            tags=data.get("tags", []),
+                            metadata=data.get("metadata", {}),
+                        )
+                        self._records[rec.memory_id] = rec
+                        self._tier_index[tier].add(rec.memory_id)
+                        if rec.session_id:
+                            self._session_index.setdefault(rec.session_id, set()).add(rec.memory_id)
+                        loaded += 1
+                    except Exception:
+                        continue
+        logger.debug("Loaded %d MAG records from %s", loaded, target)
+        return loaded
+
+    def prune_decayed_memories(self, min_score: float = 0.01) -> int:
+        """Prune deeply decayed episodic memories to protect system RAM."""
+        now = self._time()
+        to_delete = []
+        for mem_id, rec in self._records.items():
+            if rec.tier == MemoryTier.EPISODIC:
+                decay = rec.compute_decay_factor(now, self.default_half_life_hours)
+                if (rec.importance * decay) < min_score:
+                    to_delete.append(mem_id)
+        for mid in to_delete:
+            self._remove_record(mid)
+        if to_delete:
+            logger.info("Pruned %d decayed episodic memories from MAG", len(to_delete))
+        return len(to_delete)
+
     def _remove_record(self, memory_id: str) -> None:
         """Internal helper to remove memory record and clear index pointers."""
         record = self._records.pop(memory_id, None)
@@ -327,3 +447,4 @@ class MAGRetrievalEngine:
 
     def __bool__(self) -> bool:
         return True
+

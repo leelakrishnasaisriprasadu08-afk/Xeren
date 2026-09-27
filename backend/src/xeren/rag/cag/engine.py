@@ -305,8 +305,101 @@ class CAGRetrievalEngine:
 
         return True
 
+    async def aget(
+        self,
+        query: str,
+        tenant_id: Optional[str] = None,
+        scope: Optional[str] = None,
+    ) -> Optional[CachedContextEntry]:
+        """Asynchronously lookup cached context without blocking."""
+        return self.get(query=query, tenant_id=tenant_id, scope=scope)
+
+    async def aput(
+        self,
+        query: str,
+        context_text: str,
+        grounded_context: Optional[GroundedContext] = None,
+        citations: Optional[List[Citation]] = None,
+        content_hashes: Optional[Iterable[str]] = None,
+        source_identifiers: Optional[Iterable[str]] = None,
+        tenant_id: Optional[str] = None,
+        scope: Optional[str] = None,
+        ttl_seconds: Optional[float] = None,
+        estimated_latency_savings_ms: float = 85.0,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> CachedContextEntry:
+        """Asynchronously store context payload in the CAG cache."""
+        return self.put(
+            query=query,
+            context_text=context_text,
+            grounded_context=grounded_context,
+            citations=citations,
+            content_hashes=content_hashes,
+            source_identifiers=source_identifiers,
+            tenant_id=tenant_id,
+            scope=scope,
+            ttl_seconds=ttl_seconds,
+            estimated_latency_savings_ms=estimated_latency_savings_ms,
+            metadata=metadata,
+        )
+
+    def save_snapshot(self, path: Any) -> int:
+        """Serialize current valid cache entries to a persistent JSONL snapshot."""
+        import json
+        from pathlib import Path
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        now = self._time()
+        saved = 0
+        with open(target, "w", encoding="utf-8") as f:
+            for entry in self._entries.values():
+                if not entry.is_expired(now):
+                    payload = {
+                        "query": entry.query,
+                        "context_text": entry.context_text,
+                        "content_hashes": list(entry.content_hashes),
+                        "source_identifiers": list(entry.source_identifiers),
+                        "tenant_id": entry.tenant_id,
+                        "scope": entry.scope,
+                        "ttl_seconds": self.default_ttl_seconds,
+                    }
+                    f.write(json.dumps(payload) + "\n")
+                    saved += 1
+        logger.debug("Saved %d CAG cache entries to %s", saved, target)
+        return saved
+
+    def load_snapshot(self, path: Any) -> int:
+        """Load and prewarm cache from a persistent JSONL snapshot."""
+        import json
+        from pathlib import Path
+        target = Path(path)
+        if not target.exists():
+            return 0
+        loaded = 0
+        with open(target, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        data = json.loads(line)
+                        self.put(
+                            query=data["query"],
+                            context_text=data["context_text"],
+                            content_hashes=data.get("content_hashes"),
+                            source_identifiers=data.get("source_identifiers"),
+                            tenant_id=data.get("tenant_id"),
+                            scope=data.get("scope"),
+                            ttl_seconds=data.get("ttl_seconds"),
+                        )
+                        loaded += 1
+                    except Exception:
+                        continue
+        logger.debug("Loaded %d CAG cache entries from %s", loaded, target)
+        return loaded
+
     def __len__(self) -> int:
         return len(self._entries)
 
     def __bool__(self) -> bool:
         return True
+

@@ -256,6 +256,53 @@ class XerenCore:
                 conversation_plugin = ConversationPlugin(llm=self.llm)
                 self.register_plugin(conversation_plugin)
 
+        # Initialize High-Speed Grounded CAG + MAG + RAG Pipeline
+        self._init_unified_rag_pipeline()
+
+    def _init_unified_rag_pipeline(self) -> None:
+        """Initialize fail-safe, production-grade Grounded CAG + MAG + RAG Pipeline."""
+        try:
+            from xeren.rag.unified_engine import UnifiedRetrievalEngine
+            from xeren.rag.cag.engine import CAGRetrievalEngine
+            from xeren.rag.mag.engine import MAGRetrievalEngine
+            from xeren.rag.engine import RAGQueryEngine
+            from xeren.plugins.knowledge.plugin import KnowledgePlugin
+
+            self.cag_engine = CAGRetrievalEngine()
+            self.mag_engine = MAGRetrievalEngine()
+
+            rag_query_engine = None
+            try:
+                knowledge_p = self.plugin_manager.get("knowledge")
+                if isinstance(knowledge_p, KnowledgePlugin) and getattr(knowledge_p, "workflow", None):
+                    wf = knowledge_p.workflow
+                    retriever = wf.hybrid_retriever or wf.dense_retriever or wf.keyword_retriever
+                    if retriever:
+                        rag_query_engine = RAGQueryEngine(retriever=retriever, context_builder=wf.context_builder)
+            except Exception as e:
+                logger.warning("Could not bind KnowledgePlugin to RAGQueryEngine: %s", e)
+
+            self.unified_engine = UnifiedRetrievalEngine(
+                cag_engine=self.cag_engine,
+                mag_engine=self.mag_engine,
+                rag_engine=rag_query_engine,
+                vault=self.data_holding,
+            )
+
+            # Auto-load persistent MAG cognitive memories
+            self._mag_storage_path = Path("data/memory/mag_records.jsonl")
+            if self._mag_storage_path.exists():
+                try:
+                    loaded = self.mag_engine.load_from_disk(self._mag_storage_path)
+                    logger.info("Loaded %d cognitive memories from %s", loaded, self._mag_storage_path)
+                except Exception as e:
+                    logger.warning("Could not load MAG memory snapshot: %s", e)
+        except Exception as e:
+            logger.error("Failed to initialize unified RAG pipeline: %s", e)
+            self.cag_engine = None
+            self.mag_engine = None
+            self.unified_engine = None
+
     def set_llm(self, llm: BaseLLM) -> None:
         """Replace the active Core LLM (e.g. when injecting the trained Xeren model)."""
         self.llm = llm
@@ -1858,9 +1905,31 @@ class XerenCore:
             "4. NEVER mention underlying model names, provider endpoints, tokens, or backends in any output, chat interaction, explanation, or error message.\n"
             "5. Maintain a confident, friendly, helpful, highly capable engineering persona.\n"
         )
+
+        # Grounding with Unified CAG + MAG + RAG Pipeline
+        rag_payload = None
+        if getattr(self, "unified_engine", None):
+            try:
+                rag_payload = await self.unified_engine.aretrieve_context(
+                    query=query,
+                    session_id=self.session.session_id,
+                    use_cache=True,
+                )
+            except Exception as e:
+                logger.warning("Unified retrieval non-fatal failure in astream_chat: %s", e)
+
+        grounded_context_str = ""
+        if rag_payload and rag_payload.formatted_prompt_context:
+            grounded_context_str = (
+                f"\n\n--- VERIFIED GROUNDED KNOWLEDGE & COGNITIVE MEMORY (CAG/MAG/RAG) ---\n"
+                f"{rag_payload.formatted_prompt_context}\n"
+                f"--- END VERIFIED KNOWLEDGE ---\n"
+                f"Instructions: Use the verified context above to answer accurately without hallucination.\n"
+            )
         
         system_msg = ChatMessage.system(
             f"{identity_rules}\n"
+            f"{grounded_context_str}"
             f"Answer the user naturally and concisely. "
             f"DO NOT wrap your answers in any specific rigid structure unless the user asks for it. "
             f"If they ask for a joke, just tell the joke! "
@@ -1911,6 +1980,23 @@ class XerenCore:
             
         self.session.record_turn("xeren", full_text)
 
+        # Automatically record turn in MAG episodic memory and persist
+        if getattr(self, "mag_engine", None):
+            try:
+                from xeren.rag.mag.types import MemoryTier
+                await self.mag_engine.aremember(
+                    content=f"User: {query} | Response: {full_text[:300]}",
+                    tier=MemoryTier.EPISODIC,
+                    importance=0.5,
+                    session_id=self.session.session_id,
+                    tags=["chat_stream"],
+                )
+                if hasattr(self, "_mag_storage_path") and self._mag_storage_path:
+                    self.mag_engine.save_to_disk(self._mag_storage_path)
+            except Exception as e:
+                logger.debug("MAG auto-remember non-fatal error: %s", e)
+
+
 
     async def achat(
         self,
@@ -1938,7 +2024,21 @@ class XerenCore:
         # 2. Classify User Intent
         intent = self.intent_classifier.classify(query, ctx)
 
-        # 3. Check for Permitted Data Holding context (device files, apps, web)
+        # 3. Grounding with Unified CAG + MAG + RAG Pipeline
+        rag_payload = None
+        if getattr(self, "unified_engine", None):
+            try:
+                rag_payload = await self.unified_engine.aretrieve_context(
+                    query=query,
+                    session_id=self.session.session_id,
+                    use_cache=True,
+                )
+                if rag_payload and rag_payload.formatted_prompt_context:
+                    ctx["unified_grounding"] = rag_payload.formatted_prompt_context
+            except Exception as e:
+                logger.warning("Unified retrieval non-fatal failure in achat: %s", e)
+
+        # 3b. Check for Permitted Data Holding context (device files, apps, web)
         permitted_context = self.data_holding.build_grounded_context_prompt(query)
         if permitted_context:
             ctx["permitted_data"] = permitted_context
@@ -2000,12 +2100,21 @@ class XerenCore:
             file_summaries = [f"- Attached file: `{a.get('name', 'file')}` ({a.get('size', 0)} bytes, {a.get('tier', 'Liberal')} Tier)" for a in attachments]
             query = f"{query}\n\n[User Attached Files]:\n" + "\n".join(file_summaries)
 
-        is_greeting = bool(re.match(r"^\s*(h+l+o+|h+e+l+o+|h+e+l+l+o+|h+i+|h+e+y+|yo+|sup|namaste|hola|vanakkam|pranam|gm|gn)(\s+.*)?$", query, re.I))
+        is_greeting = bool(re.match(r"^\s*(h+l+o+|h+e+l+l+o+|h+e+l+l+o+|h+i+|h+e+y+|yo+|sup|namaste|hola|vanakkam|pranam|gm|gn)(\s+.*)?$", query, re.I))
         explicit_search = any(w in query.lower() for w in ("search the web", "search online", "latest news", "current price of", "recent news"))
+
+        grounded_context_str = ""
+        if ctx.get("unified_grounding"):
+            grounded_context_str = (
+                f"\n\n--- VERIFIED GROUNDED KNOWLEDGE & COGNITIVE MEMORY (CAG/MAG/RAG) ---\n"
+                f"{ctx['unified_grounding']}\n"
+                f"--- END VERIFIED KNOWLEDGE ---\n"
+            )
 
         if images or (not explicit_search and (is_greeting or intent.category == RoutingCategory.GENERAL_KNOWLEDGE)):
             system_msg = ChatMessage.system(
                 f"{identity_rules}\n"
+                f"{grounded_context_str}"
                 f"Answer the user naturally, warmly, and helpfully. "
                 f"DO NOT wrap your answer in rigid headers, sections, or boilerplate unless explicitly requested. "
                 f"If the user shares an image, analyze it thoroughly, describe key elements, extract text/code, or answer their specific questions. "
@@ -2038,6 +2147,23 @@ class XerenCore:
 
             self.session.record_turn("user", query)
             self.session.record_turn("xeren", reply)
+
+            # Record turn in MAG cognitive memory
+            if getattr(self, "mag_engine", None):
+                try:
+                    from xeren.rag.mag.types import MemoryTier
+                    await self.mag_engine.aremember(
+                        content=f"User: {query} | Response: {reply[:300]}",
+                        tier=MemoryTier.EPISODIC,
+                        importance=0.5,
+                        session_id=self.session.session_id,
+                        tags=["chat_turn"],
+                    )
+                    if hasattr(self, "_mag_storage_path") and self._mag_storage_path:
+                        self.mag_engine.save_to_disk(self._mag_storage_path)
+                except Exception as e:
+                    logger.debug("MAG record non-fatal error: %s", e)
+
             return {
                 "type": "chat_response",
                 "content": reply,
