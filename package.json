@@ -5,6 +5,8 @@
   "description": "Xeren Autonomous AI Workstation",
   "scripts": {
     "dev": "npm run dev --prefix frontend",
+    "backend": "powershell -ExecutionPolicy Bypass -File ./scripts/start_backend.ps1",
+    "chat": "powershell -ExecutionPolicy Bypass -File ./scripts/talk_to_xeren.ps1",
     "build": "npm run build --prefix frontend",
     "preview": "npm run preview --prefix frontend",
     "lint": "npm run lint --prefix frontend",

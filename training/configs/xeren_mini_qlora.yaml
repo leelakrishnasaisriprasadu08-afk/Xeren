@@ -1,8 +1,8 @@
-# xeren_mini QLoRA Fine-Tuning Configuration
-# Tailored for NVIDIA RTX A1000 (8GB VRAM)
+# xeren_mini Standalone Architecture Fine-Tuning Configuration
+# Native LLaMA-family / Xeren Architecture
 
 model:
-  base_model: "Qwen/Qwen2.5-1.5B-Instruct"
+  base_model: "meta-llama/Llama-3.2-1B-Instruct"
   quantization:
     load_in_4bit: true
     bnb_4bit_quant_type: "nf4"

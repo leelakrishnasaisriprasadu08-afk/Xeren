@@ -18,3 +18,23 @@ scratch/
 *.bin
 *.zip
 
+# Build artifacts
+node_modules/
+frontend/dist/
+
+# Database files (runtime data)
+*.db
+*.sqlite3
+
+# Automation outputs (runtime generated content)
+backend/automation_framework/automation_outputs/
+automation_framework/automation_outputs/
+
+# Generated designs and workspace outputs
+generated_designs/*.html
+workspace/generated_sites/app_*/
+
+# Test artifacts
+test_report.json
+report_export.csv
+

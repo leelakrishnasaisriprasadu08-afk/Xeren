@@ -42,10 +42,6 @@ class XerenConfig:
     # Nano — CPU verification (~12M params)
     # -------------------------------------------------------------------------
     @classmethod
-<<<<<<< HEAD
-    def mini(cls, vocab_size: int = 32768) -> "XerenConfig":
-        """Xeren-Mini preset (~90M params) — single GPU training from scratch."""
-=======
     def nano(cls, vocab_size: int = 16384) -> "XerenConfig":
         """Xeren-Nano preset (~12M params) optimized for fast CPU verification."""
         return cls(
@@ -74,7 +70,6 @@ class XerenConfig:
         - Agentic task trajectories (AgentInstruct, local Xeren data)
         - Basic plugin dispatch learning
         """
->>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
         return cls(
             vocab_size=vocab_size,
             dim=768,
@@ -83,7 +78,6 @@ class XerenConfig:
             n_kv_heads=4,
             hidden_dim=2048,
             max_seq_len=1024,
-<<<<<<< HEAD
             norm_eps=1e-5,
             tie_word_embeddings=False,
         )
@@ -111,10 +105,6 @@ class XerenConfig:
             hidden_dim=5504 (SwiGLU), max_seq_len=2048
             vocab_size=32768 (~33k BPE tokens)
             Total: ~1.016B trainable parameters
-
-        VRAM Requirements:
-            Training: 40GB+ GPU (A100 40GB, RTX 3090 24GB + CPU offload)
-            Inference (fp16): ~2GB GPU
         """
         return cls(
             vocab_size=vocab_size,
@@ -125,11 +115,6 @@ class XerenConfig:
             max_seq_len=2048,
             norm_eps=1e-5,
             rope_theta=10000.0,
-=======
-            norm_eps=1e-6,
-            rope_theta=10000.0,
-            dropout=0.1,
->>>>>>> c7566abee2529fc5713f04e8fd0a6dba2545914d
             tie_word_embeddings=False,
             num_plugins=9,
             enable_plugin_head=False,

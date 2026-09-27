@@ -40,26 +40,27 @@ training = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["backend/src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["src", "."]
+pythonpath = ["backend/src", "backend", "."]
 
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"
-include = ["src", "tests", "training"]
+include = ["backend/src", "backend", "tests", "training"]
 exclude = ["**/__pyrefly_virtual__/**", "**/__pycache__/**", ".venv"]
-extraPaths = ["src", "training/src", ".venv/Lib/site-packages", "."]
+extraPaths = ["backend/src", "backend", "training/src", ".venv/Lib/site-packages", "."]
 
 [tool.pyrefly]
 python-interpreter-path = ".venv/Scripts/python.exe"
 search-path = [
     ".",
-    "src",
+    "backend/src",
+    "backend",
     "training/src",
     "training",
 ]

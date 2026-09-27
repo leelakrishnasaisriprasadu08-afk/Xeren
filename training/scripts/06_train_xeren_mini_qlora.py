@@ -482,8 +482,8 @@ def train_qlora(args):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="xeren_mini QLoRA Fine-Tuner")
-    parser.add_argument("--base_model", type=str, default="Qwen/Qwen2.5-1.5B-Instruct")
+    parser = argparse.ArgumentParser(description="xeren_mini Fine-Tuner")
+    parser.add_argument("--base_model", type=str, default="meta-llama/Llama-3.2-1B-Instruct")
     parser.add_argument("--train_file", type=str, default="training/data/xeren_identity/xeren_alignment_train.jsonl")
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=2)

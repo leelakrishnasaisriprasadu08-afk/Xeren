@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MessageComposer } from '../components/MessageComposer/MessageComposer'
 import { Conversation } from '../components/Conversation/Conversation'
 import type { Message } from '../types/conversation'
