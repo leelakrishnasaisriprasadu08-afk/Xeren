@@ -51,7 +51,7 @@ class SpecialistSpec:
     description: str
     capabilities: List[str]          # domain keywords for routing
     checkpoint_dir: str              # relative path inside project
-    param_budget: str = "7B"         # target parameter size
+    param_budget: str = "500M"        # target parameter size (< 1B)
     priority: int = 5                # 1 (highest) → 10 (lowest)
     enabled: bool = True
     loaded: bool = False             # set True at runtime when weights are loaded
@@ -89,7 +89,7 @@ class SpecialistRegistry:
                         "selects specialist(s), formats inter-model messages.",
             capabilities=["dispatch", "route", "call", "tool", "function", "delegate"],
             checkpoint_dir="training/checkpoints/mos/tool_caller",
-            param_budget="500M",
+            param_budget="200M",
             priority=1,
         ),
         SpecialistSpec(
@@ -98,6 +98,7 @@ class SpecialistRegistry:
             description="Parses the situation, extracts intent, entities, and context.",
             capabilities=["understand", "parse", "intent", "context", "what does", "clarify"],
             checkpoint_dir="training/checkpoints/mos/m1_understanding",
+            param_budget="400M",
             priority=2,
         ),
         SpecialistSpec(
@@ -106,6 +107,7 @@ class SpecialistRegistry:
             description="Solves complex logical, causal, and multi-step reasoning tasks.",
             capabilities=["reason", "reasoning", "logic", "why", "cause", "deduce", "infer", "if-then", "math"],
             checkpoint_dir="training/checkpoints/mos/m2_reasoning",
+            param_budget="800M",
             priority=3,
         ),
         SpecialistSpec(
@@ -114,6 +116,7 @@ class SpecialistRegistry:
             description="Connects concepts and applies learned factual knowledge.",
             capabilities=["know", "knowledge", "fact", "define", "explain", "what is", "tell me about"],
             checkpoint_dir="training/checkpoints/mos/m3_knowledge",
+            param_budget="600M",
             priority=4,
         ),
         SpecialistSpec(
@@ -122,6 +125,7 @@ class SpecialistRegistry:
             description="Finds, retrieves, and synthesizes new information from sources.",
             capabilities=["research", "researching", "find", "search", "latest", "news", "source", "web"],
             checkpoint_dir="training/checkpoints/mos/m4_research",
+            param_budget="700M",
             priority=4,
         ),
         SpecialistSpec(
@@ -130,6 +134,7 @@ class SpecialistRegistry:
             description="Breaks complex information into patterns and insights.",
             capabilities=["analysis", "analyze", "analyzing", "pattern", "data", "compare", "statistics", "breakdown"],
             checkpoint_dir="training/checkpoints/mos/m5_analysis",
+            param_budget="500M",
             priority=4,
         ),
         SpecialistSpec(
@@ -138,6 +143,7 @@ class SpecialistRegistry:
             description="Determines possible strategies and action sequences.",
             capabilities=["plan", "planning", "strategy", "steps", "roadmap", "schedule", "how to", "workflow"],
             checkpoint_dir="training/checkpoints/mos/m6_planning",
+            param_budget="600M",
             priority=3,
         ),
         SpecialistSpec(
@@ -146,6 +152,7 @@ class SpecialistRegistry:
             description="Produces technical code and creative solutions.",
             capabilities=["code", "coding", "program", "programming", "build", "create", "implement", "python", "script", "develop"],
             checkpoint_dir="training/checkpoints/mos/m7_coding",
+            param_budget="800M",
             priority=3,
         ),
         SpecialistSpec(
@@ -154,6 +161,7 @@ class SpecialistRegistry:
             description="Predicts what could happen before an action is taken.",
             capabilities=["simulate", "predict", "what if", "scenario", "forecast", "what would"],
             checkpoint_dir="training/checkpoints/mos/m8_simulation",
+            param_budget="500M",
             priority=5,
         ),
         SpecialistSpec(
@@ -162,6 +170,7 @@ class SpecialistRegistry:
             description="Attempts to find weaknesses, errors, and failure modes.",
             capabilities=["critique", "weakness", "flaw", "error", "review", "problem", "wrong", "risk"],
             checkpoint_dir="training/checkpoints/mos/m9_critic",
+            param_budget="500M",
             priority=5,
         ),
         SpecialistSpec(
@@ -170,6 +179,7 @@ class SpecialistRegistry:
             description="Tests whether a result is actually valid and correct.",
             capabilities=["verify", "validate", "check", "test", "correct", "accurate", "true"],
             checkpoint_dir="training/checkpoints/mos/m10_verification",
+            param_budget="500M",
             priority=5,
         ),
         SpecialistSpec(
@@ -178,6 +188,7 @@ class SpecialistRegistry:
             description="Improves solutions for speed, quality, or efficiency.",
             capabilities=["optimize", "improve", "faster", "better", "refine", "enhance", "efficiency"],
             checkpoint_dir="training/checkpoints/mos/m11_optimization",
+            param_budget="500M",
             priority=6,
         ),
         SpecialistSpec(
@@ -186,6 +197,7 @@ class SpecialistRegistry:
             description="Learns useful patterns from past outcomes for continuous improvement.",
             capabilities=["learn", "remember", "history", "past", "experience", "adapt", "feedback"],
             checkpoint_dir="training/checkpoints/mos/m12_experience",
+            param_budget="400M",
             priority=7,
         ),
     ]
