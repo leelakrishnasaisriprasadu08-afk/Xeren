@@ -1,0 +1,31 @@
+name: bm25_lexical_search
+version: 1.0.0
+description: "Exact-match keyword and symbol retrieval over code chunks in SQLite database using BM25Okapi."
+type: mcp_server
+server_name: BM25_Lexical_Search
+transport: stdio
+command: python
+args:
+  - "src/rag/bm25_worker.py"
+env:
+  PYTHONPATH: "src:."
+tools:
+  - name: execute_search
+    description: "Search SQLite code_chunks table for exact keyword or symbol matches using BM25Okapi."
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+          description: "Lexical search query, function name, class name, or code symbol."
+        top_k:
+          type: integer
+          description: "Maximum number of top scoring results to retrieve."
+          default: 5
+      required:
+        - query
+orchestration:
+  routing_trigger: "Use when query contains exact code identifiers, variable names, file paths, error codes, or function names."
+  policy_gate:
+    verifier: "src.rag.verifier.EvidenceVerification"
+    require_pass: true

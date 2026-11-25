@@ -1,0 +1,18 @@
+{
+  "dataset_name": "xeren_royal_triumvirate_v1",
+  "total_tasks": 40,
+  "sft_file": "C:\\Users\\leela\\Dropbox\\Xeren\\training\\data\\triumvirate\\triumvirate_sft.jsonl",
+  "dpo_file": "C:\\Users\\leela\\Dropbox\\Xeren\\training\\data\\triumvirate\\triumvirate_dpo.jsonl",
+  "roles_covered": [
+    "The King (Xeren)",
+    "The Advisor (DeepSeek-R1)",
+    "The Commander (Empower)"
+  ],
+  "clusters_represented": [
+    "coding",
+    "research",
+    "os",
+    "security",
+    "deterministic"
+  ]
+}

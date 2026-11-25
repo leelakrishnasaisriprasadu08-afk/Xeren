@@ -1,0 +1,62 @@
+# Xeren QLoRA Fine-Tuning Configuration
+# Base model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+# Target GPU: RTX A1000 (4-6GB VRAM) — fits via 4-bit quantization
+# Parameters: ~1.1B base, ~6.7M trainable LoRA adapters (~0.6%)
+
+base_model:
+  name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # Open, no approval needed
+  revision: "main"
+  trust_remote_code: false
+
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: "nf4"          # NormalFloat4 — best quality
+  bnb_4bit_compute_dtype: "float16"   # Compute in fp16 during forward pass
+  bnb_4bit_use_double_quant: true     # Nested quantization — saves ~0.4GB
+
+lora:
+  r: 16                               # LoRA rank — higher = more capacity
+  lora_alpha: 32                      # Scaling factor (alpha/r = 2.0)
+  lora_dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+training:
+  output_dir: "training/checkpoints/qlora_xeren"
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8      # effective batch = 16
+  learning_rate: 0.0002
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  max_seq_length: 512                 # keep low for 6GB VRAM
+  logging_steps: 10
+  save_steps: 50
+  eval_steps: 50
+  save_total_limit: 3
+  fp16: true
+  optim: "paged_adamw_8bit"          # 8-bit paged optimizer — saves VRAM
+  dataloader_num_workers: 0          # Windows: set to 0
+
+data:
+  train_file: "training/data/processed/train_texts.json"
+  val_file: "training/data/processed/val_texts.json"
+  system_prompt: "You are Xeren, an autonomous reasoning and action AI system capable of multi-step planning, tool execution, retrieval-augmented generation, and precise problem solving."
+
+inference:
+  adapter_dir: "training/checkpoints/qlora_xeren"
+  device: "cuda"
+  max_new_tokens: 256
+  temperature: 0.7
+  top_p: 0.9
+  repetition_penalty: 1.15

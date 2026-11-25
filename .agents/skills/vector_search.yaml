@@ -1,0 +1,31 @@
+name: dense_vector_search
+version: 1.0.0
+description: "Dense semantic vector search across xeren_codebase collection in local Qdrant using all-MiniLM-L6-v2 embeddings."
+type: mcp_server
+server_name: Dense_Vector_Search
+transport: stdio
+command: python
+args:
+  - "src/rag/vector_worker.py"
+env:
+  PYTHONPATH: "src:."
+tools:
+  - name: query_embeddings
+    description: "Search Qdrant xeren_codebase collection using dense semantic sentence embeddings."
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+          description: "Natural language query, intent description, or conceptual query."
+        limit:
+          type: integer
+          description: "Maximum number of nearest neighbor points to retrieve."
+          default: 5
+      required:
+        - query
+orchestration:
+  routing_trigger: "Use when query is natural language, conceptual, behavior-oriented, or lacks exact keyword matches."
+  policy_gate:
+    verifier: "src.rag.verifier.EvidenceVerification"
+    require_pass: true

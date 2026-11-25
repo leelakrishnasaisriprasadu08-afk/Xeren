@@ -1,0 +1,80 @@
+# ============================================================
+# SECRETS — NEVER PUSH
+# ============================================================
+.env
+*.env
+.env.*
+.env.local
+.env.production
+secrets/
+*.pem
+*.key
+
+# ============================================================
+# LARGE MODEL FILES (use download_triumvirate_models.py)
+# ============================================================
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+training/checkpoints/
+models/triumvirate/king/
+models/triumvirate/herald/
+models/triumvirate/vizier/
+
+# ============================================================
+# PYTHON
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ============================================================
+# NODE / FRONTEND
+# ============================================================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.next/
+node_modules/
+
+# ============================================================
+# DATA & LOCAL STATE
+# ============================================================
+data/qdrant_storage/
+data/memory/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+logs/
+
+# ============================================================
+# OS / EDITOR
+# ============================================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+
+# ============================================================
+# MISC
+# ============================================================
+*.tmp
+*.bak

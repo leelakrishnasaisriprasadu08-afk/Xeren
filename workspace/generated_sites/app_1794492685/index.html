@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XEREN APEX | Progressive 3D Hypercar Showroom</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <header class="navbar">
+        <div class="container nav-content">
+            <a href="#studio" class="brand-logo">
+                <span class="brand-icon">&#9889;</span> XEREN <span class="brand-sub">HYPERDRIVE</span>
+            </a>
+            <nav class="nav-links">
+                <a href="#studio" class="active">3D Studio</a>
+                <a href="#specs">Specifications</a>
+                <a href="#engineering">Technology</a>
+                <a href="#booking">Test Drive</a>
+                <a href="#backend-architecture">Full-Stack Architecture</a>
+            </nav>
+            <a href="#booking" class="btn btn-sm btn-cyan">Reserve Model</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- 3D Interactive Showroom Studio -->
+        <section id="studio" class="studio-section">
+            <div class="container studio-hud-top">
+                <div class="badge-pill">&#9679; 3D REAL-TIME INTERACTIVE VIEWPORT</div>
+                <h1 class="hero-title">XEREN APEX CYBER-GT</h1>
+                <p class="hero-desc">1,450 HP Quad-Motor Autonomous Hypercar &bull; Solid-State 900V Architecture</p>
+            </div>
+
+            <div class="canvas-viewport">
+                <div id="canvas-container">
+                    <canvas id="webgl-canvas"></canvas>
+                </div>
+
+                <!-- 3D Studio HUD Controls -->
+                <div class="studio-hud-controls">
+                    <div class="control-card glass-panel">
+                        <h3>Studio Paint Customizer</h3>
+                        <div class="color-palette">
+                            <button class="color-btn active" data-color="0xd1d5db" style="background: #d1d5db;" title="Cyber Silver"></button>
+                            <button class="color-btn" data-color="0x00f0ff" style="background: #00f0ff;" title="Electric Cyan"></button>
+                            <button class="color-btn" data-color="0x0f172a" style="background: #0f172a;" title="Obsidian Stealth"></button>
+                            <button class="color-btn" data-color="0xef4444" style="background: #ef4444;" title="Apex Red"></button>
+                            <button class="color-btn" data-color="0xf59e0b" style="background: #f59e0b;" title="Solar Gold"></button>
+                        </div>
+                    </div>
+
+                    <div class="control-card glass-panel">
+                        <h3>Interactive Systems</h3>
+                        <div class="action-btn-group">
+                            <button id="btn-toggle-lights" class="hud-btn">&#128161; Headlights</button>
+                            <button id="btn-toggle-underglow" class="hud-btn">&#128308; Neon Underglow</button>
+                            <button id="btn-toggle-spin" class="hud-btn active">&#128260; 360&deg; Spin</button>
+                            <button id="btn-accelerate" class="hud-btn btn-highlight">&#9889; Accelerate Sound</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Specifications HUD -->
+        <section id="specs" class="specs-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Performance Benchmark</h2>
+                    <p>Engineered with Formula-E aerospace telemetry and neural torque vectoring.</p>
+                </div>
+                <div class="specs-grid">
+                    <div class="spec-card glass-panel">
+                        <span class="spec-value">1.89<span class="spec-unit">s</span></span>
+                        <span class="spec-label">0 &ndash; 100 km/h</span>
+                        <p>Instantaneous torque delivered across 4 independent hub motors.</p>
+                    </div>
+                    <div class="spec-card glass-panel">
+                        <span class="spec-value">1,450<span class="spec-unit">HP</span></span>
+                        <span class="spec-label">Peak Powertrain</span>
+                        <p>High-flux liquid-cooled permanent magnet cyber drive.</p>
+                    </div>
+                    <div class="spec-card glass-panel">
+                        <span class="spec-value">850<span class="spec-unit">km</span></span>
+                        <span class="spec-label">Solid-State Range</span>
+                        <p>900V DC ultra-fast charging: 10% to 80% in 9 minutes.</p>
+                    </div>
+                    <div class="spec-card glass-panel">
+                        <span class="spec-value">Level 4</span>
+                        <span class="spec-label">Autonomous Copilot</span>
+                        <p>LiDAR, high-resolution radar, and neural vision guidance.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Engineering Architecture -->
+        <section id="engineering" class="engineering-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Progressive Engineering</h2>
+                    <p>Designed from carbon monocoque to full-stack embedded telemetry.</p>
+                </div>
+                <div class="features-grid">
+                    <div class="feature-card glass-panel">
+                        <div class="feature-icon">&#128737;</div>
+                        <h3>Carbon-Titanium Monocoque</h3>
+                        <p>Ultra-rigid aerospace-grade chassis delivering safety with minimal curb weight.</p>
+                    </div>
+                    <div class="feature-card glass-panel">
+                        <div class="feature-icon">&#127937;</div>
+                        <h3>Active Aerodynamics</h3>
+                        <p>Dynamic downforce wing with automated DRS and high-speed cornering stability.</p>
+                    </div>
+                    <div class="feature-card glass-panel">
+                        <div class="feature-icon">&#128268;</div>
+                        <h3>Steer-by-Wire &amp; Torque Vectoring</h3>
+                        <p>Sub-millisecond steering response decoupled from traditional mechanical latency.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Test Drive Booking & Financing Estimator -->
+        <section id="booking" class="booking-section">
+            <div class="container">
+                <div class="booking-wrapper glass-panel">
+                    <div class="booking-form-col">
+                        <h2>Reserve Your Test Drive</h2>
+                        <p>Experience the future of autonomous hyper-performance.</p>
+                        <form id="test-drive-form">
+                            <div class="form-group">
+                                <label for="driver-name">Full Name</label>
+                                <input type="text" id="driver-name" required placeholder="Alex Mercer">
+                            </div>
+                            <div class="form-group">
+                                <label for="driver-email">Email Address</label>
+                                <input type="email" id="driver-email" required placeholder="alex@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="vehicle-select">Select Configuration</label>
+                                <select id="vehicle-select">
+                                    <option value="Apex Cyber-GT">Xeren Apex Cyber-GT (1,450 HP)</option>
+                                    <option value="Phantom Hyper-SUV">Xeren Phantom Hyper-SUV (1,200 HP)</option>
+                                    <option value="Vision Speedster">Xeren Vision Speedster (1,800 HP Limited)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="drive-date">Preferred Date</label>
+                                <input type="date" id="drive-date" required>
+                            </div>
+                            <button type="submit" class="btn btn-cyan btn-full">Confirm VIP Reservation</button>
+                        </form>
+                        <div id="booking-alert" class="alert-box" style="display: none;"></div>
+                    </div>
+
+                    <div class="financing-calculator-col">
+                        <h2>Financing &amp; Lease Estimator</h2>
+                        <div class="calc-box">
+                            <div class="calc-row">
+                                <span>Vehicle MSRP</span>
+                                <span class="calc-price">$145,000</span>
+                            </div>
+                            <div class="calc-row">
+                                <label for="down-payment">Down Payment: <span id="down-val">$29,000</span></label>
+                                <input type="range" id="down-payment" min="10000" max="80000" step="1000" value="29000">
+                            </div>
+                            <div class="calc-row">
+                                <label for="loan-term">Term Duration: <span id="term-val">48 Months</span></label>
+                                <input type="range" id="loan-term" min="24" max="72" step="12" value="48">
+                            </div>
+                            <div class="calc-divider"></div>
+                            <div class="calc-total">
+                                <span>Estimated Monthly:</span>
+                                <span id="monthly-payment" class="monthly-figure">$2,642/mo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Full-Stack Backend Architecture Banner -->
+        <section id="backend-architecture" class="architecture-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Full-Stack Multi-Language Architecture</h2>
+                    <p>Companion backend services and database controllers generated and ready to run.</p>
+                </div>
+                <div class="arch-grid">
+                    <div class="arch-card glass-panel">
+                        <div class="arch-badge">Node.js / Express</div>
+                        <h3>server.js</h3>
+                        <p>REST API with JSON middleware, inventory querying, and test-drive booking endpoints.</p>
+                        <code>node server.js</code>
+                    </div>
+                    <div class="arch-card glass-panel">
+                        <div class="arch-badge">Python / FastAPI</div>
+                        <h3>app.py</h3>
+                        <p>High-performance ASGI backend with SQLite database controllers and Pydantic schemas.</p>
+                        <code>uvicorn app:app --reload</code>
+                    </div>
+                    <div class="arch-card glass-panel">
+                        <div class="arch-badge">Java / Spring Boot</div>
+                        <h3>CarShowroomController.java</h3>
+                        <p>Enterprise REST controller with JPA repository and service layer architecture.</p>
+                        <code>mvn spring-boot:run</code>
+                    </div>
+                    <div class="arch-card glass-panel">
+                        <div class="arch-badge">Relational SQL</div>
+                        <h3>database_schema.sql</h3>
+                        <p>Complete SQL schema defining inventory, specifications, and booking tables.</p>
+                        <code>sqlite3 showroom.db &lt; database_schema.sql</code>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Xeren Motors Inc. Engineered for High-Performance Autonomous Systems.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

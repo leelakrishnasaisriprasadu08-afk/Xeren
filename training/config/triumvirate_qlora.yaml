@@ -1,0 +1,43 @@
+# Xeren Royal Triumvirate QLoRA Fine-Tuning Configuration
+# Target: Sovereign King Model (1.5B)
+
+model:
+  base_model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+  quantization: "4bit"  # bitsandbytes NF4 quantization
+  compute_dtype: "bfloat16"
+  device_map: "auto"
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  bias: "none"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+training:
+  output_dir: "training/checkpoints/triumvirate_king"
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  warmup_ratio: 0.05
+  lr_scheduler_type: "cosine"
+  max_seq_length: 2048
+  logging_steps: 10
+  save_strategy: "epoch"
+  evaluation_strategy: "no"
+  fp16: false
+  bf16: true
+
+datasets:
+  sft_train: "training/data/triumvirate/triumvirate_sft.jsonl"
+  dpo_pairs: "training/data/triumvirate/triumvirate_dpo.jsonl"
+  identity_alignment: "training/data/xeren_identity/xeren_alignment_train.jsonl"
+

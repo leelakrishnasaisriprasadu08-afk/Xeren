@@ -1,0 +1,54 @@
+# =============================================================================
+# Xeren-Mini Tier 3: Stage 1 GPU Training Configuration (Maximized 8GB)
+# Model: ~214M parameters | Vocab: 32K | GPU: RTX A1000 (8GB)
+# Architecture: Dim 1024, 16 Layers, 16 Heads (4 KV), SwiGLU 2816, Tied Embeddings
+# Focus: Language foundation, basic planning, tool grounding
+# Estimated Stage 1 Duration: ~75-80 minutes
+# =============================================================================
+
+model:
+  preset: stage1
+  vocab_size: 32768
+  dim: 1024
+  n_layers: 16
+  n_heads: 16
+  n_kv_heads: 4
+  hidden_dim: 2816
+  max_seq_len: 2048
+  norm_eps: 0.000001
+  rope_theta: 500000.0
+  dropout: 0.05
+  tie_word_embeddings: true
+  enable_plugin_head: false
+  enable_confidence_head: false
+  enable_threat_head: false
+
+training:
+  batch_size: 2
+  gradient_accumulation_steps: 16       # Effective batch = 32
+  learning_rate: 0.0003
+  min_lr_ratio: 0.1
+  weight_decay: 0.1
+  num_warmup_steps: 200
+  num_epochs: 3
+  max_steps: null
+  device: cuda
+  use_amp: true                         # FP16 mixed precision
+  gradient_checkpointing: true          # VRAM optimization for 8GB
+  logging_steps: 20
+  eval_steps: 100
+  save_steps: 300
+  max_grad_norm: 1.0
+
+data:
+  max_seq_len: 2048
+  tokenizer_dir: training/checkpoints/tokenizer_32k
+  train_file: training/data/processed/stage1_train_texts.json
+  val_file: training/data/processed/stage1_val_texts.json
+  checkpoint_dir: training/checkpoints/stage1
+  max_samples_per_hf: 2000
+
+# Stage 1 -> Stage 2 handoff
+output:
+  save_final_checkpoint: training/checkpoints/stage1/checkpoint_final.pt
+  export_config: training/checkpoints/stage1/xeren_config.json

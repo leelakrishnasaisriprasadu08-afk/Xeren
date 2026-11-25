@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "BM25_Lexical_Search": {
+      "command": "python",
+      "args": [
+        "src/rag/bm25_worker.py"
+      ],
+      "env": {
+        "PYTHONPATH": "src:."
+      }
+    },
+    "Dense_Vector_Search": {
+      "command": "python",
+      "args": [
+        "src/rag/vector_worker.py"
+      ],
+      "env": {
+        "PYTHONPATH": "src:."
+      }
+    },
+    "zapier": {
+      "url": "https://mcp.zapier.com/api/v1/connect"
+    }
+  }
+}

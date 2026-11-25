@@ -1,0 +1,23 @@
+{
+  "dataset_name": "xeren_sovereign_master_v1",
+  "compilation_timestamp": "1794502831.9156604",
+  "total_sft_samples": 1804,
+  "total_dpo_pairs": 40,
+  "sft_file": "C:\\Users\\leela\\Dropbox\\Xeren\\training\\data\\master\\xeren_sovereign_sft_master.jsonl",
+  "sft_file_size_mb": 1.08,
+  "dpo_file": "C:\\Users\\leela\\Dropbox\\Xeren\\training\\data\\master\\xeren_sovereign_dpo_master.jsonl",
+  "dpo_file_size_mb": 0.05,
+  "source_breakdown": {
+    "xeren_identity_alignment": 2220,
+    "matured_chatml_dialogues": 1440,
+    "royal_triumvirate_trajectories": 40
+  },
+  "data_cleaning_telemetry": {
+    "total_input": 3700,
+    "duplicates_removed": 1896,
+    "leaks_sanitized": 0,
+    "malformed_skipped": 0,
+    "final_clean": 1804
+  },
+  "readiness_verdict": "PERFECT - 100% READY FOR TRAINING"
+}

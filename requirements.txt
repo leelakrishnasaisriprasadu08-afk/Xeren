@@ -1,0 +1,6 @@
+mcp>=1.0.0
+rank_bm25>=0.2.2
+sentence-transformers>=2.2.2
+qdrant-client>=1.9.0
+pydantic>=2.0.0
+vllm>=0.4.0; sys_platform != 'win32'

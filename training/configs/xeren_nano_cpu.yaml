@@ -1,0 +1,31 @@
+# Configuration for Laptop CPU Smoke-Test and Validation
+model:
+  preset: nano
+  dim: 256
+  n_layers: 4
+  n_heads: 4
+  n_kv_heads: 2
+  max_seq_len: 256
+  norm_eps: 0.00001
+  tie_word_embeddings: true
+
+training:
+  batch_size: 2
+  gradient_accumulation_steps: 2
+  learning_rate: 0.0005
+  min_lr_ratio: 0.1
+  weight_decay: 0.01
+  num_warmup_steps: 10
+  num_epochs: 3
+  max_steps: 60
+  device: cpu
+  use_amp: false
+  logging_steps: 5
+  eval_steps: 20
+  save_steps: 30
+
+data:
+  max_seq_len: 256
+  max_samples_per_hf: 100
+  checkpoint_dir: training/checkpoints/nano_cpu
+  tokenizer_dir: training/checkpoints/tokenizer
